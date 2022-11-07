@@ -6,7 +6,7 @@ export class Links extends Component {
         return(
             <div className="w-full flex flex-col grow justify-start">
                 <div className="py-12 flex justify-center">
-                    <a href="https://www.linkedin.com/in/worthy-rae-4a21a41812" target="_blank" rel="noopener noreferrer">
+                    <a href="https://www.linkedin.com/in/worthy-rae/" target="_blank" rel="noopener noreferrer">
                         <FiLinkedin className="w-10 h-10 stroke-1 hover:stroke-2"/>
                     </a>
                 </div>
