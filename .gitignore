@@ -12,7 +12,6 @@ dist
 dist-ssr
 *.local
 *.mp4
-*.png
 public/assets/**/*.mp4
 
 node_modules
