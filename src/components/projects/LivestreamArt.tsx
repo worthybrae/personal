@@ -10,7 +10,7 @@ const LivestreamArt = () => {
         <div className="grid md:grid-cols-2 gap-8 mb-16">
           {/* Video on the left */}
           <div className="relative aspect-video rounded-lg overflow-hidden">
-            <video 
+          <video 
               key="abbey-road-stream"
               autoPlay 
               muted 
@@ -20,7 +20,7 @@ const LivestreamArt = () => {
               className="w-full h-full object-cover"
             >
               <source 
-                src={import.meta.env.DEV ? '/assets/livestream-art/abbey-road-stream.mp4' : '/assets/livestream-art/abbey-road-stream.mp4'}
+                src="https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
                 type="video/mp4"
               />
             </video>
@@ -96,10 +96,10 @@ const LivestreamArt = () => {
                     <div className="">
                         <div className="rounded-lg overflow-hidden border">
                         <img 
-                            src="/assets/livestream-art/celery.png" 
-                            alt="Celery Backend Visualization"
-                            className="w-full"
-                        />
+                    src="https://portfolio-worthy.s3.amazonaws.com/celery.png" 
+                    alt="Celery Backend Visualization"
+                    className="w-full"
+                  />
                         </div>
                         <p className="mt-4 text-sm text-muted-foreground">
                         Visualization of the Celery task queue system showing real-time processing statistics and worker status
@@ -125,11 +125,11 @@ const LivestreamArt = () => {
                   
                   {/* Architecture Diagram */}
                   <div className="rounded-lg overflow-hidden border">
-                    <img 
-                      src="/assets/livestream-art/architecture.png" 
-                      alt="System Architecture Diagram"
-                      className="w-full"
-                    />
+                  <img 
+                    src="https://portfolio-worthy.s3.amazonaws.com/architecture.png" 
+                    alt="System Architecture Diagram"
+                    className="w-full"
+                  />
                   </div>
 
                   

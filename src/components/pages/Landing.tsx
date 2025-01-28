@@ -9,19 +9,19 @@ const Landing = () => {
     {
       title: "AI Architecture",
       description: "A StyleGAN-based exploration of architectural design using machine learning to generate and manipulate architectural spaces.",
-      video: "/assets/ai-architecture/flesh_digression.mp4",
+      video: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4",
       link: "/projects/ai-architecture"
     },
     {
       title: "Livestream Art",
       description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
-      video: "/assets/livestream-art/abbey-road-stream.mp4",
+      video: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
       link: "/projects/livestream-art"
     },
     {
       title: "Spotify Streams",
       description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends using Django and Python.",
-      video: "/assets/spotify-streams/demo.mp4",
+      video: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
       link: "/projects/spotify-streams"
     }
   ];

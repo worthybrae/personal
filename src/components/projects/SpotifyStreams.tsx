@@ -9,7 +9,7 @@ const SpotifyStreams = () => {
         <div className="grid md:grid-cols-2 gap-8 mb-16">
           {/* Video on the left */}
           <div className="relative aspect-video rounded-lg overflow-hidden">
-            <video 
+          <video 
               key="spotify-analytics-demo"
               autoPlay 
               muted 
@@ -19,7 +19,7 @@ const SpotifyStreams = () => {
               className="w-full h-full object-cover"
             >
               <source 
-                src={import.meta.env.DEV ? '/assets/spotify-streams/demo.mp4' : '/assets/spotify-streams/demo.mp4'}
+                src="https://portfolio-worthy.s3.amazonaws.com/demo.mp4"
                 type="video/mp4"
               />
             </video>
@@ -92,11 +92,11 @@ const SpotifyStreams = () => {
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg overflow-hidden border">
-                  <img 
-                    src="/assets/spotify-streams/analytics.png" 
-                    alt="Analytics Dashboard"
-                    className="w-full"
-                  />
+                <img 
+                  src="https://portfolio-worthy.s3.amazonaws.com/analytics.png" 
+                  alt="Analytics Dashboard"
+                  className="w-full"
+                />
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground">
                   Comprehensive dashboard showing real-time streaming metrics, growth trends, and artist performance
@@ -136,11 +136,11 @@ const SpotifyStreams = () => {
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg overflow-hidden border">
-                  <img 
-                    src="/assets/spotify-streams/stats.png" 
-                    alt="Revenue Metrics"
-                    className="w-full"
-                  />
+                <img 
+                  src="https://portfolio-worthy.s3.amazonaws.com/stats.png" 
+                  alt="Revenue Metrics"
+                  className="w-full"
+                />
                 </div>
                 <p className="mt-4 text-muted-foreground">
                   Detailed performance metrics showing stream counts, growth rates, and trend analysis
