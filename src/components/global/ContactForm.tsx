@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase - make sure these env vars are set in your .env.local file
+// Initialize Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -37,7 +37,6 @@ const ContactForm = () => {
 
       if (error) throw error;
 
-      // Reset form and close dialog
       form.reset();
       setOpen(false);
       alert('Thanks for your message!');
@@ -58,12 +57,9 @@ const ContactForm = () => {
           Get in Touch
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] [&>button]:bg-white [&>button]:border [&>button]:border-gray-200 [&>button]:hover:bg-gray-50">
         <DialogHeader>
           <DialogTitle>Contact Me</DialogTitle>
-          <DialogDescription>
-            Send me a message and I'll get back to you as soon as possible.
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

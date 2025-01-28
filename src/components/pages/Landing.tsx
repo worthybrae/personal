@@ -62,7 +62,7 @@ const Landing = () => {
               {/* Buttons */}
               <div className="flex gap-6 justify-center">
                 <a 
-                  href="/path-to-your-resume.pdf" 
+                  href="https://portfolio-worthy.s3.amazonaws.com/resume.pdf" 
                   download
                   className="group relative px-8 py-4 bg-white/10 text-white rounded-lg overflow-hidden border border-white/20 hover:bg-white/20 transition-all"
                 >
@@ -85,7 +85,7 @@ const Landing = () => {
                   <Music className="w-6 h-6" />
                 </a>
                 <a
-                  href="hhttps://www.linkedin.com/in/worthy-rae/"
+                  href="https://www.linkedin.com/in/worthy-rae/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-white/80 hover:text-white transition-colors"
