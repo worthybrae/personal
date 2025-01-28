@@ -1,10 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import ContactForm from '../global/ContactForm';
-import { Github } from 'lucide-react';
+import { Github, FileText, Music, Linkedin, Film } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Landing = () => {
-
   const projects = [
     {
       title: "AI Architecture",
@@ -27,16 +26,21 @@ const Landing = () => {
   ];
 
   return (
-    <main className="relative">
+    <main className="relative overflow-hidden w-full">
       {/* Hero Section with Dark Overlay */}
-      <section className="relative min-h-screen bg-black">
+      <section className="relative min-h-screen bg-black overflow-hidden w-full">
         {/* Video Background */}
         <video 
           autoPlay 
           muted 
           loop 
           playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-70"
+          className="absolute inset-0 h-full object-cover opacity-70"
+          style={{ 
+            minWidth: '100vw',
+            maxWidth: '100vw',
+            width: '100vw'
+          }}
         >
           <source src={projects[0].video} type="video/mp4" />
         </video>
@@ -45,28 +49,66 @@ const Landing = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/0" />
 
         {/* Content */}
-        <div className="relative z-10 container mx-auto px-4 h-screen flex flex-col justify-center items-start">
-          <div className="max-w-3xl">
+        <div className="relative z-10 container mx-auto px-4 h-screen flex flex-col justify-center">
+          <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-7xl md:text-8xl font-bold mb-6 text-white">
               Worthy Rae
             </h1>
-            <p className="text-xl md:text-2xl text-white mb-12 max-w-2xl leading-relaxed">
-              Data specialist who loves building with Python and Typescript
+            <p className="text-xl md:text-2xl text-white mb-12 max-w-2xl mx-auto leading-relaxed">
+              Data specialist who loves building with Python, Typescript, and Statistics
             </p>
-            <div className="flex gap-6">
-              <a 
-                href="https://github.com/yourusername" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative px-8 py-4 bg-white/10 text-white rounded-lg overflow-hidden border border-white/20 hover:bg-white/20 transition-all"
-              >
-                <span className="relative z-10 inline-flex items-center gap-2">
+            
+            <div className="flex flex-col gap-8">
+              {/* Buttons */}
+              <div className="flex gap-6 justify-center">
+                <a 
+                  href="/path-to-your-resume.pdf" 
+                  download
+                  className="group relative px-8 py-4 bg-white/10 text-white rounded-lg overflow-hidden border border-white/20 hover:bg-white/20 transition-all"
+                >
+                  <span className="relative z-10 inline-flex items-center gap-2">
+                    <FileText className="w-6 h-6" />
+                    <span className="font-medium">Resume</span>
+                  </span>
+                </a>
+                <ContactForm />
+              </div>
+
+              {/* Social Icons */}
+              <div className="flex gap-6 justify-center">
+                <a
+                  href="https://open.spotify.com/user/1225056983"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Music className="w-6 h-6" />
+                </a>
+                <a
+                  href="hhttps://www.linkedin.com/in/worthy-rae/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Linkedin className="w-6 h-6" />
+                </a>
+                <a
+                  href="https://boxd.it/1a9Ux"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Film className="w-6 h-6" />
+                </a>
+                <a
+                  href="https://github.com/worthybrae"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
                   <Github className="w-6 h-6" />
-                  <span className="font-medium">GitHub</span>
-                </span>
-              </a>
-             
-                <ContactForm></ContactForm>
+                </a>
+              </div>
             </div>
           </div>
         </div>
