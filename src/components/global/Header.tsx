@@ -25,7 +25,7 @@ const Header = () => {
                 isLandingPage ? 'text-white hover:text-white/90' : 'text-black hover:text-gray-800'
               }`}
             >
-              <img src='logo.png' width={45}/>
+              <img src='/logo.png' width={45}/>
             </Link>
 
             <nav className="hidden md:flex items-center gap-1">

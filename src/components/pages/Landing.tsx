@@ -55,7 +55,7 @@ const Landing = () => {
               Worthy Rae
             </h1>
             <p className="text-xl md:text-2xl text-white mb-12 max-w-2xl mx-auto leading-relaxed">
-              Data specialist who loves building with Python, Typescript, and Statistics
+              Data specialist who loves building with Python and Typescript
             </p>
             
             <div className="flex flex-col gap-8">

@@ -1,4 +1,3 @@
-// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from "./components/global/Header";
 import AIArchitecture from "./components/projects/AIArchitecture";
@@ -8,7 +7,7 @@ import SpotifyStreams from './components/projects/SpotifyStreams';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/">
       <div className="min-h-screen bg-background">
         <Header />
         <Routes>
