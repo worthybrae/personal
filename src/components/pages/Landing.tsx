@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import ContactForm from '../global/ContactForm';
-import { Github, FileText, Music, Linkedin, Film } from 'lucide-react';
+import { Github, Music, Linkedin, Film } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Project {
@@ -106,10 +106,10 @@ const Landing = () => {
                 <a 
                   href="https://portfolio-worthy.s3.amazonaws.com/resume.pdf" 
                   download
-                  className="group relative px-8 py-4 bg-white/10 text-white rounded-lg overflow-hidden border border-white/20 hover:bg-white/20 transition-all"
+                  className="group relative px-8 py-4 bg-white text-black rounded-lg overflow-hidden hover:bg-gray-100 transition-all"
                 >
                   <span className="relative z-10 inline-flex items-center gap-2">
-                    <FileText className="w-6 h-6" />
+
                     <span className="font-medium">Resume</span>
                   </span>
                 </a>
