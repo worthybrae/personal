@@ -5,6 +5,7 @@ import LivestreamArt from './components/projects/LivestreamArt';
 import Landing from './components/pages/Landing';
 import SpotifyStreams from './components/projects/SpotifyStreams';
 import CountryDensity from './components/projects/CountryDensity';
+import { Analytics } from '@vercel/analytics/react';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/projects/spotify-streams" element={<SpotifyStreams />} />
           <Route path="/projects/country-density" element={<CountryDensity />} />
         </Routes>
+        <Analytics />
       </div>
     </Router>
   );
