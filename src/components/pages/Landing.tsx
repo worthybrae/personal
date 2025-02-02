@@ -3,27 +3,69 @@ import ContactForm from '../global/ContactForm';
 import { Github, FileText, Music, Linkedin, Film } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+interface Project {
+  title: string;
+  description: string;
+  type: 'video' | 'image';
+  media: string;
+  link: string;
+}
+
+interface ProjectMediaProps {
+  project: Project;
+}
+
 const Landing = () => {
-  const projects = [
-    {
-      title: "AI Architecture",
-      description: "A StyleGAN-based exploration of architectural design using machine learning to generate and manipulate architectural spaces.",
-      video: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4",
-      link: "/projects/ai-architecture"
-    },
+  const projects: Project[] = [
     {
       title: "Livestream Art",
       description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
-      video: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
       link: "/projects/livestream-art"
+    },
+    {
+      title: "AI Architecture",
+      description: "A StyleGAN-based exploration of architectural design using machine learning to generate and manipulate architectural spaces.",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4",
+      link: "/projects/ai-architecture"
+    },
+    {
+      title: "Country Density",
+      description: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
+      type: "image",
+      media: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png",
+      link: "/projects/country-density"
     },
     {
       title: "Spotify Streams",
       description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends using Django and Python.",
-      video: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
       link: "/projects/spotify-streams"
     }
   ];
+
+  const ProjectMedia = ({ project }: ProjectMediaProps) => (
+    project.type === "video" ? (
+      <video 
+        autoPlay 
+        muted 
+        loop 
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src={project.media} type="video/mp4" />
+      </video>
+    ) : (
+      <img 
+        src={project.media}
+        alt={project.title}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+    )
+  );
 
   return (
     <main className="relative overflow-hidden w-full">
@@ -42,7 +84,7 @@ const Landing = () => {
             width: '100vw'
           }}
         >
-          <source src={projects[0].video} type="video/mp4" />
+          <source src={projects[1].media} type="video/mp4" />
         </video>
 
         {/* Gradient Overlay */}
@@ -132,15 +174,7 @@ const Landing = () => {
                 <CardContent className="p-0">
                   <div className="grid md:grid-cols-2 gap-12">
                     <div className="relative aspect-video rounded-lg overflow-hidden">
-                      <video 
-                        autoPlay 
-                        muted 
-                        loop 
-                        playsInline
-                        className="absolute inset-0 w-full h-full object-cover"
-                      >
-                        <source src={project.video} type="video/mp4" />
-                      </video>
+                      <ProjectMedia project={project} />
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
                     </div>

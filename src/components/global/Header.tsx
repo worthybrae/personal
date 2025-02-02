@@ -50,6 +50,16 @@ const Header = () => {
                 Livestream Art
               </Link>
               <Link 
+                to="/projects/country-density" 
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  isLandingPage 
+                    ? 'text-white/90 hover:text-white hover:bg-white/10' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Country Density
+              </Link>
+              <Link 
                 to="/projects/spotify-streams" 
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   isLandingPage 
