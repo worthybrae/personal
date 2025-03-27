@@ -36,7 +36,7 @@ const Landing = () => {
       description: "An AI-powered platform for technical career development, offering resume analysis, GitHub portfolio review, and automated cover letter generation.",
       type: "video",
       media: "https://portfolio-worthy.s3.amazonaws.com/coderview-demo.mp4",
-      link: "/projectscoderview"
+      link: "/projects/coderview"
     },
     {
       title: "AI Architecture",

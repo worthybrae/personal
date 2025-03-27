@@ -3,7 +3,7 @@ import MediumStyleProject from '../global/PageTemplate';
 
 const Coderview = () => {
   const projectData = {
-    title: "Coderview",
+    title: "coderview",
     subtitle: "An AI-powered platform for technical career development, offering resume analysis, GitHub portfolio review, and automated cover letter generation.",
     heroMedia: {
       type: 'video' as const,

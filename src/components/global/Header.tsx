@@ -57,7 +57,7 @@ const Header = () => {
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                AI Architecture
+                ai architecture
               </Link>
               <Link 
                 to="/projects/livestream-art" 
@@ -67,7 +67,7 @@ const Header = () => {
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                Livestream Art
+                livestream art
               </Link>
               <Link 
                 to="/projects/country-density" 
@@ -77,7 +77,7 @@ const Header = () => {
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                Country Density
+                country density
               </Link>
             </nav>
           </div>
