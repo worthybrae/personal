@@ -1,181 +1,110 @@
 // src/components/projects/LivestreamArt.tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Github } from 'lucide-react';
+import MediumStyleProject from '../global/PageTemplate';
 
 const LivestreamArt = () => {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Section with Side-by-Side Layout */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
-          {/* Video on the left */}
-          <div className="relative aspect-video rounded-lg overflow-hidden">
-          <video 
-              key="abbey-road-stream"
-              autoPlay 
-              muted 
-              loop 
-              playsInline
-              controls
-              className="w-full h-full object-cover"
-            >
-              <source 
-                src="https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
-                type="video/mp4"
-              />
-            </video>
-          </div>
-          
-          {/* Text content on the right */}
-          <div className="flex flex-col justify-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Livestream Art
-            </h1>
-            <p className="text-xl text-muted-foreground mb-8">
-              Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.
-            </p>
-            <a 
-              href="https://github.com/worthybrae/livestream-morphing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity w-fit"
-            >
-              <Github className="w-5 h-5" />
-              View on GitHub
-            </a>
-          </div>
-        </div>
+  const projectData = {
+    title: "Livestream Art",
+    subtitle: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
+    heroMedia: {
+      type: 'video' as const,
+      src: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
+    },
+    githubUrl: "https://github.com/worthybrae/livestream-morphing",
+    sections: [
+      {
+        title: "Introduction",
+        content: "The Livestream Art project transforms the iconic Abbey Road crossing livestream into an artistic visualization using real-time computer vision techniques. By applying edge detection algorithms to the live feed, the project creates a dynamic, artistic interpretation of one of the world's most famous pedestrian crossings, blending technology and art in a continuous, ever-changing digital canvas.",
+      },
+      {
+        title: "Technical Overview",
+        content: "This project processes the Abbey Road livestream in real-time, applying computer vision techniques to create an artistic edge-detection visualization. The system includes real-time video stream processing, OpenCV-based edge detection, dynamic contrast adjustment based on time of day, and automated timestamp and location overlay. The resulting output creates an artistic representation that highlights the movement and forms of pedestrians and vehicles while abstracting away unnecessary details.",
+        media: {
+          type: 'video' as const,
+          src: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
+          caption: "Real-time edge detection applied to the Abbey Road crossing livestream."
+        }
+      },
+      {
+        title: "System Architecture",
+        content: "The system utilizes a distributed architecture with multiple components working in harmony to process the livestream in real-time. The architecture includes a stream capture service that pulls the HLS feed from the source, a processing pipeline that applies the computer vision algorithms, and a distribution system that makes the processed feed available for viewing. This modular approach allows for scaling individual components based on processing demands and viewer traffic.",
+        media: {
+          type: 'image' as const,
+          src: "https://portfolio-worthy.s3.amazonaws.com/architecture.png",
+          caption: "System architecture diagram showing the complete processing pipeline from source to viewer."
+        }
+      },
+      {
+        title: "Implementation Details",
+        content: "The processing pipeline follows a carefully designed sequence of operations to achieve the desired artistic effect. First, frames are extracted from the HLS stream at a rate of 30 frames per second. These frames undergo Gaussian blur for noise reduction, followed by Canny edge detection with adaptive thresholds that respond to the overall brightness and contrast of the scene. Morphological operations are then applied to smooth the detected edges, resulting in cleaner lines. Finally, a dynamic text overlay adds contextual information including time and location.",
+        codeSnippet: {
+          title: "Edge Detection Pipeline",
+          language: "python",
+          code: `def process_frame(frame):
+    # Convert to grayscale for edge detection
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Detect edges using Canny algorithm with adaptive thresholds
+    median_val = np.median(blurred)
+    lower = int(max(0, (1.0 - 0.33) * median_val))
+    upper = int(min(255, (1.0 + 0.33) * median_val))
+    edges = cv2.Canny(blurred, lower, upper)
+    
+    # Apply morphological operations to clean up edges
+    kernel = np.ones((3, 3), np.uint8)
+    edges = cv2.dilate(edges, kernel, iterations=1)
+    edges = cv2.erode(edges, kernel, iterations=1)
+    
+    # Create the output image with white lines on black background
+    result = np.zeros_like(frame)
+    result[edges != 0] = [255, 255, 255]
+    
+    # Add timestamp and location overlay
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cv2.putText(result, f"Abbey Road, London | {timestamp}", 
+                (10, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 
+                0.7, (200, 200, 200), 2)
+    
+    return result`
+        }
+      },
+      {
+        title: "Backend Processing",
+        content: "The backend processing system relies on a Celery task queue to manage the computational workload. This approach allows for distributed processing across multiple worker nodes, ensuring that the system can handle the continuous stream of video frames without building up latency. The Celery backend also provides monitoring capabilities, allowing for real-time observation of worker performance, task throughput, and error rates, which helps maintain system reliability and performance.",
+        media: {
+          type: 'image' as const,
+          src: "https://portfolio-worthy.s3.amazonaws.com/celery.png",
+          caption: "Visualization of the Celery task queue system showing real-time processing statistics and worker status."
+        }
+      },
+      {
+        title: "Performance Metrics",
+        content: "The system maintains impressive performance metrics despite the computational intensity of real-time video processing. Operating at 30 frames per second on a Full HD (1920x1080) stream, the system achieves an average processing latency of just 200ms per frame. Edge detection operations are particularly optimized, consuming only 33ms per frame. These performance characteristics ensure that viewers experience a smooth, responsive artistic visualization that feels connected to the live events happening at the Abbey Road crossing.",
+      },
+      {
+        title: "Future Enhancements",
+        content: "Looking ahead, several enhancements are planned for the Livestream Art project. Machine learning-based object detection could enable more intelligent processing that distinguishes between pedestrians, vehicles, and other elements in the scene. Additional artistic style variations would provide viewers with different visualization options. Interactive controls could allow viewers to adjust visual parameters in real-time. Finally, a historical footage archiving system would enable playback of interesting moments, creating a searchable archive of artistic interpretations of this culturally significant location."
+      }
+    ],
+    relatedProjects: [
+      {
+        title: "AI Architecture",
+        description: "A StyleGAN-based exploration of architectural design using machine learning.",
+        link: "/projects/ai-architecture",
+        image: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4"
+      },
+      {
+        title: "Spotify Streams",
+        description: "A real-time analytics platform tracking and visualizing Spotify streaming data.",
+        link: "/projects/spotify-streams",
+        image: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4"
+      }
+    ]
+  };
 
-        {/* Main Content Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left Column */}
-          <div className="space-y-8">
-            {/* Technical Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Technical Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">
-                  This project processes the Abbey Road livestream in real-time, applying computer vision techniques to create an artistic edge-detection visualization. The system includes:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                  <li>Real-time video stream processing</li>
-                  <li>OpenCV-based edge detection</li>
-                  <li>Dynamic contrast adjustment based on time of day</li>
-                  <li>Automated timestamp and location overlay</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Implementation Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Implementation Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Processing Pipeline:</h3>
-                  <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                    <li>Frame extraction from HLS stream</li>
-                    <li>Gaussian blur for noise reduction</li>
-                    <li>Canny edge detection with adaptive thresholds</li>
-                    <li>Morphological operations for edge smoothing</li>
-                    <li>Dynamic text overlay with time and location</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Backend Processing</CardTitle>
-                </CardHeader>
-                <CardContent>   
-                    {/* Celery Backend Visualization */}
-                    <div className="">
-                        <div className="rounded-lg overflow-hidden border">
-                        <img 
-                    src="https://portfolio-worthy.s3.amazonaws.com/celery.png" 
-                    alt="Celery Backend Visualization"
-                    className="w-full"
-                  />
-                        </div>
-                        <p className="mt-4 text-sm text-muted-foreground">
-                        Visualization of the Celery task queue system showing real-time processing statistics and worker status
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-          </div>
-
-
-          {/* Right Column */}
-          <div className="space-y-8">
-            {/* System Architecture */}
-            <Card>
-              <CardHeader>
-                <CardTitle>System Architecture</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <p className="text-muted-foreground">
-                    The system utilizes a distributed architecture with multiple components working in harmony to process the livestream in real-time:
-                  </p>
-                  
-                  {/* Architecture Diagram */}
-                  <div className="rounded-lg overflow-hidden border">
-                  <img 
-                    src="https://portfolio-worthy.s3.amazonaws.com/architecture.png" 
-                    alt="System Architecture Diagram"
-                    className="w-full"
-                  />
-                  </div>
-
-                  
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Performance Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Metrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="bg-muted p-4 rounded-lg">
-                    <p className="font-medium mb-2">Key Statistics:</p>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• Processing Rate: 30 FPS</li>
-                      <li>• Average Latency: 200ms</li>
-                      <li>• Stream Resolution: 1920x1080</li>
-                      <li>• Edge Detection Time: 33ms/frame</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Future Enhancements */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Future Enhancements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                  <li>Machine learning-based object detection</li>
-                  <li>Additional artistic style variations</li>
-                  <li>Interactive controls for visual parameters</li>
-                  <li>Historical footage archiving and playback</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <MediumStyleProject {...projectData} />;
 };
 
 export default LivestreamArt;

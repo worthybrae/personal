@@ -32,18 +32,18 @@ const Landing = () => {
       link: "/projects/ai-architecture"
     },
     {
+      title: "StreamClout",
+      description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
+      link: "/projects/streamclout"
+    },
+    {
       title: "Country Density",
       description: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
       type: "image",
       media: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png",
       link: "/projects/country-density"
-    },
-    {
-      title: "Spotify Streams",
-      description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends using Django and Python.",
-      type: "video",
-      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
-      link: "/projects/spotify-streams"
     }
   ];
 

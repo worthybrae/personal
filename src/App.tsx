@@ -3,8 +3,9 @@ import Header from "./components/global/Header";
 import AIArchitecture from "./components/projects/AIArchitecture";
 import LivestreamArt from './components/projects/LivestreamArt';
 import Landing from './components/pages/Landing';
-import SpotifyStreams from './components/projects/SpotifyStreams';
 import CountryDensity from './components/projects/CountryDensity';
+import StreamClout from './components/projects/Streamclout';
+import Coderview from './components/projects/Coderview';
 import { Analytics } from '@vercel/analytics/react';
 
 function App() {
@@ -16,8 +17,9 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/projects/ai-architecture" element={<AIArchitecture />} />
           <Route path="/projects/livestream-art" element={<LivestreamArt />} />
-          <Route path="/projects/spotify-streams" element={<SpotifyStreams />} />
           <Route path="/projects/country-density" element={<CountryDensity />} />
+          <Route path="/projects/streamclout" element={<StreamClout />} />
+          <Route path="/projects/coderview" element={<Coderview />} />
         </Routes>
         <Analytics />
       </div>

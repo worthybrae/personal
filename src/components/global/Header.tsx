@@ -30,6 +30,26 @@ const Header = () => {
 
             <nav className="hidden md:flex items-center gap-1">
               <Link 
+                to="/projects/coderview" 
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  isLandingPage 
+                    ? 'text-white/90 hover:text-white hover:bg-white/10' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                coderview
+              </Link>
+              <Link 
+                to="/projects/streamclout" 
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  isLandingPage 
+                    ? 'text-white/90 hover:text-white hover:bg-white/10' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                streamclout.io
+              </Link>
+              <Link 
                 to="/projects/ai-architecture" 
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   isLandingPage 
@@ -59,21 +79,10 @@ const Header = () => {
               >
                 Country Density
               </Link>
-              <Link 
-                to="/projects/spotify-streams" 
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isLandingPage 
-                    ? 'text-white/90 hover:text-white hover:bg-white/10' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                Spotify Streams
-              </Link>
             </nav>
           </div>
 
           <div className="ml-auto">
-            
             <ContactForm></ContactForm>
           </div>
         </div>

@@ -1,31 +1,37 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Github, ChevronLeft, ChevronRight, X } from 'lucide-react';
+// src/components/projects/CountryDensity.tsx
+import MediumStyleProject from '../global/PageTemplate';
 
 const CountryDensity = () => {
-  const [showGallery, setShowGallery] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  const countries = [
-    { name: 'Moldova', image: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/moldova.jpg' },
-    { name: 'Ukraine', image: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/ukraine.jpg' },
-    { name: 'Turkey', image: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/turkey.jpg' },
-    { name: 'Moldova', image: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/moldova.jpg' },
-    { name: 'Kuwait', image: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/kuwait.jpg' }
-  ];
-
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % countries.length);
-  };
-
-  const previousImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + countries.length) % countries.length);
-  };
-
-  const codeSnippets = [
-    {
-      title: '3D Rendering with Rayshader',
-      code: `# Create the initial 3D object
+  const projectData = {
+    title: "Country Density",
+    subtitle: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
+    heroMedia: {
+      type: 'image' as const,
+      src: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png",
+      alt: "Moldova Population Density 3D Visualization"
+    },
+    githubUrl: "https://github.com/worthybrae/country-density",
+    sections: [
+      {
+        title: "Introduction",
+        content: "This project creates visually striking 3D visualizations of population density across different countries. By combining geospatial data with advanced rendering techniques, we transform raw population statistics into intuitive and aesthetically pleasing 3D landscapes that make demographic patterns immediately visible and understandable.",
+      },
+      {
+        title: "Project Overview",
+        content: "The Country Density project uses R, geospatial libraries, and the Rayshader package to create high-quality 3D visualizations of population density data. These visualizations transform complex demographic statistics into intuitive, physical forms where height represents population concentration. The result is a visually appealing and scientifically accurate representation that makes geographic population patterns immediately apparent.",
+        media: {
+          type: 'image' as const,
+          src: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/ukraine.jpg",
+          caption: "Population density visualization of Ukraine showing concentrations in major urban areas."
+        }
+      },
+      {
+        title: "Technical Implementation",
+        content: "The system employs a sophisticated data processing pipeline that begins with raw population data and geographic boundaries. First, population data is mapped to geographic coordinates and normalized. Next, the data undergoes interpolation to create a continuous density surface. This surface is then rendered in 3D using Rayshader, with carefully designed color gradients that intuitively represent population density from sparse to highly concentrated areas.",
+        codeSnippet: {
+          title: "3D Rendering with Rayshader",
+          language: "r",
+          code: `# Create the initial 3D object
 combined_mat %>%
   rayshader::height_shade(
     texture = colorRampPalette(c(
@@ -41,10 +47,15 @@ combined_mat %>%
     zscale = 20,
     shadowdepth = 0
   )`
-    },
-    {
-      title: 'High-Quality Rendering',
-      code: `rayshader::render_highquality(
+        }
+      },
+      {
+        title: "High-Quality Rendering",
+        content: "The rendering process utilizes advanced raytracing techniques to create photorealistic visualizations. Multiple light sources are strategically positioned to highlight topographical features, with precise control over parameters like light direction, altitude, color, and intensity. Anti-aliasing and high sample counts ensure smooth, high-quality output. The rendering process is computationally intensive but produces stunning visual results that effectively communicate population distribution patterns.",
+        codeSnippet: {
+          title: "High-Quality Rendering Configuration",
+          language: "r",
+          code: `rayshader::render_highquality(
   filename = output_image_name,
   interactive = FALSE,
   lightdirection = 280,
@@ -54,168 +65,39 @@ combined_mat %>%
   samples = 450,
   width = width, height = height
 )`
-    }
-  ];
+        }
+      },
+      {
+        title: "Visualization Gallery",
+        content: "The project has successfully created visualizations for multiple countries, each revealing unique population distribution patterns. Moldova shows clear concentration in the capital region of Chișinău with sparse rural areas. Ukraine demonstrates several major population centers with notable concentration in the eastern regions and along the Dnieper River. Turkey displays coastal concentration patterns typical of Mediterranean countries, with dense populations along the Aegean and Mediterranean coasts and in major urban centers like Istanbul and Ankara.",
+        media: {
+          type: 'image' as const,
+          src: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/turkey.jpg",
+          caption: "Population density visualization of Turkey showing coastal and urban concentrations."
+        }
+      },
+      {
+        title: "Future Directions",
+        content: "The Country Density project is continually evolving, with several planned enhancements on the horizon. These include temporal visualizations that show population shifts over time, interactive web-based versions that allow users to explore the data in real-time, integration of additional demographic metrics such as age distribution and economic indicators, and higher-resolution renderings for select regions of particular interest. The flexible architecture of the system makes it well-suited for expansion to include these additional features."
+      }
+    ],
+    relatedProjects: [
+      {
+        title: "AI Architecture",
+        description: "A StyleGAN-based exploration of architectural design using machine learning.",
+        link: "/projects/ai-architecture",
+        image: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4"
+      },
+      {
+        title: "Livestream Art",
+        description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision.",
+        link: "/projects/livestream-art",
+        image: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
+      }
+    ]
+  };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Hero Section */}
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
-          <div className="relative w-full h-auto">
-            <img 
-               src="https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png"
-
-
-              alt="Moldova Population Density"
-              className="w-full h-auto rounded-lg"
-            />
-          </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Country Density
-            </h1>
-            <p className="text-xl text-muted-foreground mb-8">
-              A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.
-            </p>
-            <a 
-              href="https://github.com/worthybrae/country-density"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity w-fit"
-            >
-              <Github className="w-5 h-5" />
-              View on GitHub
-            </a>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left Column */}
-          <div className="space-y-8">
-            {/* Project Overview */}
-            <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle>Project Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  This project creates visually striking 3D visualizations of population density across different countries. 
-                  By combining geospatial data with advanced rendering techniques, we transform raw population statistics 
-                  into intuitive and aesthetically pleasing 3D landscapes.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Visualization Gallery */}
-            <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle>Visualization Gallery</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div 
-                  className="relative cursor-pointer group"
-                  onClick={() => setShowGallery(true)}
-                >
-                  <img 
-                    src={countries[1].image}
-                    alt="Gallery Preview"
-                    className="w-full h-auto rounded-lg"
-                  />
-                  <div className="absolute top-2 right-2 bg-black bg-opacity-75 text-white px-3 py-1 rounded-full">
-                    +4
-                  </div>
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-25 transition-all duration-200 rounded-lg flex items-center justify-center">
-                    <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      View Gallery
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Technical Details */}
-            <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle>Technical Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                  <li>Data processing using R and geospatial libraries</li>
-                  <li>3D rendering with Rayshader for high-quality visualizations</li>
-                  <li>Custom color gradients for intuitive density representation</li>
-                  <li>Automated boundary detection and rendering</li>
-                  <li>Optimized lighting and shadow effects</li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-8">
-
-            {/* Technical Implementation */}
-            <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle>Technical Implementation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {codeSnippets.map((snippet, index) => (
-                    <div key={index} className="space-y-2">
-                      <h3 className="text-lg font-medium">{snippet.title}</h3>
-                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
-                        <code className="text-sm whitespace-pre-wrap break-words">{snippet.code}</code>
-                      </pre>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* Gallery Modal */}
-      {showGallery && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
-          <div className="relative w-full max-w-6xl px-4">
-            {/* Move close button outside the image container and increase z-index */}
-            <button
-              onClick={() => setShowGallery(false)}
-              className="fixed top-4 right-4 z-[60] bg-black bg-opacity-50 text-white p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <div className="relative">
-              <div className="h-[70vh] flex items-center justify-center">
-                <img
-                  src={countries[currentImageIndex].image}
-                  alt={countries[currentImageIndex].name}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <button
-                onClick={previousImage}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <MediumStyleProject {...projectData} />;
 };
 
 export default CountryDensity;
