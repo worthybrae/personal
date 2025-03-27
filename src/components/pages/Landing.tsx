@@ -78,21 +78,41 @@ const Landing = () => {
     <main className="relative overflow-hidden w-full">
       {/* Hero Section with Dark Overlay */}
       <section className="relative min-h-screen bg-black overflow-hidden w-full">
-        {/* Video Background */}
-        <video 
-          autoPlay 
-          muted 
-          loop 
-          playsInline
-          className="absolute inset-0 h-full object-cover opacity-70"
-          style={{ 
-            minWidth: '100vw',
-            maxWidth: '100vw',
-            width: '100vw'
-          }}
-        >
-          <source src={projects[1].media} type="video/mp4" />
-        </video>
+        {/* Mobile Background (AI Architecture) - Only shown on mobile */}
+        <div className="md:hidden">
+          <video 
+            autoPlay 
+            muted 
+            loop 
+            playsInline
+            className="absolute inset-0 h-full object-cover opacity-70"
+            style={{ 
+              minWidth: '100vw',
+              maxWidth: '100vw',
+              width: '100vw'
+            }}
+          >
+            <source src={projects[3].media} type="video/mp4" />
+          </video>
+        </div>
+
+        {/* Desktop Background (Livestream Art) - Only shown on desktop */}
+        <div className="hidden md:block">
+          <video 
+            autoPlay 
+            muted 
+            loop 
+            playsInline
+            className="absolute inset-0 h-full object-cover opacity-70"
+            style={{ 
+              minWidth: '100vw',
+              maxWidth: '100vw',
+              width: '100vw'
+            }}
+          >
+            <source src={projects[1].media} type="video/mp4" />
+          </video>
+        </div>
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/0" />
