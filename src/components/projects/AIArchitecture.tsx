@@ -71,16 +71,28 @@ trainer.train(dataset, max_steps=25000)`
     ],
     relatedProjects: [
       {
+        title: "streamclout.io",
+        description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
+        link: "/projects/streamclout",
+        image: "https://portfolio-worthy.s3.amazonaws.com/streamclout-demo.mp4"
+      },
+      {
+        title: "Country Density",
+        description: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
+        link: "/projects/country-density",
+        image: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png"
+      },
+      {
         title: "Livestream Art",
         description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
         link: "/projects/livestream-art",
         image: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
       },
       {
-        title: "Country Density",
-        description: "A data visualization project that transforms population density data into stunning 3D renderings.",
-        link: "/projects/country-density",
-        image: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png"
+        title: "coderview",
+        description: "An AI-powered platform for technical career development, offering resume analysis, GitHub portfolio review, and automated cover letter generation.",
+        link: "/projects/coderview",
+        image: "https://portfolio-worthy.s3.amazonaws.com/coderview-demo.mp4"
       }
     ]
   };

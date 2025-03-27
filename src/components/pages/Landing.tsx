@@ -18,6 +18,13 @@ interface ProjectMediaProps {
 const Landing = () => {
   const projects: Project[] = [
     {
+      title: "streamclout.io",
+      description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
+      link: "/projects/streamclout"
+    },
+    {
       title: "Livestream Art",
       description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
       type: "video",
@@ -25,18 +32,18 @@ const Landing = () => {
       link: "/projects/livestream-art"
     },
     {
+      title: "coderview",
+      description: "An AI-powered platform for technical career development, offering resume analysis, GitHub portfolio review, and automated cover letter generation.",
+      type: "video",
+      media: "https://portfolio-worthy.s3.amazonaws.com/coderview-demo.mp4",
+      link: "/projectscoderview"
+    },
+    {
       title: "AI Architecture",
       description: "A StyleGAN-based exploration of architectural design using machine learning to generate and manipulate architectural spaces.",
       type: "video",
       media: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4",
       link: "/projects/ai-architecture"
-    },
-    {
-      title: "StreamClout",
-      description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
-      type: "video",
-      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
-      link: "/projects/streamclout"
     },
     {
       title: "Country Density",

@@ -117,7 +117,7 @@ const Coderview = () => {
     ],
     relatedProjects: [
       {
-        title: "StreamClout",
+        title: "streamclout.io",
         description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
         link: "/projects/streamclout",
         image: "https://portfolio-worthy.s3.amazonaws.com/streamclout-demo.mp4"
@@ -133,6 +133,12 @@ const Coderview = () => {
         description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
         link: "/projects/livestream-art",
         image: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
+      },
+      {
+        title: "AI Architecture",
+        description: "A StyleGAN-based exploration of architectural design using machine learning.",
+        link: "/projects/ai-architecture",
+        image: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4"
       }
     ]
   };

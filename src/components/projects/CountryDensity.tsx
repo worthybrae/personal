@@ -83,6 +83,12 @@ combined_mat %>%
     ],
     relatedProjects: [
       {
+        title: "streamclout.io",
+        description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
+        link: "/projects/streamclout",
+        image: "https://portfolio-worthy.s3.amazonaws.com/streamclout-demo.mp4"
+      },
+      {
         title: "AI Architecture",
         description: "A StyleGAN-based exploration of architectural design using machine learning.",
         link: "/projects/ai-architecture",
@@ -90,9 +96,15 @@ combined_mat %>%
       },
       {
         title: "Livestream Art",
-        description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision.",
+        description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
         link: "/projects/livestream-art",
         image: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
+      },
+      {
+        title: "coderview",
+        description: "An AI-powered platform for technical career development, offering resume analysis, GitHub portfolio review, and automated cover letter generation.",
+        link: "/projects/coderview",
+        image: "https://portfolio-worthy.s3.amazonaws.com/coderview-demo.mp4"
       }
     ]
   };
