@@ -21,7 +21,7 @@ const Landing = () => {
       title: "streamclout.io",
       description: "A real-time analytics platform tracking and visualizing Spotify streaming data, artist performance, and music trends.",
       type: "video",
-      media: "https://portfolio-worthy.s3.amazonaws.com/demo.mp4",
+      media: "https://portfolio-worthy.s3.amazonaws.com/streamclout-demo.mp4",
       link: "/projects/streamclout"
     },
     {
