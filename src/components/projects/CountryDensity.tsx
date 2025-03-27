@@ -98,7 +98,7 @@ combined_mat %>%
         title: "Livestream Art",
         description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
         link: "/projects/livestream-art",
-        image: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4"
+        image: "https://portfolio-worthy.s3.amazonaws.com/abbey_road_best.mp4"
       },
       {
         title: "coderview",

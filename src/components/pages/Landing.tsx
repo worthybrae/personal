@@ -28,7 +28,7 @@ const Landing = () => {
       title: "Livestream Art",
       description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
       type: "video",
-      media: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
+      media: "https://portfolio-worthy.s3.amazonaws.com/abbey_road_best.mp4",
       link: "/projects/livestream-art"
     },
     {

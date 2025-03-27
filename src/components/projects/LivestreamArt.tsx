@@ -7,7 +7,7 @@ const LivestreamArt = () => {
     subtitle: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
     heroMedia: {
       type: 'video' as const,
-      src: "https://portfolio-worthy.s3.amazonaws.com/abbey-road-stream.mp4",
+      src: "https://portfolio-worthy.s3.amazonaws.com/abbey_road_best.mp4",
     },
     githubUrl: "https://github.com/worthybrae/livestream-morphing",
     sections: [
