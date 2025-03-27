@@ -17,25 +17,6 @@ const StreamClout = () => {
         content: "streamclout.io brings transparency to music industry streaming metrics by accessing Spotify's internal APIs to track real-time streaming data. By reverse-engineering Spotify's own data endpoints, the platform provides artists, labels, and music enthusiasts with accurate insights into streaming performance that aren't available through official channels. The system continuously monitors play counts across thousands of tracks, enabling trend analysis, artist comparisons, and identification of viral growth patterns.",
       },
       {
-        title: "Interactive Demo",
-        content: "Below is an interactive demo of the StreamClout platform. This walkthrough showcases the real-time tracking capabilities, artist analytics dashboard, and trending tracks features of the application. The demo highlights how users can explore detailed streaming metrics, compare artist performance, and identify growth patterns across different time periods.",
-        media: {
-          type: 'custom' as const,
-          component: () => (
-            <div style={{ position: 'relative', boxSizing: 'content-box', width: '100%', aspectRatio: '1.8864628820960698', padding: '20px 0' }}>
-              <iframe 
-                src="https://app.supademo.com/embed/cm8rddedc0h05lythy3y0fzlv?embed_v=2" 
-                loading="lazy" 
-                title="Streamclout Demo" 
-                allow="clipboard-write" 
-                allowFullScreen 
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-              />
-            </div>
-          )
-        }
-      },
-      {
         title: "The Technical Challenge",
         content: "The project required solving several significant technical challenges. First, I needed to reverse-engineer Spotify's internal API endpoints that contain streaming data not accessible through their public API. Second, the system had to handle authentication through browser emulation to obtain the necessary tokens. Finally, I needed to design a scalable architecture capable of continuously processing thousands of albums and tracks without exceeding rate limits or encountering stability issues.",
         media: {
