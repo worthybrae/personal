@@ -70,17 +70,7 @@ const Header = () => {
               >
                 livestream art
               </Link>
-              <Link
-                to="/habits"
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                  isLandingPage
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <Dumbbell className="w-4 h-4" />
-                habits
-              </Link>
+
             </nav>
           </div>
 
