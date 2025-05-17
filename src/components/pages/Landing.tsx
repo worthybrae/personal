@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import ContactForm from '../global/ContactForm';
-import { Github, Music, Linkedin, Film } from 'lucide-react';
+import { Github, Music, Linkedin, Film, Dumbbell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Project {
@@ -56,17 +56,17 @@ const Landing = () => {
 
   const ProjectMedia = ({ project }: ProjectMediaProps) => (
     project.type === "video" ? (
-      <video 
-        autoPlay 
-        muted 
-        loop 
+      <video
+        autoPlay
+        muted
+        loop
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
       >
         <source src={project.media} type="video/mp4" />
       </video>
     ) : (
-      <img 
+      <img
         src={project.media}
         alt={project.title}
         className="absolute inset-0 w-full h-full object-cover"
@@ -80,13 +80,13 @@ const Landing = () => {
       <section className="relative min-h-screen bg-black overflow-hidden w-full">
         {/* Mobile Background (AI Architecture) - Only shown on mobile */}
         <div className="md:hidden">
-          <video 
-            autoPlay 
-            muted 
-            loop 
+          <video
+            autoPlay
+            muted
+            loop
             playsInline
             className="absolute inset-0 h-full object-cover opacity-70"
-            style={{ 
+            style={{
               minWidth: '100vw',
               maxWidth: '100vw',
               width: '100vw'
@@ -98,13 +98,13 @@ const Landing = () => {
 
         {/* Desktop Background (Livestream Art) - Only shown on desktop */}
         <div className="hidden md:block">
-          <video 
-            autoPlay 
-            muted 
-            loop 
+          <video
+            autoPlay
+            muted
+            loop
             playsInline
             className="absolute inset-0 h-full object-cover opacity-70"
-            style={{ 
+            style={{
               minWidth: '100vw',
               maxWidth: '100vw',
               width: '100vw'
@@ -126,12 +126,12 @@ const Landing = () => {
             <p className="text-xl md:text-2xl text-white mb-12 max-w-2xl mx-auto leading-relaxed">
               Data specialist who loves building with Python and Typescript
             </p>
-            
+
             <div className="flex flex-col gap-8">
               {/* Buttons */}
               <div className="flex gap-6 justify-center">
-                <a 
-                  href="https://portfolio-worthy.s3.amazonaws.com/resume.pdf" 
+                <a
+                  href="https://portfolio-worthy.s3.amazonaws.com/resume.pdf"
                   download
                   className="group relative px-8 py-4 bg-white text-black rounded-lg overflow-hidden hover:bg-gray-100 transition-all"
                 >
@@ -177,6 +177,12 @@ const Landing = () => {
                 >
                   <Github className="w-6 h-6" />
                 </a>
+                <Link
+                  to="/habits"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Dumbbell className="w-6 h-6" />
+                </Link>
               </div>
             </div>
           </div>
@@ -212,7 +218,7 @@ const Landing = () => {
                       <p className="text-lg text-gray-300 mb-8 leading-relaxed">
                         {project.description}
                       </p>
-                      <Link 
+                      <Link
                         to={project.link}
                         className="inline-flex items-center gap-2 text-lg font-medium text-white/80 hover:text-white transition-colors"
                       >

@@ -1,29 +1,21 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import * as React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { useSupabase } from '../../lib/supabase';
+import { ContactSubmission } from '../../lib/types';
 
 const ContactForm = () => {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { supabase } = useSupabase();
+  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     const form = e.target as HTMLFormElement;
-    const formData = {
+    const formData: ContactSubmission = {
       first_name: (form.firstName as HTMLInputElement).value,
       last_name: (form.lastName as HTMLInputElement).value,
       email: (form.email as HTMLInputElement).value,
@@ -51,7 +43,7 @@ const ContactForm = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button 
+        <button
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
         >
           Get in Touch
@@ -94,8 +86,8 @@ const ContactForm = () => {
               className="min-h-[100px]"
             />
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
             disabled={loading}
           >
