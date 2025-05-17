@@ -1,7 +1,6 @@
 // src/components/global/Header.tsx
 import { Link, useLocation } from 'react-router-dom';
 import ContactForm from './ContactForm';
-import { Dumbbell } from 'lucide-react';
 
 const Header = () => {
   const location = useLocation();
