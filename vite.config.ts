@@ -20,7 +20,8 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+        // Railway uses port 8080, local dev uses 8000
+        target: 'http://127.0.0.1:8080',
         changeOrigin: true,
         secure: false,
       },
