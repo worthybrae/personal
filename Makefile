@@ -11,31 +11,34 @@ help:
 
 build:
 	@echo "🔨 Building Docker image..."
-	docker-compose build
+	docker build -t portfolio-app .
 
 run:
 	@echo "🚀 Starting application..."
 	@echo "Frontend will be available at: http://localhost:5173"
 	@echo "Backend will be available at: http://localhost:8000"
-	docker-compose up
+	docker run -p 5173:5173 -p 8000:8000 --env-file .env portfolio-app
 
 run-detached:
 	@echo "🚀 Starting application in background..."
-	docker-compose up -d
+	docker run -d -p 5173:5173 -p 8000:8000 --env-file .env --name portfolio-app portfolio-app
 	@echo "✅ Application started!"
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend: http://localhost:8000"
 
 stop:
 	@echo "🛑 Stopping application..."
-	docker-compose down
+	docker stop portfolio-app || true
+	docker rm portfolio-app || true
 
 restart: stop run
 
 logs:
-	docker-compose logs -f
+	docker logs -f portfolio-app
 
 clean:
 	@echo "🧹 Cleaning up..."
-	docker-compose down -v --rmi all
+	docker stop portfolio-app || true
+	docker rm portfolio-app || true
+	docker rmi portfolio-app || true
 	@echo "✅ Cleanup complete!"

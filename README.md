@@ -36,13 +36,13 @@ make clean      # Clean up everything
 
 ## Environment Variables
 
-Make sure your `.env` file in the root directory has:
+**Local Development:**
+- Create a `.env` file with: `GA4_PROPERTY_ID=123456789`
+- Place your `ga.json` credentials file in the root directory (not committed to git)
 
-```env
-GA4_PROPERTY_ID=123456789
-GA_CLIENT_EMAIL=example@test.iam.gserviceaccount.com
-GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-```
+**Production (Railway):**
+- Set `GA4_PROPERTY_ID` environment variable
+- Set `GOOGLE_CREDENTIALS` environment variable with the contents of ga.json (the startup script will create the file automatically)
 
 ## Tech Stack
 
@@ -50,7 +50,7 @@ GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 - **Backend**: FastAPI + Python
 - **Analytics**: Google Analytics 4
 - **Contact Form**: Formspree
-- **Containerization**: Docker + Docker Compose
+- **Containerization**: Docker
 
 ## Project Structure
 
@@ -60,8 +60,8 @@ GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 │   ├── main.py            # FastAPI app
 │   └── requirements.txt   # Python dependencies
 ├── Dockerfile             # Unified Dockerfile (frontend + backend)
-├── docker-compose.yml     # Docker orchestration
 ├── Makefile              # Easy commands
-└── .env                  # Environment variables
+├── ga.json                # Google Analytics credentials (local only, not in git)
+└── .env                  # Environment variables (not in git)
 ```
 

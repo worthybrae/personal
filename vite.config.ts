@@ -20,8 +20,10 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        // Railway uses port 8080, local dev uses 8000
-        target: 'http://127.0.0.1:8080',
+        // Check if we're in production (Railway) or local dev
+        target: process.env.NODE_ENV === 'production'
+          ? 'http://127.0.0.1:8080'  // Railway
+          : 'http://127.0.0.1:8000', // Local
         changeOrigin: true,
         secure: false,
       },

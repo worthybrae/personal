@@ -1,11 +1,15 @@
 #!/bin/bash
 set -e
 
-# Get the port Railway sets (default to 8000 for local dev)
-BACKEND_PORT=${PORT:-8000}
-export BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
+# If ga.json doesn't exist but GOOGLE_CREDENTIALS env var does, create the file
+if [ ! -f /app/ga.json ] && [ ! -z "$GOOGLE_CREDENTIALS" ]; then
+    echo "Creating ga.json from GOOGLE_CREDENTIALS environment variable..."
+    echo "$GOOGLE_CREDENTIALS" > /app/ga.json
+fi
 
-echo "Starting FastAPI backend on port ${BACKEND_PORT}..."
+# Railway sets PORT=8080, but we need backend on 8000 for local and Railway uses PORT for the main service
+# So backend always uses PORT env var (8080 on Railway, 8000 default in main.py)
+echo "Starting FastAPI backend..."
 # Run backend in background but keep logs in stdout
 cd /app/backend && python -u main.py &
 BACKEND_PID=$!
@@ -19,7 +23,7 @@ if ! kill -0 $BACKEND_PID 2>/dev/null; then
     exit 1
 fi
 
-echo "Backend started successfully (PID: $BACKEND_PID) at ${BACKEND_URL}"
+echo "Backend started successfully (PID: $BACKEND_PID)"
 
 echo "Starting Vite frontend..."
 cd /app && npm run dev -- --host 0.0.0.0

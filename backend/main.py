@@ -27,22 +27,22 @@ def read_root():
 @app.get("/api/analytics")
 async def get_analytics():
     try:
-        # Try to get credentials from GOOGLE_CREDENTIALS JSON first
-        google_creds_json = os.getenv("GOOGLE_CREDENTIALS")
+        # Get property ID from environment variable
         property_id = os.getenv("GA4_PROPERTY_ID")
 
-        if google_creds_json:
-            print("Using GOOGLE_CREDENTIALS JSON")
-            credentials_info = json.loads(google_creds_json)
-        else:
-            print("GOOGLE_CREDENTIALS not found, this won't work!")
+        # Use ga.json file for both local and production
+        credentials_path = "/app/ga.json"
+
+        if not os.path.exists(credentials_path):
+            print(f"Credentials file not found at {credentials_path}")
             raise HTTPException(
                 status_code=500,
-                detail="GOOGLE_CREDENTIALS environment variable not set"
+                detail="Google credentials file not found"
             )
 
-        credentials = service_account.Credentials.from_service_account_info(
-            credentials_info
+        print(f"Using credentials from {credentials_path}")
+        credentials = service_account.Credentials.from_service_account_file(
+            credentials_path
         )
 
         # Initialize the Analytics Data API client
@@ -78,5 +78,6 @@ async def get_analytics():
 if __name__ == "__main__":
     import uvicorn
     import os
-    port = int(os.getenv("PORT", 8080))
+    # Railway sets PORT to 8080, local dev uses 8000
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
