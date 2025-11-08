@@ -39,8 +39,8 @@ make clean      # Clean up everything
 Make sure your `.env` file in the root directory has:
 
 ```env
-GA4_PROPERTY_ID=512372974
-GA_CLIENT_EMAIL=ga-viewer@jovial-totality-477616-s4.iam.gserviceaccount.com
+GA4_PROPERTY_ID=123456789
+GA_CLIENT_EMAIL=example@test.iam.gserviceaccount.com
 GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
@@ -65,7 +65,3 @@ GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 └── .env                  # Environment variables
 ```
 
-## Deployment
-
-- **Frontend**: Deploy to Vercel
-- **Backend**: Deploy Docker container to Railway, Render, Fly.io, or any Docker host
