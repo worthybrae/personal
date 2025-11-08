@@ -10,9 +10,14 @@ export default defineConfig({
     },
   },
   server: {
-    host: true, // Allow all hosts
+    host: true,
     port: 5173,
     strictPort: false,
+    allowedHosts: [
+      '.railway.app',
+      'worthyrae.com',
+      'www.worthyrae.com'
+    ],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',
