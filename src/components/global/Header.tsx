@@ -1,6 +1,7 @@
 // src/components/global/Header.tsx
 import { Link, useLocation } from 'react-router-dom';
 import ContactForm from './ContactForm';
+import VisitorCount from './VisitorCount';
 
 const Header = () => {
   const location = useLocation();
@@ -73,8 +74,9 @@ const Header = () => {
             </nav>
           </div>
 
-          <div className="ml-auto">
-            <ContactForm></ContactForm>
+          <div className="ml-auto flex items-center gap-4">
+            <VisitorCount />
+            <ContactForm compact />
           </div>
         </div>
       </header>

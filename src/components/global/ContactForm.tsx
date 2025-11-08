@@ -2,11 +2,13 @@ import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { useSupabase } from '../../lib/supabase';
-import { ContactSubmission } from '../../lib/types';
+import { Mail } from 'lucide-react';
 
-const ContactForm = () => {
-  const { supabase } = useSupabase();
+interface ContactFormProps {
+  compact?: boolean;
+}
+
+const ContactForm = ({ compact = false }: ContactFormProps) => {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
@@ -15,19 +17,20 @@ const ContactForm = () => {
     setLoading(true);
 
     const form = e.target as HTMLFormElement;
-    const formData: ContactSubmission = {
-      first_name: (form.firstName as HTMLInputElement).value,
-      last_name: (form.lastName as HTMLInputElement).value,
-      email: (form.email as HTMLInputElement).value,
-      message: (form.message as HTMLInputElement).value,
-    };
+    const formData = new FormData(form);
 
     try {
-      const { error } = await supabase
-        .from('contact_submissions')
-        .insert([formData]);
+      const response = await fetch('https://formspree.io/f/xdkyngrb', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
 
       form.reset();
       setOpen(false);
@@ -44,9 +47,16 @@ const ContactForm = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors flex items-center justify-center gap-2 min-h-[40px]"
         >
-          Get in Touch
+          {compact ? (
+            <>
+              <span className="hidden md:inline">Get in Touch</span>
+              <Mail className="w-4 h-4 md:hidden" />
+            </>
+          ) : (
+            <span>Get in Touch</span>
+          )}
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] [&>button]:bg-white [&>button]:border [&>button]:border-gray-200 [&>button]:hover:bg-gray-50">

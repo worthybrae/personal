@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import ContactForm from '../global/ContactForm';
-import { Github, Music, Linkedin, Film, Dumbbell } from 'lucide-react';
+import { Github, Music, Linkedin, Film } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Project {
@@ -124,7 +124,7 @@ const Landing = () => {
               Worthy Rae
             </h1>
             <p className="text-xl md:text-2xl text-white mb-12 max-w-2xl mx-auto leading-relaxed">
-              Data specialist who loves building with Python and Typescript
+              Data specialist who loves building things with Python and Typescript
             </p>
 
             <div className="flex flex-col gap-8">
@@ -177,12 +177,6 @@ const Landing = () => {
                 >
                   <Github className="w-6 h-6" />
                 </a>
-                <Link
-                  to="/habits"
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <Dumbbell className="w-6 h-6" />
-                </Link>
               </div>
             </div>
           </div>

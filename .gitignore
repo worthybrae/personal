@@ -19,6 +19,7 @@ dist
 .env
 .env.local
 .DS_Store
+ga.json
 
 # Editor directories and files
 .vscode/*
@@ -32,3 +33,14 @@ dist
 *.sw?
 
 .tool-versions
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.vercel

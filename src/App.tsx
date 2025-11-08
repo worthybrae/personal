@@ -6,7 +6,6 @@ import Landing from './components/pages/Landing';
 import CountryDensity from './components/projects/CountryDensity';
 import StreamClout from './components/projects/Streamclout';
 import Coderview from './components/projects/Coderview';
-import HabitsPage from './components/projects/habits/index';
 import { Analytics } from '@vercel/analytics/react';
 
 function App() {
@@ -21,7 +20,6 @@ function App() {
           <Route path="/projects/country-density" element={<CountryDensity />} />
           <Route path="/projects/streamclout" element={<StreamClout />} />
           <Route path="/projects/coderview" element={<Coderview />} />
-          <Route path="/habits" element={<HabitsPage />} />
         </Routes>
         <Analytics />
       </div>

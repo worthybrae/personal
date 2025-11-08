@@ -1,50 +1,71 @@
-# React + TypeScript + Vite
+# Portfolio Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Personal portfolio with Google Analytics visitor tracking and contact form.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
+- Docker Desktop installed and running
+- Make (comes pre-installed on Mac)
 
-## Expanding the ESLint configuration
+### Running Locally
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+```bash
+# First time setup - build the Docker image
+make build
 
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+# Start the application (frontend + backend)
+make run
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+That's it! The app will be running at:
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### Available Commands
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+```bash
+make help       # Show all available commands
+make build      # Build the Docker image
+make run        # Start the application
+make stop       # Stop the application
+make restart    # Restart the application
+make logs       # View application logs
+make clean      # Clean up everything
 ```
+
+## Environment Variables
+
+Make sure your `.env` file in the root directory has:
+
+```env
+GA4_PROPERTY_ID=512372974
+GA_CLIENT_EMAIL=ga-viewer@jovial-totality-477616-s4.iam.gserviceaccount.com
+GA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+## Tech Stack
+
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Backend**: FastAPI + Python
+- **Analytics**: Google Analytics 4
+- **Contact Form**: Formspree
+- **Containerization**: Docker + Docker Compose
+
+## Project Structure
+
+```
+├── src/                    # React frontend code
+├── backend/                # FastAPI backend
+│   ├── main.py            # FastAPI app
+│   └── requirements.txt   # Python dependencies
+├── Dockerfile             # Unified Dockerfile (frontend + backend)
+├── docker-compose.yml     # Docker orchestration
+├── Makefile              # Easy commands
+└── .env                  # Environment variables
+```
+
+## Deployment
+
+- **Frontend**: Deploy to Vercel
+- **Backend**: Deploy Docker container to Railway, Render, Fly.io, or any Docker host
