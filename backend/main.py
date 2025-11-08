@@ -31,10 +31,20 @@ async def get_analytics():
         client_email = os.getenv("GA_CLIENT_EMAIL")
         private_key = os.getenv("GA_PRIVATE_KEY")
 
+        print(f"Property ID: {property_id}")
+        print(f"Client Email: {client_email}")
+        print(f"Private Key exists: {bool(private_key)}")
+
         if not property_id or not client_email or not private_key:
+            missing = []
+            if not property_id: missing.append("GA4_PROPERTY_ID")
+            if not client_email: missing.append("GA_CLIENT_EMAIL")
+            if not private_key: missing.append("GA_PRIVATE_KEY")
+            error_msg = f"Missing environment variables: {', '.join(missing)}"
+            print(f"ERROR: {error_msg}")
             raise HTTPException(
                 status_code=500,
-                detail="Missing required environment variables"
+                detail=error_msg
             )
 
         # Create credentials
@@ -73,6 +83,10 @@ async def get_analytics():
         }
 
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in /api/analytics: {str(e)}")
+        print(f"Full traceback:\n{error_trace}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
