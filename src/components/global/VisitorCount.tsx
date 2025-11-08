@@ -26,6 +26,7 @@ export default function VisitorCount() {
 
   async function fetchViewCount() {
     try {
+      // API is proxied through Vite, so just use /api/analytics
       const response = await fetch('/api/analytics');
 
       if (!response.ok) {

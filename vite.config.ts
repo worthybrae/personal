@@ -19,5 +19,8 @@ export default defineConfig({
         secure: false,
       },
     },
+    hmr: {
+      clientPort: 443
+    }
   },
 })
