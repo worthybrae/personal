@@ -4,7 +4,7 @@ set -e
 # If ga.json doesn't exist but GOOGLE_CREDENTIALS env var does, create the file
 if [ ! -f /app/ga.json ] && [ ! -z "$GOOGLE_CREDENTIALS" ]; then
     echo "Creating ga.json from GOOGLE_CREDENTIALS environment variable..."
-    echo "$GOOGLE_CREDENTIALS" > /app/ga.json
+    python3 -c "import os, json; data = json.loads(os.environ['GOOGLE_CREDENTIALS']); open('/app/ga.json', 'w').write(json.dumps(data, indent=2))"
 fi
 
 # Railway sets PORT=8080, but we need backend on 8000 for local and Railway uses PORT for the main service
