@@ -27,7 +27,4 @@ EXPOSE 5173 8000
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Railway uses PORT env var, so we'll expose that too
-ENV PORT=5173
-
 CMD ["/start.sh"]
