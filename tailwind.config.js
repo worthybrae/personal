@@ -17,6 +17,9 @@ export default {
       }
     },
     extend: {
+      fontFamily: {
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -50,6 +53,14 @@ export default {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
+        },
+        cyber: {
+          green: 'hsl(var(--cyber-green))',
+          cyan: 'hsl(var(--cyber-cyan))',
+          magenta: 'hsl(var(--cyber-magenta))',
+          amber: 'hsl(var(--cyber-amber))',
+          red: 'hsl(var(--cyber-red))',
+          dim: 'hsl(var(--cyber-dim))',
         },
         chart: {
           '1': 'hsl(var(--chart-1))',
