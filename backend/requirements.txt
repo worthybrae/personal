@@ -3,3 +3,5 @@ uvicorn[standard]==0.32.1
 google-analytics-data==0.18.11
 python-dotenv==1.0.1
 pydantic==2.10.3
+python-frontmatter==1.1.0
+markdown==3.7
