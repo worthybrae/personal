@@ -2,6 +2,7 @@
 import React from 'react';
 import { Github, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Header from './Header';
 
 interface MediaItem {
   type: 'image' | 'video' | 'custom';
@@ -72,7 +73,8 @@ const MediumStyleProject: React.FC<ProjectProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-12">
+      <Header />
       {/* Hero Section - Side by Side Layout */}
       <div className="container mx-auto px-4 py-16">
         <div className="grid md:grid-cols-2 gap-8 mb-16 items-center">

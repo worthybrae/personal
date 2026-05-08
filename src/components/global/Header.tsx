@@ -1,87 +1,26 @@
-// src/components/global/Header.tsx
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import ContactForm from './ContactForm';
-import VisitorCount from './VisitorCount';
 
-const Header = () => {
-  const location = useLocation();
-  const isLandingPage = location.pathname === '/';
-
-
+export default function Header() {
   return (
-    <>
-      {/* Spacer only for non-landing pages */}
-      {!isLandingPage && <div className="h-16" />}
-
-      <header className={`fixed top-0 left-0 right-0 z-50 ${
-        isLandingPage
-          ? 'bg-black/40 backdrop-blur-sm border-b border-white/10'
-          : 'bg-white/80 backdrop-blur-sm border-b border-gray-200'
-      }`}>
-        <div className="container mx-auto px-4 h-16 flex items-center">
-          <div className="flex items-center gap-8">
-            <Link
-              to="/"
-              className={`text-xl font-bold transition-colors ${
-                isLandingPage ? 'text-white hover:text-white/90' : 'text-black hover:text-gray-800'
-              }`}
-            >
-              <img src='/logo.png' width={45}/>
-            </Link>
-
-            <nav className="hidden md:flex items-center gap-1">
-              <Link
-                to="/projects/coderview"
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isLandingPage
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                coderview
-              </Link>
-              <Link
-                to="/projects/streamclout"
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isLandingPage
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                streamclout.io
-              </Link>
-              <Link
-                to="/projects/ai-architecture"
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isLandingPage
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                ai architecture
-              </Link>
-              <Link
-                to="/projects/livestream-art"
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isLandingPage
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                livestream art
-              </Link>
-
-            </nav>
-          </div>
-
-          <div className="ml-auto flex items-center gap-4">
-            <VisitorCount />
-            <ContactForm compact />
-          </div>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#08080c]/80 backdrop-blur-md border-b border-white/[0.05]">
+      <div className="flex items-center justify-between px-6 py-3">
+        <Link to="/" className="font-mono text-sm font-bold text-white tracking-widest hover:text-cyber-cyan transition-colors">
+          WR
+        </Link>
+        <div className="flex items-center gap-6 font-mono text-xs">
+          <Link to="/#websites" className="text-cyber-cyan hover:opacity-80 transition-opacity hidden md:inline">
+            websites
+          </Link>
+          <Link to="/#art" className="text-cyber-magenta hover:opacity-80 transition-opacity hidden md:inline">
+            art
+          </Link>
+          <Link to="/#blog" className="text-cyber-amber hover:opacity-80 transition-opacity hidden md:inline">
+            blog
+          </Link>
+          <ContactForm compact />
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
-};
-
-export default Header;
+}
