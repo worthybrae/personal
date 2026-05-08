@@ -22,7 +22,7 @@ def _parse_post(filepath: Path) -> dict:
     slug = filepath.stem  # filename without .md
 
     word_count = len(post.content.split())
-    read_time = max(1, math.ceil(word_count / 200))
+    read_time = f"{max(1, math.ceil(word_count / 200))} min"
 
     meta: dict = {
         "slug": slug,

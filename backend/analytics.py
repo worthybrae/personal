@@ -229,6 +229,7 @@ def _get_project_analytics_impl() -> list[dict]:
                 "name": name.replace("_", " ").title(),
                 "views_30d": views,
                 "sparkline": sparkline,
+                "source": f"{name}_ga4",
             }
         )
 
@@ -248,7 +249,7 @@ def _get_project_detail_impl(slug: str) -> dict:
         "slug": slug,
         "views_30d": 0,
         "unique_visitors_30d": 0,
-        "avg_session_duration": 0.0,
+        "avg_session_duration": "0m 0s",
         "daily_views": [],
         "top_sources": [],
     }
@@ -271,7 +272,10 @@ def _get_project_detail_impl(slug: str) -> dict:
         if summary_rows:
             views = int(summary_rows[0].get("screenPageViews", 0))
             unique = int(summary_rows[0].get("activeUsers", 0))
-            avg_dur = round(float(summary_rows[0].get("averageSessionDuration", 0)), 1)
+            avg_dur_raw = float(summary_rows[0].get("averageSessionDuration", 0))
+            avg_dur_minutes = int(avg_dur_raw) // 60
+            avg_dur_seconds = int(avg_dur_raw) % 60
+            avg_dur = f"{avg_dur_minutes}m {avg_dur_seconds}s"
 
         # Daily views
         daily_rows = _run_report(
@@ -304,7 +308,7 @@ def _get_project_detail_impl(slug: str) -> dict:
             top_sources.append(
                 {
                     "source": r.get("sessionSource", "(direct)"),
-                    "users": int(r.get("activeUsers", 0)),
+                    "count": int(r.get("activeUsers", 0)),
                 }
             )
 
@@ -351,7 +355,7 @@ def _get_page_views_impl() -> list[dict]:
             pages.append(
                 {
                     "path": path,
-                    "views": int(r.get("screenPageViews", 0)),
+                    "views_30d": int(r.get("screenPageViews", 0)),
                 }
             )
 
