@@ -1,0 +1,92 @@
+<h2>What's the vibe?</h2>
+<p class="subtitle">Pick the aesthetic direction for the psychedelic ASCII art feel. These are rough mood boards — we'll refine from here.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #000; color: #0f0; font-family: monospace; padding: 24px; font-size: 11px; line-height: 1.2; overflow: hidden; min-height: 220px; position: relative;">
+      <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,0,255,0.15), rgba(0,255,255,0.15), rgba(255,255,0,0.1)); pointer-events: none;"></div>
+      <pre style="margin:0; color: #0f0;">
+ _____ ___ _____ _____ _   ___   __
+|  _  |   |_   _|  |  | | | | |/ /
+| | | | |   | | | |_| |_| |   (
+|_____| |   |_| |_____|_____|_|\_\
+      </pre>
+      <pre style="margin:8px 0 0; color: #ff00ff; font-size: 9px;">
+////\\\\ .:*~*:. ////\\\\
+\\\\//// *:.WORTHY.:* \\\\////
+////\\\\ ':._.*:' ////\\\\
+      </pre>
+      <pre style="margin:8px 0 0; color: #00ffff; font-size: 9px;">
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  &gt; art    &gt; websites    &gt; blog
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      </pre>
+      <div style="color: #666; margin-top: 12px; font-size: 10px;">[ Matrix-style scrolling ASCII in background ]</div>
+    </div>
+    <div class="card-body">
+      <h3>A. Terminal Hacker</h3>
+      <p>Dark background, green/cyan/magenta terminal text. ASCII art rendered as if you're in a hacking terminal. Random characters rain down the screen. Navigation feels like typing commands. <strong>Think: The Matrix meets a BBS.</strong></p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(180deg, #1a0033, #330066, #1a0033); color: #fff; font-family: monospace; padding: 24px; font-size: 11px; line-height: 1.2; overflow: hidden; min-height: 220px; position: relative;">
+      <div style="position: absolute; inset: 0; background: radial-gradient(circle at 30% 40%, rgba(255,0,255,0.3), transparent 50%), radial-gradient(circle at 70% 60%, rgba(0,200,255,0.2), transparent 50%); pointer-events: none;"></div>
+      <pre style="margin:0; color: #ff66ff; text-align: center; font-size: 10px; position: relative;">
+        *  .  *    .   *
+   .    _____     .
+  *   /  W  \   *   .
+ .   | O R T |    *
+  *  | H Y   |  .
+   . \_____/    *
+    *    .  *  .   *
+      </pre>
+      <div style="text-align: center; margin-top: 16px; position: relative;">
+        <span style="color: #ff99ff; letter-spacing: 8px; font-size: 14px;">W O R T H Y</span><br>
+        <span style="color: #66ccff; letter-spacing: 4px; font-size: 10px; opacity: 0.7;">R A E</span>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 32px; margin-top: 16px; color: #cc99ff; font-size: 10px; position: relative;">
+        <span>~ art ~</span>
+        <span>~ websites ~</span>
+        <span>~ blog ~</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Cosmic Void</h3>
+      <p>Deep purple/black gradients with floating ASCII constellations. Art morphs and drifts slowly. Soft glows and particle effects. Navigation emerges from the void. <strong>Think: A planetarium made of characters.</strong></p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #111; color: #fff; font-family: monospace; padding: 24px; font-size: 11px; line-height: 1.2; overflow: hidden; min-height: 220px; position: relative;">
+      <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px); pointer-events: none;"></div>
+      <pre style="margin:0; color: #ff3366; text-align: center; font-size: 9px; position: relative;">
+ __      __  ______  _____   _______  _    _  __    __
+|  \    /  ||  __  ||  _  \ |__   __|| |  | ||\ \  / /|
+ \  \/\/  / | |  | || |_) /    | |   | |__| | \ \/ / |
+  \      /  | |  | ||    /     | |   |  __  |  \  /  |
+   \    /   | |__| || |\ \     | |   | |  | |  / /\  \
+    \__/    |______||_| \_\    |_|   |_|  |_| /_/  \_\|
+      </pre>
+      <div style="text-align: center; margin: 16px 0; position: relative;">
+        <div style="display: inline-block; border: 1px solid #333; padding: 8px 16px;">
+          <span style="color: #ff3366;">ART</span>
+          <span style="color: #444; margin: 0 8px;">|</span>
+          <span style="color: #33ff99;">WEB</span>
+          <span style="color: #444; margin: 0 8px;">|</span>
+          <span style="color: #3366ff;">BLOG</span>
+        </div>
+      </div>
+      <div style="color: #444; font-size: 9px; text-align: center; position: relative;">
+        &lt;!-- the ASCII regenerates every visit --&gt;<br>
+        &lt;!-- no two loads are the same --&gt;
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Glitch Gallery</h3>
+      <p>Clean dark background with bold colored ASCII art that glitches, scrambles, and reforms. Scanlines, CRT effects, random character substitution. Each page load generates unique art. <strong>Think: A corrupted art gallery that's beautiful in its chaos.</strong></p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top: 24px;">You can also mix elements — e.g., the cosmic palette with the glitch effects. Click what resonates most.</p>

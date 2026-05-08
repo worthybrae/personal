@@ -44,13 +44,6 @@ const Landing = () => {
       type: "video",
       media: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4",
       link: "/projects/ai-architecture"
-    },
-    {
-      title: "Country Density",
-      description: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
-      type: "image",
-      media: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png",
-      link: "/projects/country-density"
     }
   ];
 

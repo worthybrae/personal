@@ -1,0 +1,218 @@
+<h2>Binary Topography — Name as Landmark</h2>
+<p class="subtitle">Real letters, fixed position — the contour field illuminates them as it flows through.</p>
+
+<div style="display: flex; justify-content: center; margin-top: 24px;">
+  <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+    <canvas id="topo" width="900" height="500" style="display: block; cursor: crosshair;"></canvas>
+  </div>
+</div>
+
+<p style="text-align: center; margin-top: 16px; font-size: 13px; opacity: 0.5;">The name is always readable — contour blobs light it up as they pass through</p>
+
+<script>
+(function() {
+  const c = document.getElementById('topo');
+  const ctx = c.getContext('2d');
+  const cols = 100, rows = 55;
+  const cw = c.width / cols, ch = c.height / rows;
+
+  let mouseX = 0.5, mouseY = 0.5;
+  let smoothMX = 0.5, smoothMY = 0.5;
+
+  c.addEventListener('mousemove', (e) => {
+    const rect = c.getBoundingClientRect();
+    mouseX = (e.clientX - rect.left) / rect.width;
+    mouseY = (e.clientY - rect.top) / rect.height;
+  });
+
+  // Build a map of name characters at grid positions
+  // We'll place "WORTHY" and "RAE" as large block letters in the grid
+  const nameMap = {}; // key: "col,row" -> character
+
+  // Render text to offscreen canvas to get pixel positions
+  const offscreen = document.createElement('canvas');
+  offscreen.width = cols;
+  offscreen.height = rows;
+  const offCtx = offscreen.getContext('2d');
+
+  // Draw WORTHY
+  offCtx.fillStyle = '#000';
+  offCtx.fillRect(0, 0, cols, rows);
+  offCtx.fillStyle = '#fff';
+  offCtx.textAlign = 'center';
+  offCtx.textBaseline = 'middle';
+  const fs = Math.floor(rows * 0.30);
+  offCtx.font = `900 ${fs}px "Helvetica Neue", "Arial Black", Impact, sans-serif`;
+
+  // Draw both lines
+  offCtx.fillText('WORTHY', cols / 2, rows * 0.37);
+  offCtx.fillText('RAE', cols / 2, rows * 0.65);
+
+  const imgData = offCtx.getImageData(0, 0, cols, rows).data;
+
+  // For each lit pixel, figure out which character it belongs to
+  // We'll do this by drawing each character individually
+  const lines = [
+    { text: 'WORTHY', y: 0.37 },
+    { text: 'RAE', y: 0.65 }
+  ];
+
+  // Build character map by sampling each char individually
+  for (const line of lines) {
+    const chars = line.text.split('');
+    // Measure full line width to find start position
+    offCtx.font = `900 ${fs}px "Helvetica Neue", "Arial Black", Impact, sans-serif`;
+    const totalWidth = offCtx.measureText(line.text).width;
+    let charX = cols / 2 - totalWidth / 2;
+
+    for (const ch of chars) {
+      const charWidth = offCtx.measureText(ch).width;
+      const centerX = charX + charWidth / 2;
+      const centerY = rows * line.y;
+
+      // For each grid cell, check if it's within this character's bounds
+      // We'll use the full bitmap and assign chars based on x-position
+      charX += charWidth;
+    }
+  }
+
+  // Simpler approach: just store which pixels are "name" and what char
+  // by checking the bitmap and mapping x-position to character
+  function getNameChar(col, row) {
+    const idx = (row * cols + col) * 4;
+    if (imgData[idx] < 128) return null;
+
+    // Determine which line based on row
+    const yNorm = row / rows;
+    let line, lineY;
+    if (yNorm < 0.51) {
+      line = 'WORTHY';
+      lineY = rows * 0.37;
+    } else {
+      line = 'RAE';
+      lineY = rows * 0.65;
+    }
+
+    // Map col to character index within the line
+    offCtx.font = `900 ${fs}px "Helvetica Neue", "Arial Black", Impact, sans-serif`;
+    const totalW = offCtx.measureText(line).width;
+    const startX = cols / 2 - totalW / 2;
+    const relX = col - startX;
+
+    if (relX < 0 || relX > totalW) return null;
+
+    let accum = 0;
+    for (const ch of line) {
+      const w = offCtx.measureText(ch).width;
+      if (relX < accum + w) return ch;
+      accum += w;
+    }
+    return line[line.length - 1];
+  }
+
+  // Pre-compute name map for performance
+  const nameGrid = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, col) => getNameChar(col, r))
+  );
+
+  let frame = 0;
+
+  function draw() {
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    smoothMX += (mouseX - smoothMX) * 0.03;
+    smoothMY += (mouseY - smoothMY) * 0.03;
+
+    const fontSize = Math.min(cw, ch) * 0.72;
+    ctx.textBaseline = 'middle';
+
+    const t = frame * 0.003;
+
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col / cols;
+        const y = r / rows;
+
+        const dx = x - smoothMX;
+        const dy = y - smoothMY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const radialPhase = dist * 8.0;
+
+        let v = Math.sin(x * 5.0 + t * 1.2 + radialPhase * 0.3)
+                  * Math.cos(y * 3.5 - t * 0.8 + radialPhase * 0.2) * 0.5
+              + Math.sin((x + y) * 4.0 + t * 0.6 + radialPhase * 0.25) * 0.4
+              + Math.sin(x * 10 + y * 6 + t * 1.5) * 0.15
+              + Math.cos(x * 7 - y * 9 + t * 0.4) * 0.2;
+
+        const normalized = (v + 2.0) / 4.0;
+
+        const contourSpacing = 0.09;
+        const modVal = normalized % contourSpacing;
+        const distToLine = Math.abs(modVal - contourSpacing / 2);
+        const isContour = distToLine < 0.012;
+        const isNearContour = distToLine < 0.025;
+        const isPeak = normalized > 0.72;
+
+        const nameChar = nameGrid[r][col];
+
+        if (nameChar) {
+          // --- NAME CHARACTER ---
+          // Always show the actual letter, but field modulates its brightness
+          const fieldStrength = isContour ? 1.0 : (isPeak ? 0.7 : (isNearContour ? 0.5 : 0.0));
+
+          // Base: always visible at a baseline brightness
+          const baseLum = 40;
+          const baseAlpha = 0.65;
+
+          // Boost when field passes through
+          const boostLum = fieldStrength * 30;
+          const boostAlpha = fieldStrength * 0.35;
+
+          const hue = 175 + fieldStrength * 25;
+          const sat = 40 + fieldStrength * 35;
+          const light = baseLum + boostLum;
+          const alpha = baseAlpha + boostAlpha;
+
+          // Use the actual letter character, slightly larger
+          ctx.font = `900 ${fontSize * 1.05}px "SF Mono", "Fira Code", "Cascadia Code", monospace`;
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+          ctx.fillText(nameChar, col * cw + cw * 0.15, r * ch + ch * 0.55);
+
+        } else if (isContour || isPeak) {
+          // --- FIELD CHARACTER ---
+          const char = normalized > 0.5 ? '1' : '0';
+          ctx.font = `${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", monospace`;
+
+          let hue, sat, light, alpha;
+          if (isPeak && !isContour) {
+            hue = 170 + normalized * 30;
+            sat = 50;
+            light = 25 + normalized * 20;
+            alpha = normalized * 0.5;
+          } else {
+            hue = 165 + normalized * 50;
+            sat = 55 + normalized * 25;
+            light = 35 + normalized * 35;
+            alpha = isContour ? (0.6 + normalized * 0.35) : 0.3;
+          }
+
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+          ctx.fillText(char, col * cw + cw * 0.15, r * ch + ch * 0.55);
+
+        } else if (isNearContour) {
+          const char = normalized > 0.5 ? '1' : '0';
+          ctx.font = `${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", monospace`;
+          ctx.fillStyle = `hsla(180, 30%, 25%, 0.12)`;
+          ctx.fillText(char, col * cw + cw * 0.15, r * ch + ch * 0.55);
+        }
+      }
+    }
+
+    frame++;
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+})();
+</script>
