@@ -3,6 +3,8 @@ import React from 'react';
 import { Github, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from './Header';
+import { useFetch } from '@/hooks/useAnalytics';
+import { api } from '@/lib/api';
 
 interface MediaItem {
   type: 'image' | 'video' | 'custom';
@@ -18,6 +20,7 @@ interface ProjectProps {
   heroMedia: MediaItem;
   githubUrl: string;
   visitSiteUrl?: string;
+  projectSlug?: string;
   sections: {
     title: string;
     content: string;
@@ -33,12 +36,40 @@ interface ProjectProps {
   renderCustomSections?: React.ReactNode;
 }
 
+function StatsHeader({ slug }: { slug: string }) {
+  const { data, loading } = useFetch(() => api.getProjectDetail(slug));
+
+  if (loading || !data) return null;
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
+      <div>
+        <div className="text-cyber-dim">Views (30d)</div>
+        <div className="text-xl font-bold text-cyber-cyan mt-1">{data.views_30d.toLocaleString()}</div>
+      </div>
+      <div>
+        <div className="text-cyber-dim">Unique Visitors</div>
+        <div className="text-xl font-bold text-cyber-cyan mt-1">{data.unique_visitors_30d.toLocaleString()}</div>
+      </div>
+      <div>
+        <div className="text-cyber-dim">Avg Session</div>
+        <div className="text-xl font-bold text-cyber-cyan mt-1">{data.avg_session_duration}</div>
+      </div>
+      <div>
+        <div className="text-cyber-dim">Top Source</div>
+        <div className="text-xl font-bold text-cyber-cyan mt-1">{data.top_sources[0]?.source ?? '—'}</div>
+      </div>
+    </div>
+  );
+}
+
 const MediumStyleProject: React.FC<ProjectProps> = ({
   title,
   subtitle,
   heroMedia,
   githubUrl,
   visitSiteUrl,
+  projectSlug,
   sections,
   relatedProjects,
   renderCustomSections,
@@ -114,6 +145,8 @@ const MediumStyleProject: React.FC<ProjectProps> = ({
           </div>
         </div>
       </div>
+
+      {projectSlug && <StatsHeader slug={projectSlug} />}
 
       {/* Article Content */}
       <article className="max-w-3xl mx-auto px-4 py-12 medium-article">

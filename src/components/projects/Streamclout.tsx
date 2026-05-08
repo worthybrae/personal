@@ -262,20 +262,14 @@ async def search_albums(
         {
             title: "Livestream Art",
             description: "Real-time artistic transformation of the iconic Abbey Road crossing livestream using computer vision and edge detection.",
-            link: "/projects/livestream-art",
+            link: "/art/livestream-art",
             image: "https://portfolio-worthy.s3.amazonaws.com/abbey_road_best.mp4"
           },
           {
             title: "AI Architecture",
             description: "A StyleGAN-based exploration of architectural design using machine learning.",
-            link: "/projects/ai-architecture",
+            link: "/art/ai-architecture",
             image: "https://portfolio-worthy.s3.amazonaws.com/flesh_digression.mp4"
-          },
-          {
-            title: "Country Density",
-            description: "A data visualization project that transforms population density data into stunning 3D renderings using R and the Rayshader library.",
-            link: "/projects/country-density",
-            image: "https://portfolio-worthy.s3.us-east-1.amazonaws.com/density-preview.png"
           },
           {
             title: "coderview",
@@ -286,7 +280,7 @@ async def search_albums(
     ]
   };
 
-  return <MediumStyleProject {...projectData} />;
+  return <MediumStyleProject {...projectData} projectSlug="streamclout" />;
 };
 
 export default StreamClout;
