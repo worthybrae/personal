@@ -1,13 +1,34 @@
-.PHONY: help build run stop clean logs restart
+.PHONY: help build run stop clean logs restart run-frontend run-backend run-local
 
 help:
 	@echo "Available commands:"
-	@echo "  make build    - Build the Docker image"
-	@echo "  make run      - Start the application (backend + frontend)"
-	@echo "  make stop     - Stop the application"
-	@echo "  make restart  - Restart the application"
-	@echo "  make logs     - View application logs"
-	@echo "  make clean    - Stop and remove containers, images, and volumes"
+	@echo ""
+	@echo "  Local development:"
+	@echo "  make run-frontend  - Start the Vite frontend (port 5173)"
+	@echo "  make run-backend   - Start the FastAPI backend (port 8000)"
+	@echo "  make run-local     - Start both frontend and backend"
+	@echo ""
+	@echo "  Docker:"
+	@echo "  make build         - Build the Docker image"
+	@echo "  make run           - Start the application via Docker"
+	@echo "  make stop          - Stop the application"
+	@echo "  make restart       - Restart the application"
+	@echo "  make logs          - View application logs"
+	@echo "  make clean         - Stop and remove containers, images, and volumes"
+
+run-frontend:
+	@echo "Starting Vite frontend on http://localhost:5173..."
+	npm run dev
+
+run-backend:
+	@echo "Starting FastAPI backend on http://localhost:8000..."
+	cd backend && python main.py
+
+run-local:
+	@echo "Starting frontend and backend..."
+	@echo "Frontend: http://localhost:5173"
+	@echo "Backend:  http://localhost:8000"
+	npx concurrently --names "frontend,backend" --prefix-colors "cyan,magenta" "npm run dev" "cd backend && python main.py"
 
 build:
 	@echo "🔨 Building Docker image..."
