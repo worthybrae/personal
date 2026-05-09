@@ -3,11 +3,11 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import ContactForm from '@/components/global/ContactForm';
-import { useAsciiAnimation } from './useAsciiAnimation';
+import { useTerrainAnimation } from './useTerrainAnimation';
 
 export default function AsciiHero() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useAsciiAnimation(canvasRef);
+  useTerrainAnimation(canvasRef);
 
   return (
     <section className="relative h-screen overflow-hidden bg-[#08080c]">
