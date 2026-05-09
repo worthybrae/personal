@@ -76,7 +76,7 @@ export function useTerrainAnimation(
       if (isPortrait) {
         // Vertical stack on mobile
         const navLabels = ['APPS', 'ART', 'BLOG'];
-        const navHrefs = ['#websites', '#art', '#blog'];
+        const navHrefs = ['/apps', '/art', '/blog'];
         const navStartY = canvasHeight * 0.68;
         const navGap = navH * 1.3;
 
@@ -101,7 +101,7 @@ export function useTerrainAnimation(
         const pad = canvasWidth * 0.05;
 
         const navLabels = ['APPS', 'ART', 'BLOG'];
-        const navHrefs = ['#websites', '#art', '#blog'];
+        const navHrefs = ['/apps', '/art', '/blog'];
         const aligns: CanvasTextAlign[] = ['left', 'center', 'right'];
         const xPositions = [pad, off.width / 2, off.width - pad];
 
@@ -252,7 +252,7 @@ export function useTerrainAnimation(
       if (hit.href.startsWith('http')) {
         window.open(hit.href, '_blank', 'noopener,noreferrer');
       } else {
-        window.location.hash = hit.href.slice(1);
+        window.location.href = hit.href;
       }
     }
 
