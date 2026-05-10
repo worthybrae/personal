@@ -1,7 +1,9 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTerrainAnimation, type LabelId } from '@/components/Dashboard/useTerrainAnimation';
-import { getProject, PROJECTS } from '@/lib/projects';
+import { getProject, PROJECTS, type ProjectMeta } from '@/lib/projects';
+import { useFetch } from '@/hooks/useAnalytics';
+import { api } from '@/lib/api';
 
 type Page = 'home' | 'menu' | LabelId | 'work-detail';
 
@@ -102,6 +104,71 @@ export default function Home() {
   return (
     <div>
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
+      {page === 'work-detail' && project && (
+        <WorkDetailOverlay project={project} detailRef={detailRef} />
+      )}
+    </div>
+  );
+}
+
+interface WorkDetailOverlayProps {
+  project: ProjectMeta;
+  detailRef: React.MutableRefObject<{ name: string; mau: string } | null>;
+}
+
+function WorkDetailOverlay({ project, detailRef }: WorkDetailOverlayProps) {
+  const [visible, setVisible] = useState(false);
+  const { data: projects } = useFetch(() => api.getProjects());
+  const analytics = projects?.projects.find((p) => p.slug === project.slug);
+  const mau = analytics ? analytics.views_30d.toLocaleString() : '—';
+
+  // Update the terrain detail ref so the mask renders name + MAU
+  detailRef.current = { name: project.name, mau: `${mau} MAU` };
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), 400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const cutH = vh - 100;
+  const isPortrait = vh > vw;
+  const maxCutW = Math.min(672, vw - 48);
+  const titleH = isPortrait ? maxCutW * 0.22 : cutH * 0.1;
+  const cutCY = vh * 0.53;
+  const videoTop = cutCY + titleH * 0.8;
+
+  return (
+    <div
+      className={`fixed z-20 left-1/2 -translate-x-1/2 transition-opacity duration-500 ${
+        visible ? 'opacity-100' : 'opacity-0'
+      }`}
+      style={{
+        top: `${videoTop}px`,
+        width: `min(540px, calc(100vw - 80px))`,
+      }}
+    >
+      {project.videoUrl ? (
+        <video
+          className="w-full rounded-lg shadow-lg shadow-black/30"
+          src={project.videoUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+        />
+      ) : null}
+      <a
+        href={project.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`block text-center text-white/50 hover:text-white text-sm font-mono transition-colors ${
+          project.videoUrl ? 'mt-3' : 'mt-0'
+        }`}
+      >
+        visit {project.name.toLowerCase()} →
+      </a>
     </div>
   );
 }
