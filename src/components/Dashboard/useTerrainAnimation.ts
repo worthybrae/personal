@@ -265,11 +265,11 @@ export function useTerrainAnimation(
       if (detail) {
         // Detail mode: project name centered + MAU below in smaller font
         const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const mauFont = `900 ${titleH * 0.65}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const mauFont = `900 ${titleH * 0.85}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
 
         // Name
         o.font = nameFont;
-        const nameY = cutCY - titleH * 0.4;
+        const nameY = cutCY - titleH * 0.7;
         o.fillText(detail.name, cutCX, nameY, cutMaxW * 0.9);
         const nameTw = o.measureText(detail.name).width;
         newBounds.push({
@@ -281,7 +281,7 @@ export function useTerrainAnimation(
 
         // MAU stat
         o.font = mauFont;
-        const mauY = nameY + titleH * 0.85;
+        const mauY = nameY + titleH * 1.3;
         o.fillText(detail.mau, cutCX, mauY, cutMaxW * 0.9);
         const mauTw = o.measureText(detail.mau).width;
         newBounds.push({
