@@ -756,5 +756,5 @@ export function useTerrainAnimation(
       window.removeEventListener('click', onClick);
       document.body.style.cursor = '';
     };
-  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLabelClick, onLogoClick, onMenuClick, contentOpenRef, activeLabelRef, contentSubItemsRef]);
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLabelClick, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef]);
 }
