@@ -397,6 +397,9 @@ export function useTerrainAnimation(
     let contentProgress = 0;
     let introStart = -1;
     let logoMenuIntroProgress = 0;
+    let maskOpacity = 1;
+    let maskOpacityTarget = 1;
+    let pendingMaskRebuild = false;
 
     function draw(ts: number) {
       if (!canvas) return;
@@ -468,10 +471,31 @@ export function useTerrainAnimation(
       const detail = config.detailRef?.current;
       const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
       if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
+        // Content changed — if already showing content, fade out first
+        if (lastContentLabel !== null && contentTitleFade > 0.5) {
+          maskOpacityTarget = 0;
+          pendingMaskRebuild = true;
+        } else {
+          // First content load — just build immediately
+          lastContentLabel = currentLabel;
+          lastSubItemsKey = subItemsKey;
+          lastDetailKey = detailKey;
+          if (currentLabel) buildContentTitleMask(currentLabel);
+        }
+      }
+
+      // Lerp maskOpacity toward target
+      maskOpacity += (maskOpacityTarget - maskOpacity) * 0.08;
+      if (Math.abs(maskOpacity - maskOpacityTarget) < 0.01) maskOpacity = maskOpacityTarget;
+
+      // When fade-out completes, rebuild mask and fade back in
+      if (pendingMaskRebuild && maskOpacity < 0.02) {
         lastContentLabel = currentLabel;
         lastSubItemsKey = subItemsKey;
         lastDetailKey = detailKey;
         if (currentLabel) buildContentTitleMask(currentLabel);
+        maskOpacityTarget = 1;
+        pendingMaskRebuild = false;
       }
 
       // --- Hovered label / W logo detection ---
@@ -592,7 +616,8 @@ export function useTerrainAnimation(
             let h2 = ((c + 17) * 374761393 + (r + 31) * 668265263) | 0;
             h2 = ((h2 ^ (h2 >>> 13)) * 1274126177) | 0;
             const hash2 = ((h2 ^ (h2 >>> 16)) & 0x7fff) / 0x7fff;
-            if (contentTitleFade >= hash2) {
+            const effectiveFade = contentTitleFade * maskOpacity;
+            if (effectiveFade >= hash2) {
               const isClosing = contentTarget === 0;
               if (isClosing) {
                 // Exit: render as white so dissolve is visible
