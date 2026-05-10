@@ -64,6 +64,24 @@ async def blog_detail(slug: str):
     return post
 
 
+@app.get("/api/spotify/now-playing")
+async def spotify_now_playing():
+    from spotify import get_now_playing
+    return get_now_playing()
+
+@app.get("/api/spotify/top-tracks")
+async def spotify_top_tracks():
+    from spotify import get_top_tracks
+    return get_top_tracks()
+
+@app.get("/api/spotify/callback")
+async def spotify_callback(code: str):
+    """One-time OAuth callback to capture refresh token."""
+    from spotify import _get_client
+    _get_client()
+    return {"status": "authenticated"}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
