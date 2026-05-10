@@ -82,6 +82,12 @@ async def spotify_callback(code: str):
     return {"status": "authenticated"}
 
 
+@app.get("/api/letterboxd/recent")
+async def letterboxd_recent():
+    from letterboxd import get_recent_films
+    return get_recent_films()
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
