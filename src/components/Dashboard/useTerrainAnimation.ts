@@ -22,7 +22,7 @@ export interface TerrainConfig {
   activeLabelRef?: React.RefObject<LabelId | null>;
   scrollTargetRef?: React.RefObject<number>;
   contentSubItemsRef?: React.RefObject<{ text: string; url: string }[]>;
-  detailRef?: React.MutableRefObject<{ name: string; mau: string } | null>;
+  detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
 }
 
 export function useTerrainAnimation(
@@ -265,7 +265,7 @@ export function useTerrainAnimation(
       if (detail) {
         // Detail mode: project name centered + MAU below in smaller font
         const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const mauFont = `900 ${titleH * 0.45}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const mauFont = `900 ${titleH * 0.65}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
 
         // Name
         o.font = nameFont;
@@ -730,12 +730,18 @@ export function useTerrainAnimation(
         onMenuClick?.();
       } else if (typeof hit === 'string' && hit.startsWith('sub:')) {
         const idx = parseInt(hit.slice(4));
-        const items = contentSubItemsRef?.current;
-        if (items?.[idx]?.url) {
-          if (onSubItemClick) {
-            onSubItemClick(items[idx].url);
-          } else {
-            window.open(items[idx].url, '_blank');
+        const detail = config.detailRef?.current;
+        if (detail && idx === 0) {
+          // Detail mode: clicking the name opens external URL
+          window.open(detail.url, '_blank');
+        } else {
+          const items = contentSubItemsRef?.current;
+          if (items?.[idx]?.url) {
+            if (onSubItemClick) {
+              onSubItemClick(items[idx].url);
+            } else {
+              window.open(items[idx].url, '_blank');
+            }
           }
         }
       } else if (typeof hit === 'number') {

@@ -40,7 +40,7 @@ export default function Home() {
 
   // Detail page state
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
-  const detailRef = useRef<{ name: string; mau: string } | null>(null);
+  const detailRef = useRef<{ name: string; mau: string; url: string } | null>(null);
 
   // Clear detail state when not on a detail page
   if (page !== 'work-detail') {
@@ -113,7 +113,7 @@ export default function Home() {
 
 interface WorkDetailOverlayProps {
   project: ProjectMeta;
-  detailRef: React.MutableRefObject<{ name: string; mau: string } | null>;
+  detailRef: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
 }
 
 function WorkDetailOverlay({ project, detailRef }: WorkDetailOverlayProps) {
@@ -123,7 +123,7 @@ function WorkDetailOverlay({ project, detailRef }: WorkDetailOverlayProps) {
   const mau = analytics ? analytics.views_30d.toLocaleString() : '—';
 
   // Update the terrain detail ref so the mask renders name + MAU
-  detailRef.current = { name: project.name, mau: `${mau} MAU` };
+  detailRef.current = { name: project.name, mau: `${mau} MAU`, url: project.url };
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 400);
@@ -159,16 +159,6 @@ function WorkDetailOverlay({ project, detailRef }: WorkDetailOverlayProps) {
           playsInline
         />
       ) : null}
-      <a
-        href={project.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`block text-center text-white/50 hover:text-white text-sm font-mono transition-colors ${
-          project.videoUrl ? 'mt-3' : 'mt-0'
-        }`}
-      >
-        visit {project.name.toLowerCase()} →
-      </a>
     </div>
   );
 }
