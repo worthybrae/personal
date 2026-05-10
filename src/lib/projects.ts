@@ -10,7 +10,7 @@ export const PROJECTS: ProjectMeta[] = [
     slug: 'coderview',
     name: 'CODERVIEW',
     url: 'https://www.coderview-ai.com/',
-    // videoUrl: 'https://your-bucket.s3.amazonaws.com/coderview-promo.mp4',
+    videoUrl: 'https://www.youtube.com/embed/9LjGWi0-JgE?autoplay=1&mute=1&loop=1&playlist=9LjGWi0-JgE&controls=0&showinfo=0&rel=0',
   },
   {
     slug: 'streamclout',

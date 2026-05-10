@@ -150,14 +150,24 @@ function WorkDetailOverlay({ project, detailRef }: WorkDetailOverlayProps) {
       }}
     >
       {project.videoUrl ? (
-        <video
-          className="w-full rounded-lg shadow-lg shadow-black/30"
-          src={project.videoUrl}
-          autoPlay
-          muted
-          loop
-          playsInline
-        />
+        project.videoUrl.includes('youtube.com') ? (
+          <iframe
+            className="w-full rounded-lg shadow-lg shadow-black/30"
+            style={{ aspectRatio: '16/9', border: 'none' }}
+            src={project.videoUrl}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          />
+        ) : (
+          <video
+            className="w-full rounded-lg shadow-lg shadow-black/30"
+            src={project.videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        )
       ) : null}
     </div>
   );
