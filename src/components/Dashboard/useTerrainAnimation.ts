@@ -30,7 +30,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLabelClick, onLogoClick, onMenuClick, onSubItemClick: _onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef } = config;
+  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLabelClick, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef } = config;
   const rafRef = useRef(0);
 
   const nameMaskRef = useRef<{
@@ -731,7 +731,13 @@ export function useTerrainAnimation(
       } else if (typeof hit === 'string' && hit.startsWith('sub:')) {
         const idx = parseInt(hit.slice(4));
         const items = contentSubItemsRef?.current;
-        if (items?.[idx]?.url) window.open(items[idx].url, '_blank');
+        if (items?.[idx]?.url) {
+          if (onSubItemClick) {
+            onSubItemClick(items[idx].url);
+          } else {
+            window.open(items[idx].url, '_blank');
+          }
+        }
       } else if (typeof hit === 'number') {
         onLabelClick?.(LABELS[hit].toLowerCase() as LabelId);
       }
