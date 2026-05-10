@@ -1,21 +1,28 @@
-import AsciiHero from '@/components/Dashboard/AsciiHero';
-import StatsTicker from '@/components/Dashboard/StatsTicker';
-import WebsitesPanel from '@/components/Dashboard/WebsitesPanel';
-import ArtPanel from '@/components/Dashboard/ArtPanel';
-import BlogPanel from '@/components/Dashboard/BlogPanel';
-import Footer from '@/components/Layout/Footer';
+import { useRef } from 'react';
+import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation';
+import ContentSection from '@/components/Dashboard/ContentSection';
 
 export default function Home() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useTerrainAnimation(canvasRef);
+
   return (
-    <div className="min-h-screen bg-[#08080c]">
-      <AsciiHero />
-      <StatsTicker />
-      <WebsitesPanel />
-      <div className="mx-6 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
-      <ArtPanel />
-      <div className="mx-6 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
-      <BlogPanel />
-      <Footer />
+    <div className="bg-[#08080c]">
+      {/* Global terrain canvas — fixed behind everything */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
+
+      {/* Snap scroll container */}
+      <div className="relative z-10 h-screen overflow-y-auto snap-y snap-mandatory">
+        {/* Hero section — just the terrain showing through */}
+        <section className="h-screen snap-start flex items-end justify-center pb-12">
+          <div className="font-mono text-white/20 text-xs animate-pulse select-none">
+            ↓ scroll
+          </div>
+        </section>
+
+        {/* Content section */}
+        <ContentSection />
+      </div>
     </div>
   );
 }
