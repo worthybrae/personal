@@ -5,6 +5,9 @@ import type {
   PageViews,
   BlogPostMeta,
   BlogPost,
+  SpotifyNowPlaying,
+  SpotifyTopTracks,
+  LetterboxdRecent,
 } from '@/types/analytics';
 
 const BASE = '/api';
@@ -22,4 +25,7 @@ export const api = {
   getPageViews: () => fetchJSON<{ pages: PageViews[] }>('/analytics/pages'),
   getBlogPosts: () => fetchJSON<{ posts: BlogPostMeta[] }>('/blog'),
   getBlogPost: (slug: string) => fetchJSON<BlogPost>(`/blog/${slug}`),
+  getSpotifyNowPlaying: () => fetchJSON<SpotifyNowPlaying>('/spotify/now-playing'),
+  getSpotifyTopTracks: () => fetchJSON<SpotifyTopTracks>('/spotify/top-tracks'),
+  getLetterboxdRecent: () => fetchJSON<LetterboxdRecent>('/letterboxd/recent'),
 };

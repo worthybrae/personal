@@ -39,3 +39,34 @@ export interface BlogPostMeta {
 export interface BlogPost extends BlogPostMeta {
   content_html: string;
 }
+
+export interface SpotifyNowPlaying {
+  is_playing: boolean;
+  track: string;
+  artist: string;
+  album: string;
+  album_art_url: string;
+  progress_ms: number;
+  duration_ms: number;
+}
+
+export interface SpotifyTopTracks {
+  tracks: {
+    track: string;
+    artist: string;
+    album_art_url: string;
+  }[];
+}
+
+export interface LetterboxdFilm {
+  title: string;
+  year: number | null;
+  rating: number;
+  url: string;
+  poster_url: string;
+  watched_date: string;
+}
+
+export interface LetterboxdRecent {
+  films: LetterboxdFilm[];
+}
