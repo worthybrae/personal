@@ -168,7 +168,7 @@ export function useTerrainAnimation(
         height: w2.height,
       };
 
-      // --- Menu (+) icon mask — grid-aligned rectangles for cross-platform consistency ---
+      // --- Menu (+) icon mask — grid-aligned, 3-wide vertical bar, 2-thick horizontal ---
       const m = document.createElement('canvas');
       m.width = canvasWidth;
       m.height = canvasHeight;
@@ -177,27 +177,28 @@ export function useTerrainAnimation(
       mctx.fillRect(0, 0, m.width, m.height);
 
       mctx.fillStyle = '#fff';
-      const plusCols = 8;
-      const barThick = 2;
+      const plusCols = 9;
+      const vBarThick = 3; // vertical bar: 3 columns wide
+      const hBarThick = 2; // horizontal bar: 2 rows thick
       const plusRows = 6;
       const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
       const plusTopRow = wFinalMinR < Infinity ? wFinalMinR : Math.floor(logoY / cH);
       const plusLeftCol = plusRightCol - plusCols;
-      const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
-      const plusMidRow = plusTopRow + Math.floor((plusRows - barThick) / 2);
+      const plusMidCol = plusLeftCol + Math.floor((plusCols - vBarThick) / 2);
+      const plusMidRow = plusTopRow + Math.floor((plusRows - hBarThick) / 2);
       const fillCell = (r: number, c: number) => {
         const x = Math.floor(c * cW);
         const y = Math.floor(r * cH);
         mctx.fillRect(x, y, Math.floor((c + 1) * cW) - x, Math.floor((r + 1) * cH) - y);
       };
-      // Vertical bar
+      // Vertical bar (3 cols wide)
       for (let r = plusTopRow; r < plusTopRow + plusRows; r++) {
-        for (let c = plusMidCol; c < plusMidCol + barThick; c++) {
+        for (let c = plusMidCol; c < plusMidCol + vBarThick; c++) {
           fillCell(r, c);
         }
       }
-      // Horizontal bar
-      for (let r = plusMidRow; r < plusMidRow + barThick; r++) {
+      // Horizontal bar (2 rows thick)
+      for (let r = plusMidRow; r < plusMidRow + hBarThick; r++) {
         for (let c = plusLeftCol; c < plusLeftCol + plusCols; c++) {
           fillCell(r, c);
         }
@@ -259,6 +260,8 @@ export function useTerrainAnimation(
     let npBarsRow = 0;
     let npIsPlaying = false;
     let npTimeStr = '';         // relative time like "3m" when paused
+    let npMaxTextWidth = 0;     // max visible chars for track text
+    let npFullTextStr = '';     // full untruncated track text for scrolling
     let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
@@ -396,7 +399,7 @@ export function useTerrainAnimation(
     function setupNowPlaying(track: string, artist: string, isPlaying: boolean, playedAt?: string) {
       npIsPlaying = isPlaying;
       npLabelStr = isPlaying ? 'LISTENING TO' : 'LISTENED TO';
-      npTextStr = `${track} — ${artist}`.toUpperCase();
+      npFullTextStr = `${track} — ${artist}`.toUpperCase();
 
       // Compute relative time for paused state
       npTimeStr = '';
@@ -411,7 +414,17 @@ export function useTerrainAnimation(
       // Box sizing: bars(5) + space(2) + max(label, track) + padding
       const barsWidth = 5;
       const gapAfterBars = 2;
-      const contentWidth = Math.max(npLabelStr.length, npTextStr.length);
+      // Cap text width so the box doesn't overflow the screen
+      const maxBoxCols = Math.min(cols - 6, 60); // leave margin, cap at 60 chars total
+      const maxTextArea = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1); // subtract borders, padding, bars
+      npMaxTextWidth = Math.max(npLabelStr.length, maxTextArea);
+      // Truncate display text with ellipsis if needed; full text used for scrolling
+      if (npFullTextStr.length > npMaxTextWidth) {
+        npTextStr = npFullTextStr.slice(0, npMaxTextWidth - 1) + '…';
+      } else {
+        npTextStr = npFullTextStr;
+      }
+      const contentWidth = Math.max(npLabelStr.length, npMaxTextWidth);
       const innerWidth = barsWidth + gapAfterBars + contentWidth;
       const padH = 2; // horizontal padding inside border
       const boxWidth = 1 + padH + innerWidth + padH + 1; // border + pad + content + pad + border
@@ -895,13 +908,30 @@ export function useTerrainAnimation(
           ctx.fillText(npLabelStr[i], c * charW, npLabelRow * charH);
         }
 
-        // --- Track text (full brightness) ---
-        for (let i = 0; i < npTextStr.length; i++) {
-          const c = npTextCol + i;
-          if (!canDraw(npTextRow, c)) continue;
-          const idx = npTextRow * cols + c;
-          ctx.fillStyle = colorLUT[gridColors[idx]];
-          ctx.fillText(npTextStr[i], c * charW, npTextRow * charH);
+        // --- Track text (full brightness, scrolling if truncated) ---
+        if (npFullTextStr.length > npMaxTextWidth) {
+          // Scrolling marquee: pad with spaces, shift visible window over time
+          const pad = '   ';
+          const loopText = npFullTextStr + pad;
+          const scrollSpeed = 3; // characters per second
+          const scrollOffset = Math.floor((ts * scrollSpeed / 1000) % loopText.length);
+          for (let i = 0; i < npMaxTextWidth; i++) {
+            const charIndex = (scrollOffset + i) % loopText.length;
+            const ch = loopText[charIndex];
+            const c = npTextCol + i;
+            if (!canDraw(npTextRow, c)) continue;
+            const idx = npTextRow * cols + c;
+            ctx.fillStyle = colorLUT[gridColors[idx]];
+            ctx.fillText(ch, c * charW, npTextRow * charH);
+          }
+        } else {
+          for (let i = 0; i < npTextStr.length; i++) {
+            const c = npTextCol + i;
+            if (!canDraw(npTextRow, c)) continue;
+            const idx = npTextRow * cols + c;
+            ctx.fillStyle = colorLUT[gridColors[idx]];
+            ctx.fillText(npTextStr[i], c * charW, npTextRow * charH);
+          }
         }
       }
 

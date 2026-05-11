@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import type { SpotifyNowPlaying } from '@/types/analytics';
 
@@ -6,6 +6,9 @@ const monoFont = "'JetBrains Mono', 'Courier New', monospace";
 
 export default function NowPlayingBar() {
   const [data, setData] = useState<SpotifyNowPlaying | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
@@ -17,6 +20,18 @@ export default function NowPlayingBar() {
     intervalRef.current = setInterval(fetchNowPlaying, 30_000);
     return () => clearInterval(intervalRef.current);
   }, []);
+
+  const checkOverflow = useCallback(() => {
+    if (textRef.current && containerRef.current) {
+      setIsOverflowing(textRef.current.scrollWidth > containerRef.current.clientWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [data, checkOverflow]);
 
   if (!data || !data.track) return null;
 
@@ -67,11 +82,22 @@ export default function NowPlayingBar() {
           {data.is_playing ? 'NOW' : 'LAST'}
         </span>
 
-        {/* Track / Artist */}
-        <span className="text-[10px] tracking-[0.08em] uppercase text-white/40 truncate">
-          {data.track}
-          <span className="text-white/20"> — {data.artist}</span>
-        </span>
+        {/* Track / Artist — scrolls if text overflows */}
+        <div ref={containerRef} className="overflow-hidden min-w-0 flex-1">
+          <span
+            ref={textRef}
+            className={`text-[10px] tracking-[0.08em] uppercase text-white/40 whitespace-nowrap inline-block ${isOverflowing ? 'animate-marquee' : ''}`}
+          >
+            {data.track}
+            <span className="text-white/20"> — {data.artist}</span>
+            {isOverflowing && (
+              <span className="px-8">
+                {data.track}
+                <span className="text-white/20"> — {data.artist}</span>
+              </span>
+            )}
+          </span>
+        </div>
 
         {/* Progress bar */}
         {data.is_playing && (
