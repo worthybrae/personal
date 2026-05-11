@@ -29,7 +29,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, nowPlayingRef, skipIntro } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, nowPlayingRef, skipIntro } = config;
   const rafRef = useRef(0);
   const introStartRef = useRef(-1);
   const logoMenuIntroProgressRef = useRef(0);
