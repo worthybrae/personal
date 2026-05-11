@@ -367,12 +367,12 @@ export function useTerrainAnimation(
     }
 
     const isMobile = window.innerWidth < 768;
-    const frameBudget = isMobile ? 50 : 0; // Desktop: uncapped. Mobile: ~20fps
+    const frameBudget = isMobile ? 60 : 0; // Desktop: uncapped. Mobile: ~16fps
     const terrainFn = isMobile ? warpedTerrainLite : warpedTerrain;
 
     function resize() {
       if (!canvas) return;
-      canvasDpr = isMobile ? 1 : Math.min(window.devicePixelRatio, 2);
+      canvasDpr = Math.min(window.devicePixelRatio, 2);
       canvas.width = window.innerWidth * canvasDpr;
       canvas.height = window.innerHeight * canvasDpr;
       canvas.style.width = window.innerWidth + 'px';
