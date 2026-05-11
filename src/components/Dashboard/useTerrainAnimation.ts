@@ -191,6 +191,7 @@ export function useTerrainAnimation(
     let lastSubItemsKey = '';
     let lastDetailKey = '';
     let nowPlayingGrid: Uint8Array = new Uint8Array(0);
+    let npZoneStartRow = Infinity; // rows >= this are the now-playing zone
     let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
@@ -335,7 +336,7 @@ export function useTerrainAnimation(
       o.fillRect(0, 0, off.width, off.height);
 
       const dpr = canvas.width / window.innerWidth;
-      const npFontSize = Math.max(9, Math.min(12, window.innerWidth / 120)) * dpr;
+      const npFontSize = Math.max(10, Math.min(14, window.innerWidth / 100)) * dpr;
 
       o.fillStyle = '#fff';
       o.textAlign = 'center';
@@ -344,15 +345,20 @@ export function useTerrainAnimation(
       const label = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
       const trackLine = `${track}  —  ${artist}`.toUpperCase();
 
-      // Label line
-      const labelY = off.height - npFontSize * 4;
-      o.font = `700 ${npFontSize * 0.75}px 'JetBrains Mono','Courier New',monospace`;
-      o.fillText(label, off.width / 2, labelY, off.width * 0.8);
+      // Single text block near bottom
+      const textY = off.height - npFontSize * 3;
 
-      // Track line
-      const trackY = labelY + npFontSize * 1.6;
-      o.font = `700 ${npFontSize}px 'JetBrains Mono','Courier New',monospace`;
-      o.fillText(trackLine, off.width / 2, trackY, off.width * 0.85);
+      // Small label
+      o.font = `700 ${npFontSize * 0.7}px 'JetBrains Mono','Courier New',monospace`;
+      o.fillText(label, off.width / 2, textY, off.width * 0.9);
+
+      // Track + artist
+      o.font = `900 ${npFontSize * 1.1}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      o.fillText(trackLine, off.width / 2, textY + npFontSize * 1.8, off.width * 0.9);
+
+      // Zone starts a few character rows above the text
+      const zoneTopPx = textY - npFontSize * 2.5;
+      npZoneStartRow = Math.max(0, Math.floor(zoneTopPx / charH));
 
       nowPlayingMaskRef.current = {
         data: o.getImageData(0, 0, off.width, off.height).data,
@@ -560,6 +566,7 @@ export function useTerrainAnimation(
           buildNowPlayingMask(np.track, np.artist, np.isPlaying);
         } else {
           nowPlayingGrid = new Uint8Array(cols * rows);
+          npZoneStartRow = Infinity;
         }
       }
       // Visible on home page, fades with content
@@ -644,13 +651,20 @@ export function useTerrainAnimation(
             }
           }
 
-          // Now-playing: scatter-reveal at bottom, dissolve with content
-          if (npVisible > 0 && nowPlayingGrid[idx]) {
+          // Now-playing zone: clear terrain, let it flow through text only
+          if (npVisible > 0 && r >= npZoneStartRow) {
             let h5 = (c * 518230729 + r * 392041631) | 0;
             h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
             const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
-            if (npIntro * npVisible > npHash) {
-              gridSkip[idx] = 1;
+            const npReveal = npIntro * npVisible;
+            if (npReveal > npHash) {
+              if (nowPlayingGrid[idx]) {
+                // Text cell — render terrain through it
+                gridSkip[idx] = 0;
+              } else {
+                // Zone background — clear to dark
+                gridSkip[idx] = 1;
+              }
             }
           }
 
