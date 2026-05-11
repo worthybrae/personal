@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { warpedTerrain, warpedTerrainLite } from './noise';
-import { getDuotoneColor, getDuotoneColorFast, scurve } from './color';
+import { getDuotoneColor, scurve } from './color';
 
 const NOISE_SCALE = 0.015;
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
-const COLOR_LEVELS = IS_MOBILE ? 32 : 64;
+const COLOR_LEVELS = 64;
 
 export interface TerrainConfig {
   speedDivisor?: number;
@@ -522,7 +522,7 @@ export function useTerrainAnimation(
       const isClosing = contentTarget === 0 && contentProgress > 0;
 
       // --- Color LUT (reuse array, just overwrite values) ---
-      const colorFn = isMobile ? getDuotoneColorFast : getDuotoneColor;
+      const colorFn = getDuotoneColor;
       const bgSample = colorFn(0, t);
       const bgR = Math.floor(bgSample.bgR);
       const bgG = Math.floor(bgSample.bgG);
