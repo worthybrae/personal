@@ -162,6 +162,13 @@ export default function Home() {
             SUMMARY
           </div>
           <PretextSummary text={project.summary} />
+          <div
+            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+            style={{ fontFamily: monoFont }}
+          >
+            TOOLS
+          </div>
+          <TechTags tags={project.tech} />
           <ProjectAnalyticsSection slug={project.slug} />
         </DetailOverlay>
       )}
@@ -203,8 +210,31 @@ export default function Home() {
             SUMMARY
           </div>
           <PretextSummary text={artPiece.summary} />
+          <div
+            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+            style={{ fontFamily: monoFont }}
+          >
+            TOOLS
+          </div>
+          <TechTags tags={artPiece.tech} />
         </DetailOverlay>
       )}
+    </div>
+  );
+}
+
+function TechTags({ tags }: { tags: string[] }) {
+  return (
+    <div className="flex flex-wrap justify-start gap-2">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="text-[10px] tracking-[0.2em] uppercase text-white/40 border border-white/10 rounded-full px-3 py-1"
+          style={{ fontFamily: monoFont }}
+        >
+          {tag}
+        </span>
+      ))}
     </div>
   );
 }
