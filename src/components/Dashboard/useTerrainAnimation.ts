@@ -164,7 +164,7 @@ export function useTerrainAnimation(
       mctx.fillRect(0, 0, m.width, m.height);
 
       mctx.fillStyle = '#fff';
-      const plusCols = 7;
+      const plusCols = 8;
       const barThick = 2;
       const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
       const plusTopRow = Math.floor(logoY / cH);
