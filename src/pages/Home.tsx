@@ -374,9 +374,10 @@ function ProjectAnalyticsSection({ slug }: { slug: string }) {
   const w = 600;
   const h = 120;
   const pad = 2;
+  const padX = 6;
 
   const coords = views.map((v, i) => ({
-    x: (i / (views.length - 1)) * w,
+    x: padX + (i / (views.length - 1)) * (w - padX * 2),
     y: h - pad - ((v / max) * (h - pad * 2)),
   }));
   const points = coords.map((c) => `${c.x},${c.y}`).join(' ');
@@ -401,13 +402,16 @@ function ProjectAnalyticsSection({ slug }: { slug: string }) {
         ANALYTICS
       </div>
       <div
-        className="text-xs text-white/20 mb-3"
+        className="text-xs text-white/20 mb-3 flex justify-between"
         style={{ fontFamily: monoFontFamily }}
       >
-        {views.reduce((a, b) => a + b, 0).toLocaleString()} views
-        <span className={pctChange >= 0 ? 'text-green-500/60' : 'text-red-500/60'}>
-          {' '}{pctSign}{pctChange.toFixed(1)}%
+        <span>
+          {views.reduce((a, b) => a + b, 0).toLocaleString()} views
+          <span className={pctChange >= 0 ? 'text-green-500/60' : 'text-red-500/60'}>
+            {' '}{pctSign}{pctChange.toFixed(1)}%
+          </span>
         </span>
+        <span className="opacity-60">Last 30 days</span>
       </div>
       <svg
         ref={svgRef}
