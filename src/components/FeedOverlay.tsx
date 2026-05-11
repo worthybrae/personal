@@ -40,11 +40,12 @@ export default function FeedOverlay({ items, onItemClick, meltCompleteRef, closi
 
   return (
     <div
-      className={`fixed inset-0 z-10 overflow-y-auto ease-in-out ${
+      className={`fixed left-0 right-0 bottom-0 z-10 overflow-y-auto ease-in-out ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       style={{
-        paddingTop: '120px',
+        top: '100px',
+        paddingTop: '20px',
         paddingBottom: '80px',
         transitionProperty: 'opacity',
         transitionDuration: visible ? '1200ms' : '500ms',

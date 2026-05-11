@@ -219,10 +219,10 @@ function DetailOverlay({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`fixed inset-0 z-10 overflow-y-auto transition-opacity duration-500 ${
+      className={`fixed left-0 right-0 bottom-0 z-10 overflow-y-auto transition-opacity duration-500 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
-      style={{ paddingTop: '120px', paddingBottom: '80px' }}
+      style={{ top: '100px', paddingTop: '20px', paddingBottom: '80px' }}
     >
       <div className="max-w-2xl mx-auto px-6 text-center">
         {children}
