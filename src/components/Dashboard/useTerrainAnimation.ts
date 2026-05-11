@@ -184,13 +184,20 @@ export function useTerrainAnimation(
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
     let lastDetailKey = '';
-    let npZoneStartRow = Infinity;
-    let npTextRow = 0;
-    let npLabelRow = 0;
-    let npTextStr = '';
+    // Now-playing box geometry
+    let npBoxTop = Infinity;   // first row of box (top border)
+    let npBoxBottom = 0;       // last row of box (bottom border)
+    let npBoxLeft = 0;         // first col of box (left border)
+    let npBoxRight = 0;        // last col of box (right border)
     let npLabelStr = '';
-    let npTextStartCol = 0;
-    let npLabelStartCol = 0;
+    let npTextStr = '';
+    let npLabelCol = 0;        // col where label text starts
+    let npTextCol = 0;         // col where track text starts
+    let npLabelRow = 0;
+    let npTextRow = 0;
+    let npBarsCol = 0;         // col where equalizer bars start
+    let npBarsRow = 0;
+    let npIsPlaying = false;
     let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
@@ -326,18 +333,37 @@ export function useTerrainAnimation(
     }
 
     function setupNowPlaying(track: string, artist: string, isPlaying: boolean) {
+      npIsPlaying = isPlaying;
       npLabelStr = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
       npTextStr = `${track} — ${artist}`.toUpperCase();
 
-      // Text row is 2 rows from bottom, label 1 row above that
-      npTextRow = rows - 2;
-      npLabelRow = npTextRow - 1;
-      // Zone: 2 empty rows above label, through bottom
-      npZoneStartRow = npLabelRow - 2;
+      // Box sizing: bars(5) + space(2) + max(label, track) + padding
+      const barsWidth = 5;
+      const gapAfterBars = 2;
+      const contentWidth = Math.max(npLabelStr.length, npTextStr.length);
+      const innerWidth = barsWidth + gapAfterBars + contentWidth;
+      const padH = 2; // horizontal padding inside border
+      const boxWidth = 1 + padH + innerWidth + padH + 1; // border + pad + content + pad + border
 
-      // Center the text
-      npTextStartCol = Math.floor((cols - npTextStr.length) / 2);
-      npLabelStartCol = Math.floor((cols - npLabelStr.length) / 2);
+      // Box height: border + pad + label + track + pad + border = 6 rows
+      const boxHeight = 6;
+
+      // Center horizontally
+      npBoxLeft = Math.floor((cols - boxWidth) / 2);
+      npBoxRight = npBoxLeft + boxWidth - 1;
+
+      // Position near bottom: box bottom border is 2 rows from canvas bottom
+      npBoxBottom = rows - 3;
+      npBoxTop = npBoxBottom - boxHeight + 1;
+
+      // Content positions (inside the box)
+      const contentLeft = npBoxLeft + 1 + padH; // after border + padding
+      npBarsCol = contentLeft;
+      npBarsRow = npBoxTop + 2; // first content row (after border + pad)
+      npLabelCol = contentLeft + barsWidth + gapAfterBars;
+      npLabelRow = npBoxTop + 2;
+      npTextCol = contentLeft + barsWidth + gapAfterBars;
+      npTextRow = npBoxTop + 3;
     }
 
     const isMobile = window.innerWidth < 768;
@@ -523,7 +549,7 @@ export function useTerrainAnimation(
         if (np && np.track) {
           setupNowPlaying(np.track, np.artist, np.isPlaying);
         } else {
-          npZoneStartRow = Infinity;
+          npBoxTop = Infinity;
         }
       }
       // Visible on home page, fades with content
@@ -608,8 +634,8 @@ export function useTerrainAnimation(
             }
           }
 
-          // Now-playing zone: suppress terrain, text drawn after grid render
-          if (npVisible > 0 && r >= npZoneStartRow) {
+          // Now-playing box: suppress terrain inside the box area
+          if (npVisible > 0 && r >= npBoxTop && r <= npBoxBottom && c >= npBoxLeft && c <= npBoxRight) {
             let h5 = (c * 518230729 + r * 392041631) | 0;
             h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
             const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
@@ -744,33 +770,89 @@ export function useTerrainAnimation(
         }
       }
 
-      // --- Now-playing: draw text characters with terrain colors ---
-      if (npVisible > 0 && npTextStr) {
+      // --- Now-playing box: border, equalizer bars, text ---
+      if (npVisible > 0 && npTextStr && npBoxTop < rows) {
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
         ctx.textBaseline = 'top';
+        const dimColor = 'rgba(255,255,255,0.12)';
 
-        // Label row (dimmer)
-        for (let i = 0; i < npLabelStr.length; i++) {
-          const c = npLabelStartCol + i;
-          if (c < 0 || c >= cols) continue;
-          const r = npLabelRow;
-          const idx = r * cols + c;
-          // Only draw if this cell was scatter-revealed (skipped)
-          if (gridSkip[idx] !== 1) continue;
-          const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
-          ctx.fillStyle = colorLUT[colorIdx];
-          ctx.fillText(npLabelStr[i], c * charW, r * charH);
+        // Helper: only draw if cell was scatter-revealed
+        const canDraw = (r: number, c: number) => {
+          if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+          return gridSkip[r * cols + c] === 1;
+        };
+
+        // --- ASCII border ---
+        for (let c = npBoxLeft; c <= npBoxRight; c++) {
+          // Top border
+          if (canDraw(npBoxTop, c)) {
+            ctx.fillStyle = dimColor;
+            const ch = c === npBoxLeft ? '┌' : c === npBoxRight ? '┐' : '─';
+            ctx.fillText(ch, c * charW, npBoxTop * charH);
+          }
+          // Bottom border
+          if (canDraw(npBoxBottom, c)) {
+            ctx.fillStyle = dimColor;
+            const ch = c === npBoxLeft ? '└' : c === npBoxRight ? '┘' : '─';
+            ctx.fillText(ch, c * charW, npBoxBottom * charH);
+          }
+        }
+        // Side borders (rows between top and bottom)
+        for (let r = npBoxTop + 1; r < npBoxBottom; r++) {
+          if (canDraw(r, npBoxLeft)) {
+            ctx.fillStyle = dimColor;
+            ctx.fillText('│', npBoxLeft * charW, r * charH);
+          }
+          if (canDraw(r, npBoxRight)) {
+            ctx.fillStyle = dimColor;
+            ctx.fillText('│', npBoxRight * charW, r * charH);
+          }
         }
 
-        // Track row (brighter)
+        // --- Equalizer bars (5 bars, span label + track rows) ---
+        const barChars = '░▒▓█';
+        for (let b = 0; b < 5; b++) {
+          const bCol = npBarsCol + b;
+          // Animated height: oscillate between label row and track row
+          const barRows = [npBarsRow, npBarsRow + 1]; // both rows
+          for (const bRow of barRows) {
+            if (!canDraw(bRow, bCol)) continue;
+            const idx = bRow * cols + bCol;
+            if (npIsPlaying) {
+              // Animated: sin wave per bar, use timestamp
+              const phase = ts * 0.004 + b * 1.3;
+              const wave = (Math.sin(phase) + 1) * 0.5; // 0..1
+              // On label row: bar shows when wave > 0.3; on track row: always
+              if (bRow === npBarsRow && wave < 0.35) continue;
+              const charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(barChars[charIdx], bCol * charW, bRow * charH);
+            } else {
+              // Paused: static short bars on track row only
+              if (bRow === npBarsRow) continue;
+              ctx.fillStyle = colorLUT[Math.max(0, (gridColors[idx] * 0.4) | 0)];
+              ctx.fillText('░', bCol * charW, bRow * charH);
+            }
+          }
+        }
+
+        // --- Label: "NOW PLAYING" (dimmer) ---
+        for (let i = 0; i < npLabelStr.length; i++) {
+          const c = npLabelCol + i;
+          if (!canDraw(npLabelRow, c)) continue;
+          const idx = npLabelRow * cols + c;
+          const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+          ctx.fillStyle = colorLUT[colorIdx];
+          ctx.fillText(npLabelStr[i], c * charW, npLabelRow * charH);
+        }
+
+        // --- Track text (full brightness) ---
         for (let i = 0; i < npTextStr.length; i++) {
-          const c = npTextStartCol + i;
-          if (c < 0 || c >= cols) continue;
-          const r = npTextRow;
-          const idx = r * cols + c;
-          if (gridSkip[idx] !== 1) continue;
+          const c = npTextCol + i;
+          if (!canDraw(npTextRow, c)) continue;
+          const idx = npTextRow * cols + c;
           ctx.fillStyle = colorLUT[gridColors[idx]];
-          ctx.fillText(npTextStr[i], c * charW, r * charH);
+          ctx.fillText(npTextStr[i], c * charW, npTextRow * charH);
         }
       }
 
