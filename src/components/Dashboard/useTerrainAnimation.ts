@@ -183,7 +183,7 @@ export function useTerrainAnimation(
     let lastSubItemsKey = '';
     let lastDetailKey = '';
 
-    function buildContentTitleMask(label: string) {
+    function buildContentTitleMask(_label: string) {
       if (!canvas) return;
       const items = contentSubItemsRef?.current;
       const detail = config.detailRef?.current;
