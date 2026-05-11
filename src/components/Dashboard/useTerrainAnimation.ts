@@ -660,7 +660,11 @@ export function useTerrainAnimation(
         feedScrollTarget = 0;
         feedScrollOffset = 0;
       }
-      void feedMaxScroll; // used in Task 6 scroll clamping
+      // Reset scroll when feed closes
+      if (feedCards.length > 0 && contentTarget === 0 && contentProgress < 0.1) {
+        feedScrollTarget = 0;
+        feedScrollOffset = 0;
+      }
 
       // --- Now-playing mask: rebuild on track change or playing state change ---
       const np = nowPlayingRef?.current;
@@ -1154,17 +1158,55 @@ export function useTerrainAnimation(
       }
     };
 
+    const onWheel = (e: WheelEvent) => {
+      // Only scroll when feed is open
+      if (contentProgressRef.current < 0.5) return;
+      const items = contentSubItemsRef?.current;
+      if (!items || items.length === 0) return;
+
+      const deltaRows = e.deltaY / (charH / canvasDpr);
+      feedScrollTarget = Math.max(0, Math.min(feedMaxScroll, feedScrollTarget + deltaRows * 0.3));
+      e.preventDefault();
+    };
+
+    let touchLastY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (contentProgressRef.current < 0.5) return;
+      touchLastY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (contentProgressRef.current < 0.5) return;
+      const items = contentSubItemsRef?.current;
+      if (!items || items.length === 0) return;
+
+      const currentY = e.touches[0].clientY;
+      const deltaY = touchLastY - currentY;
+      touchLastY = currentY;
+
+      const deltaRows = deltaY / (charH / canvasDpr);
+      feedScrollTarget = Math.max(0, Math.min(feedMaxScroll, feedScrollTarget + deltaRows));
+      e.preventDefault();
+    };
+
     resize();
     rafRef.current = requestAnimationFrame(draw);
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('click', onClick);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('click', onClick);
+      canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
       document.body.style.cursor = '';
     };
   }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
