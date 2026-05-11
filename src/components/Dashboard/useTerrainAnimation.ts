@@ -259,7 +259,6 @@ export function useTerrainAnimation(
     let npBarsCol = 0;         // col where equalizer bars start
     let npBarsRow = 0;
     let npIsPlaying = false;
-    let npTimeStr = '';         // relative time like "3m" when paused
     let npMaxTextWidth = 0;     // max visible chars for track text
     let npFullTextStr = '';     // full untruncated track text for scrolling
     let lastNowPlayingTrack = '';
@@ -396,35 +395,27 @@ export function useTerrainAnimation(
       }
     }
 
-    function setupNowPlaying(track: string, artist: string, isPlaying: boolean, playedAt?: string) {
+    function setupNowPlaying(track: string, artist: string, isPlaying: boolean, _playedAt?: string) {
       npIsPlaying = isPlaying;
-      npLabelStr = isPlaying ? 'LISTENING TO' : 'LISTENED TO';
+      npLabelStr = isPlaying ? 'LISTENING TO' : 'LAST LISTENED TO';
       npFullTextStr = `${track} — ${artist}`.toUpperCase();
 
-      // Compute relative time for paused state
-      npTimeStr = '';
-      if (!isPlaying && playedAt) {
-        const ago = Date.now() - new Date(playedAt).getTime();
-        if (ago < 60_000) npTimeStr = `${Math.max(1, Math.floor(ago / 1000))}s`;
-        else if (ago < 3_600_000) npTimeStr = `${Math.floor(ago / 60_000)}m`;
-        else if (ago < 86_400_000) npTimeStr = `${Math.floor(ago / 3_600_000)}hr`;
-        else npTimeStr = `${Math.floor(ago / 86_400_000)}d`;
-      }
-
-      // Box sizing: bars(5) + space(2) + max(label, track) + padding
-      const barsWidth = 5;
-      const gapAfterBars = 2;
+      // Bars only shown when playing
+      const barsWidth = isPlaying ? 5 : 0;
+      const gapAfterBars = isPlaying ? 2 : 0;
       // Cap text width so the box doesn't overflow the screen
-      const maxBoxCols = Math.min(cols - 6, 60); // leave margin, cap at 60 chars total
-      const maxTextArea = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1); // subtract borders, padding, bars
-      npMaxTextWidth = Math.max(npLabelStr.length, maxTextArea);
+      const maxBoxCols = Math.min(cols - 6, 60);
+      const maxTextArea = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1);
+      npMaxTextWidth = maxTextArea;
       // Truncate display text with ellipsis if needed; full text used for scrolling
       if (npFullTextStr.length > npMaxTextWidth) {
         npTextStr = npFullTextStr.slice(0, npMaxTextWidth - 1) + '…';
       } else {
         npTextStr = npFullTextStr;
       }
-      const contentWidth = Math.max(npLabelStr.length, npMaxTextWidth);
+      // Size box to actual content, not max width
+      const textDisplayWidth = Math.min(npFullTextStr.length, npMaxTextWidth);
+      const contentWidth = Math.max(npLabelStr.length, textDisplayWidth);
       const innerWidth = barsWidth + gapAfterBars + contentWidth;
       const padH = 2; // horizontal padding inside border
       const boxWidth = 1 + padH + innerWidth + padH + 1; // border + pad + content + pad + border
@@ -866,7 +857,7 @@ export function useTerrainAnimation(
           return gridSkip[r * cols + c] === 1;
         };
 
-        // --- Equalizer bars (playing) or relative time (paused) ---
+        // --- Equalizer bars (only when playing) ---
         if (npIsPlaying) {
           const barChars = '░▒▓█';
           for (let b = 0; b < 5; b++) {
@@ -885,17 +876,6 @@ export function useTerrainAnimation(
               ctx.fillText(barChars[charIdx], bCol * charW, bRow * charH);
             }
           }
-        } else if (npTimeStr) {
-          // Paused: show relative time (e.g. "3m") centered in bars area, on track row
-          const timeStartCol = npBarsCol + Math.floor((5 - npTimeStr.length) / 2);
-          for (let i = 0; i < npTimeStr.length; i++) {
-            const c = timeStartCol + i;
-            if (!canDraw(npTextRow, c)) continue;
-            const idx = npTextRow * cols + c;
-            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
-            ctx.fillStyle = colorLUT[colorIdx];
-            ctx.fillText(npTimeStr[i], c * charW, npTextRow * charH);
-          }
         }
 
         // --- Label: "NOW PLAYING" (dimmer) ---
@@ -910,13 +890,34 @@ export function useTerrainAnimation(
 
         // --- Track text (full brightness, scrolling if truncated) ---
         if (npFullTextStr.length > npMaxTextWidth) {
-          // Scrolling marquee: pad with spaces, shift visible window over time
+          // Pause-scroll-pause-scroll marquee with smoothstep easing
           const pad = '   ';
           const loopText = npFullTextStr + pad;
-          const scrollSpeed = 3; // characters per second
-          const scrollOffset = Math.floor((ts * scrollSpeed / 1000) % loopText.length);
+          const textLen = loopText.length;
+          const halfLen = Math.ceil(textLen / 2);
+
+          const pauseTime = 2.0; // seconds to hold still
+          const scrollTime = Math.max(2, textLen / 4); // seconds per scroll segment
+          const cycleTime = pauseTime + scrollTime + pauseTime + scrollTime;
+          const t = ((ts / 1000) % cycleTime);
+
+          // smoothstep: ease-in-out
+          const ss = (x: number) => x * x * (3 - 2 * x);
+
+          let scrollOffset: number;
+          if (t < pauseTime) {
+            scrollOffset = 0;
+          } else if (t < pauseTime + scrollTime) {
+            scrollOffset = ss((t - pauseTime) / scrollTime) * halfLen;
+          } else if (t < pauseTime * 2 + scrollTime) {
+            scrollOffset = halfLen;
+          } else {
+            scrollOffset = halfLen + ss((t - pauseTime * 2 - scrollTime) / scrollTime) * (textLen - halfLen);
+          }
+
+          const intOffset = Math.floor(scrollOffset);
           for (let i = 0; i < npMaxTextWidth; i++) {
-            const charIndex = (scrollOffset + i) % loopText.length;
+            const charIndex = (intOffset + i) % textLen;
             const ch = loopText[charIndex];
             const c = npTextCol + i;
             if (!canDraw(npTextRow, c)) continue;
