@@ -37,17 +37,22 @@ _client: BetaAnalyticsDataClient | None = None
 def _get_client() -> BetaAnalyticsDataClient:
     global _client
     if _client is None:
-        # Check local path first (dev), then Docker path (production)
-        local_path = os.path.join(os.path.dirname(__file__), "ga.json")
-        docker_path = "/app/ga.json"
-        creds_path = local_path if os.path.exists(local_path) else docker_path
-        if os.path.exists(creds_path):
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path
-            )
+        # Try GA_CREDENTIALS_B64 env var first (Railway), then local file (dev)
+        ga_creds_b64 = os.getenv("GA_CREDENTIALS_B64")
+        if ga_creds_b64:
+            import json, base64
+            creds_info = json.loads(base64.b64decode(ga_creds_b64))
+            credentials = service_account.Credentials.from_service_account_info(creds_info)
             _client = BetaAnalyticsDataClient(credentials=credentials)
         else:
-            raise RuntimeError(f"Credentials file not found at {creds_path}")
+            local_path = os.path.join(os.path.dirname(__file__), "ga.json")
+            docker_path = "/app/ga.json"
+            creds_path = local_path if os.path.exists(local_path) else docker_path
+            if os.path.exists(creds_path):
+                credentials = service_account.Credentials.from_service_account_file(creds_path)
+                _client = BetaAnalyticsDataClient(credentials=credentials)
+            else:
+                raise RuntimeError(f"Credentials file not found at {creds_path}")
     return _client
 
 
