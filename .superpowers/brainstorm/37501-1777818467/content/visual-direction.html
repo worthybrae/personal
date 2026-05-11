@@ -1,0 +1,242 @@
+<h2>Visual Direction: Generative Binary Art</h2>
+<p class="subtitle">Which of these feels closest to the vibe you're going for? These are rough concepts — we'd refine whichever direction you pick.</p>
+
+<div class="cards" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px;">
+
+  <!-- Option A: Matrix Rain forming portraits/shapes -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden; cursor: pointer;">
+    <div class="card-image" style="height: 280px; background: #0a0a0a; position: relative; overflow: hidden; font-family: 'Courier New', monospace;">
+      <!-- Simulated binary rain forming a shape -->
+      <canvas id="canvasA" width="400" height="280" style="width: 100%; height: 100%;"></canvas>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3>A — Binary Rain → Image Reveal</h3>
+      <p style="font-size: 14px; opacity: 0.7;">Streams of 0s and 1s cascade down and gradually coalesce into recognizable images of your projects. Think Matrix-meets-data-art. The digits are the medium — they form, dissolve, reform into the next project. Looping animation.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Particle/dot matrix style -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden; cursor: pointer;">
+    <div class="card-image" style="height: 280px; background: #0a0a0a; position: relative; overflow: hidden;">
+      <canvas id="canvasB" width="400" height="280" style="width: 100%; height: 100%;"></canvas>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3>B — Binary Pointillism</h3>
+      <p style="font-size: 14px; opacity: 0.7;">Each pixel of your project screenshots is replaced by a tiny 0 or 1, sized and colored to reconstruct the image. On hover or scroll, the digits scatter and reassemble into the next project. More static/controlled than the rain — like a data visualization of your work.</p>
+    </div>
+  </div>
+
+  <!-- Option C: ASCII/binary contour style -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden; cursor: pointer;">
+    <div class="card-image" style="height: 280px; background: #0a0a0a; position: relative; overflow: hidden;">
+      <canvas id="canvasC" width="400" height="280" style="width: 100%; height: 100%;"></canvas>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3>C — Binary Topography</h3>
+      <p style="font-size: 14px; opacity: 0.7;">0s and 1s arranged in contour-line patterns that suggest depth and landscape — like topographic maps made of data. Projects emerge from these contour fields. More abstract and artistic, less literal image reconstruction. Feels like data visualization art.</p>
+    </div>
+  </div>
+
+  <!-- Option D: Hybrid with real video -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)" style="padding: 0; overflow: hidden; cursor: pointer;">
+    <div class="card-image" style="height: 280px; background: #0a0a0a; position: relative; overflow: hidden;">
+      <canvas id="canvasD" width="400" height="280" style="width: 100%; height: 100%;"></canvas>
+    </div>
+    <div class="card-body" style="padding: 16px;">
+      <h3>D — Binary Mask Over Video</h3>
+      <p style="font-size: 14px; opacity: 0.7;">Your existing project videos play underneath, but rendered through a binary character grid. The digits shift to match brightness — bright areas get 1s, dark areas get 0s. Real video content is visible but filtered through the "code lens." Keeps your existing media while adding the generative layer.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- Canvas A: Binary Rain forming a shape ---
+(function() {
+  const c = document.getElementById('canvasA');
+  const ctx = c.getContext('2d');
+  const cols = 40, rows = 28;
+  const cw = c.width / cols, ch = c.height / rows;
+  const drops = Array.from({length: cols}, () => Math.random() * rows);
+  const settled = Array.from({length: rows}, () => Array(cols).fill(null));
+
+  // Diamond/prism shape
+  function inShape(r, col) {
+    const cx = cols/2, cy = rows/2;
+    const dx = Math.abs(col - cx) / (cols * 0.3);
+    const dy = Math.abs(r - cy) / (rows * 0.35);
+    return dx + dy < 1;
+  }
+
+  let frame = 0;
+  function draw() {
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.15)';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = `${Math.min(cw, ch) * 0.8}px monospace`;
+
+    for (let i = 0; i < cols; i++) {
+      const row = Math.floor(drops[i]);
+      const char = Math.random() > 0.5 ? '1' : '0';
+
+      if (inShape(row, i) && frame > 30) {
+        ctx.fillStyle = '#22d3ee';
+        settled[row][i] = char;
+      } else {
+        ctx.fillStyle = `rgba(34, 211, 238, ${0.3 + Math.random() * 0.3})`;
+      }
+      ctx.fillText(char, i * cw, row * ch);
+
+      drops[i] += 0.3 + Math.random() * 0.3;
+      if (drops[i] > rows) {
+        drops[i] = 0;
+        if (frame > 120) frame = 0; // reset cycle
+      }
+    }
+
+    // Draw settled chars
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        if (settled[r][col] && inShape(r, col)) {
+          ctx.fillStyle = `rgba(34, 211, 238, ${0.6 + Math.sin(frame * 0.02 + r * 0.1) * 0.3})`;
+          ctx.fillText(settled[r][col], col * cw, r * ch);
+        }
+      }
+    }
+
+    frame++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// --- Canvas B: Binary Pointillism (image from digits) ---
+(function() {
+  const c = document.getElementById('canvasB');
+  const ctx = c.getContext('2d');
+  const cols = 50, rows = 35;
+  const cw = c.width / cols, ch = c.height / rows;
+
+  // Create a gradient "image" to simulate a project screenshot
+  const imageData = Array.from({length: rows}, (_, r) =>
+    Array.from({length: cols}, (_, col) => {
+      // Simulate a UI layout shape
+      const inHeader = r < 4;
+      const inSidebar = col < 10 && r > 4;
+      const inCard1 = r > 8 && r < 18 && col > 12 && col < 30;
+      const inCard2 = r > 20 && r < 30 && col > 12 && col < 30;
+      const inChart = r > 8 && r < 28 && col > 32;
+
+      if (inHeader) return 0.8;
+      if (inSidebar) return 0.4;
+      if (inCard1) return 0.6 + Math.sin(r * 0.5) * 0.2;
+      if (inCard2) return 0.5 + Math.cos(col * 0.3) * 0.2;
+      if (inChart) return 0.3 + (r - 8) / 20 * 0.5;
+      return 0.05;
+    })
+  );
+
+  let frame = 0;
+  function draw() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = `${Math.min(cw, ch) * 0.75}px monospace`;
+
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const brightness = imageData[r][col];
+        if (brightness > 0.03) {
+          const wobble = Math.sin(frame * 0.03 + r * 0.2 + col * 0.15) * 0.1;
+          const alpha = Math.max(0.1, Math.min(1, brightness + wobble));
+          const char = brightness > 0.5 ? '1' : '0';
+          const hue = 180 + brightness * 40;
+          ctx.fillStyle = `hsla(${hue}, 70%, ${40 + brightness * 30}%, ${alpha})`;
+          ctx.fillText(char, col * cw, r * ch + ch * 0.8);
+        }
+      }
+    }
+    frame++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// --- Canvas C: Binary Topography ---
+(function() {
+  const c = document.getElementById('canvasC');
+  const ctx = c.getContext('2d');
+  const cols = 45, rows = 30;
+  const cw = c.width / cols, ch = c.height / rows;
+
+  let frame = 0;
+  function draw() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = `${Math.min(cw, ch) * 0.7}px monospace`;
+
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col / cols, y = r / rows;
+        // Layered sine waves for topographic effect
+        const v = Math.sin(x * 6 + frame * 0.02) * Math.cos(y * 4 - frame * 0.015)
+                + Math.sin((x + y) * 5 + frame * 0.01) * 0.5
+                + Math.sin(x * 12 + y * 8 + frame * 0.03) * 0.25;
+
+        const normalized = (v + 1.75) / 3.5;
+        // Only draw on "contour lines"
+        const contourLine = Math.abs(normalized % 0.2 - 0.1) < 0.03;
+
+        if (contourLine || normalized > 0.7) {
+          const char = normalized > 0.5 ? '1' : '0';
+          const alpha = contourLine ? 0.8 : normalized * 0.6;
+          const hue = 160 + normalized * 60;
+          ctx.fillStyle = `hsla(${hue}, 60%, ${30 + normalized * 40}%, ${alpha})`;
+          ctx.fillText(char, col * cw, r * ch + ch * 0.8);
+        }
+      }
+    }
+    frame++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// --- Canvas D: Binary mask over simulated video ---
+(function() {
+  const c = document.getElementById('canvasD');
+  const ctx = c.getContext('2d');
+  const cols = 45, rows = 30;
+  const cw = c.width / cols, ch = c.height / rows;
+
+  let frame = 0;
+  function draw() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = `${Math.min(cw, ch) * 0.7}px monospace`;
+
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col / cols, y = r / rows;
+        // Simulate moving video content (abstract shapes shifting)
+        const t = frame * 0.02;
+        const v = Math.sin(x * 3 + t) * Math.cos(y * 2 + t * 0.7) * 0.5
+                + Math.sin((x - 0.5) * 8 + t * 1.5) * Math.exp(-((y - 0.4) * (y - 0.4)) * 8) * 0.4
+                + Math.cos(y * 5 + x * 3 + t * 0.5) * 0.3;
+
+        const brightness = (v + 1.2) / 2.4;
+        const char = brightness > 0.5 ? '1' : '0';
+
+        // Color based on brightness, warm tones for bright, cool for dark
+        const hue = brightness > 0.5 ? 30 + brightness * 20 : 190 + brightness * 30;
+        const sat = 50 + brightness * 30;
+        const light = 15 + brightness * 50;
+        const alpha = 0.3 + brightness * 0.6;
+
+        ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+        ctx.fillText(char, col * cw, r * ch + ch * 0.8);
+      }
+    }
+    frame++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>

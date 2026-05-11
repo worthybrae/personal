@@ -1,0 +1,150 @@
+<h2>Two Architectural Approaches</h2>
+<p class="subtitle">Full redesign directions — pick the one that resonates, or mix elements.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 0; overflow: hidden; min-height: 420px; position: relative;">
+      <!-- Hero section -->
+      <div style="position: relative; height: 160px; background: linear-gradient(180deg, transparent 0%, #0a0a0f 100%); display: flex; align-items: flex-end; padding: 20px;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); opacity: 0.6;"></div>
+        <div style="position: absolute; top: 12px; right: 16px; font-size: 9px; color: #00ff88; opacity: 0.5; font-family: monospace;">[ VIDEO HERO PLAYS HERE ]</div>
+        <div style="position: relative; z-index: 1;">
+          <div style="font-size: 28px; font-weight: 800; letter-spacing: -1px; color: #fff;">WORTHY RAE</div>
+          <div style="font-size: 10px; color: #888; letter-spacing: 3px; margin-top: 4px;">ENGINEER &middot; ARTIST &middot; BUILDER</div>
+        </div>
+      </div>
+
+      <!-- Live stats bar -->
+      <div style="background: rgba(0,255,136,0.05); border-top: 1px solid rgba(0,255,136,0.15); border-bottom: 1px solid rgba(0,255,136,0.15); padding: 8px 20px; display: flex; justify-content: space-between; font-size: 9px; color: #00ff88;">
+        <span>&#9679; LIVE &mdash; 2,847 visitors (30d)</span>
+        <span>LAST DEPLOY: 2h ago</span>
+        <span>4 PROJECTS &middot; 0 POSTS</span>
+      </div>
+
+      <!-- Three sections as "terminals" -->
+      <div style="padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <!-- Websites -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0,170,255,0.2); border-radius: 4px; padding: 12px;">
+          <div style="font-size: 8px; color: #0af; letter-spacing: 2px; margin-bottom: 8px; border-bottom: 1px solid rgba(0,170,255,0.1); padding-bottom: 6px;">&#9632; WEBSITES</div>
+          <div style="font-size: 9px; color: #ccc; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span>CodeView</span>
+              <span style="color: #0af; font-size: 8px;">1.2k views</span>
+            </div>
+            <div style="height: 3px; background: #111; border-radius: 2px; overflow: hidden;">
+              <div style="width: 72%; height: 100%; background: linear-gradient(90deg, #0af, #00ff88);"></div>
+            </div>
+          </div>
+          <div style="font-size: 9px; color: #ccc;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span>StreamClout</span>
+              <span style="color: #0af; font-size: 8px;">847 views</span>
+            </div>
+            <div style="height: 3px; background: #111; border-radius: 2px; overflow: hidden;">
+              <div style="width: 48%; height: 100%; background: linear-gradient(90deg, #0af, #00ff88);"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Art -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,0,170,0.2); border-radius: 4px; padding: 12px;">
+          <div style="font-size: 8px; color: #f0a; letter-spacing: 2px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,0,170,0.1); padding-bottom: 6px;">&#9632; ART</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <div style="background: linear-gradient(135deg, #1a0030, #300050); height: 36px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #f0a;">AI ARCH</div>
+            <div style="background: linear-gradient(135deg, #001a30, #003050); height: 36px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #f0a;">LIVESTREAM</div>
+          </div>
+          <div style="font-size: 8px; color: #666; margin-top: 6px; text-align: center;">2 pieces</div>
+        </div>
+
+        <!-- Blog -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,170,0,0.2); border-radius: 4px; padding: 12px;">
+          <div style="font-size: 8px; color: #fa0; letter-spacing: 2px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,170,0,0.1); padding-bottom: 6px;">&#9632; BLOG</div>
+          <div style="display: flex; align-items: center; justify-content: center; height: 50px; border: 1px dashed rgba(255,170,0,0.15); border-radius: 4px;">
+            <span style="font-size: 9px; color: #555;">Coming soon</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding: 8px 20px; font-size: 8px; color: #333; border-top: 1px solid #1a1a1a; display: flex; justify-content: space-between;">
+        <span>spotify &middot; linkedin &middot; github &middot; letterboxd</span>
+        <span>GA4 powered analytics</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. The Dashboard</h3>
+      <p>Your site IS a dashboard. The landing page shows your video hero, then immediately presents your work as a <strong>live data product</strong> — each section shows real GA4 analytics inline. Websites show traffic bars, Art shows a visual grid, Blog shows a timeline. A live stats ticker runs across the top. Everything feels like a command center for your creative output.</p>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Strengths</h4><ul><li>Unique — nobody does this</li><li>Shows your analytics/data chops immediately</li><li>Live data makes it feel alive</li><li>Single page, no navigation friction</li></ul></div>
+        <div class="cons"><h4>Trade-offs</h4><ul><li>More backend work (GA4 per-project)</li><li>Could feel dense on mobile</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #08080c; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 0; overflow: hidden; min-height: 420px; position: relative;">
+      <!-- Hero section - cinematic -->
+      <div style="position: relative; height: 180px; display: flex; align-items: center; justify-content: center; text-align: center;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(180deg, #08080c 0%, transparent 30%, transparent 70%, #08080c 100%);"></div>
+        <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,170,255,0.08), transparent 70%);"></div>
+        <div style="position: absolute; top: 12px; left: 0; right: 0; font-size: 8px; color: #00ff88; opacity: 0.3; text-align: center; font-family: monospace;">[ FULL-BLEED VIDEO HERO ]</div>
+        <div style="position: relative; z-index: 1;">
+          <div style="font-size: 36px; font-weight: 200; letter-spacing: 12px; color: #fff;">WORTHY</div>
+          <div style="font-size: 12px; font-weight: 200; letter-spacing: 8px; color: rgba(255,255,255,0.4); margin-top: 4px;">RAE</div>
+        </div>
+      </div>
+
+      <!-- Three portals -->
+      <div style="padding: 0 20px 16px; display: flex; gap: 12px;">
+        <!-- Websites portal -->
+        <div style="flex: 1; position: relative; height: 140px; overflow: hidden; border-radius: 6px; cursor: pointer; border: 1px solid rgba(0,170,255,0.1);">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,170,255,0.1) 0%, rgba(8,8,12,0.95) 100%);"></div>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px;">
+            <div style="font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px;">Websites</div>
+            <div style="font-size: 9px; color: #0af; margin-top: 2px;">2 projects</div>
+            <div style="font-size: 8px; color: #555; margin-top: 6px;">CodeView &middot; StreamClout</div>
+          </div>
+          <div style="position: absolute; top: 12px; right: 12px; font-size: 18px; color: rgba(0,170,255,0.3);">&rarr;</div>
+        </div>
+
+        <!-- Art portal -->
+        <div style="flex: 1; position: relative; height: 140px; overflow: hidden; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,0,170,0.1);">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,0,170,0.1) 0%, rgba(8,8,12,0.95) 100%);"></div>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px;">
+            <div style="font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px;">Art</div>
+            <div style="font-size: 9px; color: #f0a; margin-top: 2px;">2 pieces</div>
+            <div style="font-size: 8px; color: #555; margin-top: 6px;">AI Architecture &middot; Livestream</div>
+          </div>
+          <div style="position: absolute; top: 12px; right: 12px; font-size: 18px; color: rgba(255,0,170,0.3);">&rarr;</div>
+        </div>
+
+        <!-- Blog portal -->
+        <div style="flex: 1; position: relative; height: 140px; overflow: hidden; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,170,0,0.1);">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,170,0,0.08) 0%, rgba(8,8,12,0.95) 100%);"></div>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px;">
+            <div style="font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px;">Blog</div>
+            <div style="font-size: 9px; color: #fa0; margin-top: 2px;">coming soon</div>
+            <div style="font-size: 8px; color: #555; margin-top: 6px;">thoughts &middot; process &middot; builds</div>
+          </div>
+          <div style="position: absolute; top: 12px; right: 12px; font-size: 18px; color: rgba(255,170,0,0.3);">&rarr;</div>
+        </div>
+      </div>
+
+      <!-- Subtle data strip -->
+      <div style="padding: 10px 20px; font-size: 8px; color: #333; display: flex; justify-content: space-between; border-top: 1px solid #111;">
+        <span style="color: #444;">&#9679; 2,847 visitors &middot; 30d</span>
+        <span style="color: #333;">spotify &middot; linkedin &middot; github</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. The Cinematic Portal</h3>
+      <p>Dramatic, editorial feel. Full-bleed video hero with your name in elegant thin type, then three <strong>portal cards</strong> that glow with their section color. Each portal leads to its own full page. Analytics live inside each section page, not on the landing. The landing page is pure vibes — the data lives one click deeper.</p>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Strengths</h4><ul><li>Cinematic first impression</li><li>Clean, not overwhelming</li><li>Each section gets its own world</li><li>Easier to maintain/extend</li></ul></div>
+        <div class="cons"><h4>Trade-offs</h4><ul><li>Extra click to see content</li><li>Less "wow I can see everything" factor</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top: 20px;"><strong>My recommendation: A (The Dashboard).</strong> It's bolder, more unique, and the live analytics immediately differentiate you from every other portfolio. The cyberpunk data-product aesthetic comes through strongest when the data is front and center. We can make it work on mobile with a stacked layout.</p>

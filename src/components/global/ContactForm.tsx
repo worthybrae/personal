@@ -59,33 +59,33 @@ const ContactForm = ({ compact = false }: ContactFormProps) => {
           )}
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] [&>button]:bg-white [&>button]:border [&>button]:border-gray-200 [&>button]:hover:bg-gray-50">
+      <DialogContent className="sm:max-w-[425px] bg-[#0f0f15] border-white/[0.1] text-white">
         <DialogHeader>
           <DialogTitle>Contact Me</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="firstName" className="text-sm font-medium">
+              <label htmlFor="firstName" className="text-muted font-mono text-xs">
                 First name
               </label>
-              <Input id="firstName" name="firstName" placeholder="First name" required />
+              <Input id="firstName" name="firstName" placeholder="First name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
             </div>
             <div className="space-y-2">
-              <label htmlFor="lastName" className="text-sm font-medium">
+              <label htmlFor="lastName" className="text-muted font-mono text-xs">
                 Last name
               </label>
-              <Input id="lastName" name="lastName" placeholder="Last name" required />
+              <Input id="lastName" name="lastName" placeholder="Last name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
             </div>
           </div>
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
+            <label htmlFor="email" className="text-muted font-mono text-xs">
               Email
             </label>
-            <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+            <Input id="email" name="email" type="email" placeholder="you@example.com" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
           </div>
           <div className="space-y-2">
-            <label htmlFor="message" className="text-sm font-medium">
+            <label htmlFor="message" className="text-muted font-mono text-xs">
               Message
             </label>
             <Textarea
@@ -93,12 +93,12 @@ const ContactForm = ({ compact = false }: ContactFormProps) => {
               name="message"
               placeholder="Your message here..."
               required
-              className="min-h-[100px]"
+              className="min-h-[100px] bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted"
             />
           </div>
           <button
             type="submit"
-            className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
+            className="bg-cyber-cyan text-black font-mono hover:bg-cyber-cyan/80 w-full px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
             disabled={loading}
           >
             {loading ? 'Sending...' : 'Send Message'}

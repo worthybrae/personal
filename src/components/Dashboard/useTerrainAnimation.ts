@@ -1,0 +1,769 @@
+// src/components/Dashboard/useTerrainAnimation.ts
+
+import { useEffect, useRef, useCallback } from 'react';
+import { warpedTerrain } from './noise';
+import { getDuotoneColor, scurve } from './color';
+
+const NOISE_SCALE = 0.015;
+const COLOR_LEVELS = 64;
+
+export interface TerrainConfig {
+  speedDivisor?: number;
+  showNameMask?: boolean;
+  contrast?: number;
+  onLogoClick?: () => void;
+  onMenuClick?: () => void;
+  onSubItemClick?: (url: string) => void;
+  contentOpenRef?: React.RefObject<boolean>;
+  activeLabelRef?: React.RefObject<string | null>;
+  scrollTargetRef?: React.RefObject<number>;
+  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string }[]>;
+  detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
+  meltCompleteRef?: React.MutableRefObject<boolean>;
+  skipIntro?: boolean;
+}
+
+export function useTerrainAnimation(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  scrollProgressRef: React.MutableRefObject<number>,
+  config: TerrainConfig = {},
+) {
+  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, skipIntro } = config;
+  const rafRef = useRef(0);
+  const introStartRef = useRef(-1);
+  const logoMenuIntroProgressRef = useRef(0);
+  const contentProgressRef = useRef(-1);
+
+  const nameMaskRef = useRef<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const wLogoMaskRef = useRef<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+  } | null>(null);
+
+
+  const contentTitleMaskRef = useRef<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const wLogoBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  const menuBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  const mouseRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
+  const subItemBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
+
+  const menuMaskRef = useRef<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const buildMasks = useCallback(
+    (canvasWidth: number, canvasHeight: number) => {
+      const off = document.createElement('canvas');
+      off.width = canvasWidth;
+      off.height = canvasHeight;
+      const o = off.getContext('2d')!;
+      o.fillStyle = '#000';
+      o.fillRect(0, 0, off.width, off.height);
+
+      if (showNameMask) {
+        const isPortrait = canvasHeight > canvasWidth;
+        const lineH = isPortrait ? canvasWidth * 0.22 : canvasHeight * 0.18;
+        const centerY = off.height * (isPortrait ? 0.45 : 0.5);
+        o.fillStyle = '#fff';
+        o.textAlign = 'center';
+        o.textBaseline = 'middle';
+        const maxW = off.width * 0.9;
+        o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        o.fillText('WORTHY', off.width / 2, centerY - lineH * 0.6, maxW);
+        o.font = `900 ${lineH * 0.85}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        o.fillText('RAE', off.width / 2, centerY + lineH * 0.6, maxW);
+      }
+
+      nameMaskRef.current = {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      };
+
+      const w2 = document.createElement('canvas');
+      w2.width = canvasWidth;
+      w2.height = canvasHeight;
+      const w2ctx = w2.getContext('2d')!;
+      w2ctx.fillStyle = '#000';
+      w2ctx.fillRect(0, 0, w2.width, w2.height);
+
+      const dpr = canvasWidth / window.innerWidth;
+      const logoSize = 64 * dpr;
+      const logoX = 24 * dpr;
+      const logoY = 20 * dpr;
+      w2ctx.fillStyle = '#fff';
+      w2ctx.textAlign = 'left';
+      w2ctx.textBaseline = 'top';
+      w2ctx.font = `900 ${logoSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      w2ctx.fillText('W', logoX, logoY);
+      const wMetrics = w2ctx.measureText('W');
+      wLogoBoundsRef.current = {
+        x: logoX,
+        y: logoY,
+        w: wMetrics.width,
+        h: logoSize,
+      };
+
+      wLogoMaskRef.current = {
+        data: w2ctx.getImageData(0, 0, w2.width, w2.height).data,
+        width: w2.width,
+        height: w2.height,
+      };
+
+      // --- Menu (+) icon mask — top right ---
+      const m = document.createElement('canvas');
+      m.width = canvasWidth;
+      m.height = canvasHeight;
+      const mctx = m.getContext('2d')!;
+      mctx.fillStyle = '#000';
+      mctx.fillRect(0, 0, m.width, m.height);
+
+      const menuFontSize = logoSize * 1.7;
+      mctx.fillStyle = '#fff';
+      mctx.textAlign = 'right';
+      mctx.textBaseline = 'top';
+      mctx.font = `900 ${menuFontSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      const menuMetrics = mctx.measureText('+');
+      const menuX = canvasWidth - logoX;
+      const menuY = logoY - menuFontSize * 0.18;
+      mctx.fillText('+', menuX, menuY);
+      menuBoundsRef.current = {
+        x: menuX - menuMetrics.width,
+        y: menuY,
+        w: menuMetrics.width,
+        h: logoSize,
+      };
+
+      menuMaskRef.current = {
+        data: mctx.getImageData(0, 0, m.width, m.height).data,
+        width: m.width,
+        height: m.height,
+      };
+
+    },
+    [showNameMask],
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let cols = 0;
+    let rows = 0;
+    let fontSize = 0;
+    let charW = 0;
+    let charH = 0;
+    let canvasDpr = 1;
+    // Pre-allocated buffers — reused every frame (no GC pressure)
+    let gridChars: Uint8Array = new Uint8Array(0);
+    let gridColors: Uint8Array = new Uint8Array(0);
+    let gridSkip: Uint8Array = new Uint8Array(0);
+    let gridBg: Uint8Array = new Uint8Array(0);
+    const colorLUT: string[] = new Array(COLOR_LEVELS);
+
+    // Pre-baked grid-resolution mask lookups (avoid per-frame pixel lookups)
+    let nameMaskGrid: Uint8Array = new Uint8Array(0);
+    let wLogoMaskGrid: Uint8Array = new Uint8Array(0);
+    let menuMaskGrid: Uint8Array = new Uint8Array(0);
+    let contentTitleGrid: Uint8Array = new Uint8Array(0);
+    let lastContentLabel: string | null = null;
+    let lastSubItemsKey = '';
+    let lastDetailKey = '';
+
+    function buildContentTitleMask(label: string) {
+      if (!canvas) return;
+      const items = contentSubItemsRef?.current;
+      const detail = config.detailRef?.current;
+      const hasItems = items && items.length > 0;
+
+      const off = document.createElement('canvas');
+      off.width = canvas.width;
+      off.height = canvas.height;
+      const o = off.getContext('2d')!;
+      o.fillStyle = '#000';
+      o.fillRect(0, 0, off.width, off.height);
+
+      const newBounds: { x: number; y: number; w: number; h: number }[] = [];
+      const bioDpr = canvas.width / window.innerWidth;
+      const cutMaxW = Math.min(672, window.innerWidth - 48) * bioDpr;
+      const cutMaxH = (window.innerHeight - 100) * bioDpr;
+      const cutCX = canvas.width / 2;
+      const cutCY = canvas.height * 0.53;
+      const isPortrait = canvas.height > canvas.width;
+
+      const titleH = isPortrait ? cutMaxW * 0.22 : cutMaxH * 0.1;
+
+      o.fillStyle = '#fff';
+      o.textAlign = 'center';
+      o.textBaseline = 'middle';
+
+      if (detail) {
+        // Detail mode: project name centered + MAU below in smaller font
+        const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const mauFont = `900 ${titleH * 0.85}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+
+        // Name
+        o.font = nameFont;
+        const nameY = cutCY - titleH * 0.7;
+        o.fillText(detail.name, cutCX, nameY, cutMaxW * 0.9);
+        const nameTw = o.measureText(detail.name).width;
+        newBounds.push({
+          x: cutCX - nameTw / 2,
+          y: nameY - titleH * 0.55,
+          w: Math.min(nameTw, cutMaxW * 0.9),
+          h: titleH * 1.1,
+        });
+
+        // MAU stat
+        o.font = mauFont;
+        const mauY = nameY + titleH * 1.3;
+        o.fillText(detail.mau, cutCX, mauY, cutMaxW * 0.9);
+        const mauTw = o.measureText(detail.mau).width;
+        newBounds.push({
+          x: cutCX - mauTw / 2,
+          y: mauY - titleH * 0.25,
+          w: Math.min(mauTw, cutMaxW * 0.9),
+          h: titleH * 0.5,
+        });
+      } else if (hasItems) {
+        // Feed layout: category tag + name + description + MAU per item
+        const catFont = `700 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const descFont = `700 ${titleH * 0.3}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const mauFont = `900 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+
+        // Each entry: category + name + desc + optional mau + gap
+        const entryH = titleH * 0.3 + titleH + titleH * 0.35 + titleH * 0.5;
+        const totalH = items.length * entryH;
+        let curY = cutCY - totalH / 2 + titleH * 0.3;
+
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+
+          // Category tag (small)
+          if (item.category) {
+            o.font = catFont;
+            o.fillText(item.category, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.35;
+          }
+
+          // Item name (large)
+          o.font = nameFont;
+          o.fillText(item.text.toUpperCase(), cutCX, curY, cutMaxW * 0.9);
+          const tw = o.measureText(item.text.toUpperCase()).width;
+          newBounds.push({
+            x: cutCX - tw / 2,
+            y: curY - titleH * 0.55,
+            w: Math.min(tw, cutMaxW * 0.9),
+            h: titleH * 1.1,
+          });
+          curY += titleH * 0.8;
+
+          // Description (medium)
+          if (item.description) {
+            o.font = descFont;
+            o.fillText(item.description, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.4;
+          }
+
+          // MAU (small)
+          if (item.mau) {
+            o.font = mauFont;
+            o.fillText(item.mau, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.35;
+          }
+
+          // Gap between entries
+          curY += titleH * 0.5;
+        }
+      }
+
+      subItemBoundsRef.current = newBounds;
+
+      contentTitleMaskRef.current = {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      };
+
+      // Bake to grid
+      const mask = contentTitleMaskRef.current;
+      contentTitleGrid = new Uint8Array(cols * rows);
+      for (let r = 0; r < rows; r++) {
+        const py = Math.floor(r * charH);
+        for (let c = 0; c < cols; c++) {
+          const px = Math.floor(c * charW);
+          const idx = r * cols + c;
+          if (px < mask.width && py < mask.height) {
+            const offset = (py * mask.width + px) * 4;
+            contentTitleGrid[idx] = mask.data[offset] > 128 ? 1 : 0;
+          }
+        }
+      }
+    }
+
+    const isMobile = window.innerWidth < 768;
+    const frameBudget = isMobile ? 40 : 0; // Desktop: uncapped. Mobile: ~25fps
+
+    function resize() {
+      if (!canvas) return;
+      canvasDpr = Math.min(window.devicePixelRatio, 2);
+      canvas.width = window.innerWidth * canvasDpr;
+      canvas.height = window.innerHeight * canvasDpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      fontSize = isMobile
+        ? Math.max(7, Math.min(12, window.innerWidth / 100)) * canvasDpr
+        : Math.max(5, Math.min(9, window.innerWidth / 180)) * canvasDpr;
+      charW = fontSize * 0.602;
+      charH = fontSize * 1.0;
+      cols = Math.ceil(canvas.width / charW);
+      rows = Math.ceil(canvas.height / charH);
+      buildMasks(canvas.width, canvas.height);
+
+      const size = cols * rows;
+
+      // Pre-allocate frame buffers
+      gridChars = new Uint8Array(size);
+      gridColors = new Uint8Array(size);
+      gridSkip = new Uint8Array(size);
+      gridBg = new Uint8Array(size);
+
+      // Bake mask lookups to grid resolution (avoids per-pixel checks in draw)
+      nameMaskGrid = new Uint8Array(size);
+      wLogoMaskGrid = new Uint8Array(size);
+      menuMaskGrid = new Uint8Array(size);
+      const nameMask = nameMaskRef.current;
+      const wMask = wLogoMaskRef.current;
+      const menuMask = menuMaskRef.current;
+
+      for (let r = 0; r < rows; r++) {
+        const py = Math.floor(r * charH);
+        for (let c = 0; c < cols; c++) {
+          const px = Math.floor(c * charW);
+          const idx = r * cols + c;
+          if (nameMask && px < nameMask.width && py < nameMask.height) {
+            nameMaskGrid[idx] = nameMask.data[(py * nameMask.width + px) * 4] > 128 ? 1 : 0;
+          }
+          if (wMask && px < wMask.width && py < wMask.height) {
+            wLogoMaskGrid[idx] = wMask.data[(py * wMask.width + px) * 4] > 128 ? 1 : 0;
+          }
+          if (menuMask && px < menuMask.width && py < menuMask.height) {
+            menuMaskGrid[idx] = menuMask.data[(py * menuMask.width + px) * 4] > 128 ? 1 : 0;
+          }
+        }
+      }
+
+      lastContentLabel = null;
+    }
+
+    let lastDrawTime = 0;
+    // Initialize contentProgress only on first mount; persist across effect re-runs
+    if (contentProgressRef.current < 0) {
+      contentProgressRef.current = contentOpenRef?.current ? 1 : 0;
+    }
+    // Use refs so intro state survives effect re-runs (e.g. navigation)
+    // Animation only plays on first page load, then stays complete
+    let maskOpacity = 1;
+    let maskOpacityTarget = 1;
+    let pendingMaskRebuild = false;
+
+    function draw(ts: number) {
+      if (!canvas) return;
+      if (frameBudget > 0 && ts - lastDrawTime < frameBudget) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastDrawTime = ts;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const t = ts / speedDivisor;
+
+      // --- Intro animation (terrain first, then name + logo scatter in) ---
+      if (introStartRef.current < 0) introStartRef.current = skipIntro ? ts - 10000 : ts;
+      const introElapsed = ts - introStartRef.current;
+      const introProgress = Math.max(0, Math.min(1, (introElapsed - 400) / 1800));
+      const logoMenuIntro = Math.max(0, Math.min(1, (introElapsed - 800) / 1000));
+      logoMenuIntroProgressRef.current = logoMenuIntro;
+
+      // Smooth lerp scroll toward route-driven target
+      const scrollTarget = scrollTargetRef?.current ?? 0;
+      const scrollCurrent = scrollProgressRef.current ?? 0;
+      const scrollDiff = scrollTarget - scrollCurrent;
+      scrollProgressRef.current = Math.abs(scrollDiff) < 0.001
+        ? scrollTarget
+        : scrollCurrent + scrollDiff * 0.045;
+      const scroll = scrollProgressRef.current;
+
+      // --- Content open animation ---
+      let contentProgress = contentProgressRef.current;
+      const contentTarget = contentOpenRef?.current ? 1 : 0;
+      const contentLerp = contentTarget === 0 ? 0.033 : 0.104;
+      contentProgress += (contentTarget - contentProgress) * contentLerp;
+      if (Math.abs(contentProgress - contentTarget) < 0.001) contentProgress = contentTarget;
+      contentProgressRef.current = contentProgress;
+
+      if (meltCompleteRef) meltCompleteRef.current = contentProgress >= 1;
+
+      // Closing = reversing back to home while contentProgress hasn't reached 0 yet
+      const isClosing = contentTarget === 0 && contentProgress > 0;
+
+      // --- Color LUT (reuse array, just overwrite values) ---
+      const bgSample = getDuotoneColor(0, t);
+      const bgR = Math.floor(bgSample.bgR);
+      const bgG = Math.floor(bgSample.bgG);
+      const bgB = Math.floor(bgSample.bgB);
+
+      // During reverse melt, scale character colors to match bg brightness
+      const colorScale = isClosing ? (1 - contentProgress) : 1;
+
+      for (let i = 0; i < COLOR_LEVELS; i++) {
+        const val = i / (COLOR_LEVELS - 1);
+        const col = getDuotoneColor(val, t);
+        const dim = 0.35 + val * 1.15;
+        const rawR = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
+        const rawG = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
+        const rawB = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
+        const mr = Math.round(rawR * colorScale);
+        const mg = Math.round(rawG * colorScale);
+        const mb = Math.round(rawB * colorScale);
+        colorLUT[i] = `rgb(${mr},${mg},${mb})`;
+      }
+      colorLUT[COLOR_LEVELS] = '#fff'; // white override for hover
+
+      // --- Clear ---
+      ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // --- Name dissolve (scroll 0→0.7) ---
+      const nameFade = Math.max(0, Math.min(1, scroll / 0.7));
+
+      // Content titles scatter in (0.4→1.0)
+      const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
+      const currentLabel = activeLabelRef?.current ?? null;
+      const subItems = contentSubItemsRef?.current ?? [];
+      const subItemsKey = subItems.map(s => `${s.text}:${s.description || ''}:${s.mau || ''}`).join('|');
+      const detail = config.detailRef?.current;
+      const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
+      if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
+        // Content changed — if already showing content, cross-fade via maskOpacity
+        // Only cross-fade when switching labels, not when closing content entirely
+        if (lastContentLabel !== null && contentTitleFade > 0.5 && currentLabel !== null) {
+          maskOpacityTarget = 0;
+          pendingMaskRebuild = true;
+        } else {
+          // Closing content or first load — update immediately
+          lastContentLabel = currentLabel;
+          lastSubItemsKey = subItemsKey;
+          lastDetailKey = detailKey;
+          if (currentLabel) buildContentTitleMask(currentLabel);
+        }
+      }
+
+      // Lerp maskOpacity toward target
+      maskOpacity += (maskOpacityTarget - maskOpacity) * 0.08;
+      if (Math.abs(maskOpacity - maskOpacityTarget) < 0.01) maskOpacity = maskOpacityTarget;
+
+      // When fade-out completes, rebuild mask and fade back in
+      if (pendingMaskRebuild && maskOpacity < 0.02) {
+        lastContentLabel = currentLabel;
+        lastSubItemsKey = subItemsKey;
+        lastDetailKey = detailKey;
+        if (currentLabel) buildContentTitleMask(currentLabel);
+        maskOpacityTarget = 1;
+        pendingMaskRebuild = false;
+      }
+
+      // --- Hovered label / W logo detection ---
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const wb = wLogoBoundsRef.current;
+      const wHovered = mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
+      const mb = menuBoundsRef.current;
+      const menuHovered = mx >= mb.x && mx < mb.x + mb.w && my >= mb.y && my < mb.y + mb.h;
+
+      // --- Sub-item hover detection ---
+      let hoveredSubItem = -1;
+      const subBounds = subItemBoundsRef.current;
+      for (let i = 0; i < subBounds.length; i++) {
+        const b = subBounds[i];
+        if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
+          hoveredSubItem = i;
+          break;
+        }
+      }
+
+      // --- Compute terrain grid (reuse pre-allocated buffers) ---
+      gridSkip.fill(0);
+      gridBg.fill(0);
+
+      const RAMP = ".,':;|!ilc/1{[?eoasd0OkxXdpbWM#@@";
+      const rampLen = RAMP.length;
+
+      for (let r = 0; r < rows; r++) {
+        const py = r * charH;
+        const rowOffset = r * cols;
+        for (let c = 0; c < cols; c++) {
+          const idx = rowOffset + c;
+
+          // Compute terrain for every cell
+          const nx = c * NOISE_SCALE;
+          const ny = r * NOISE_SCALE;
+          let elev = warpedTerrain(nx, ny, t);
+          let val = (elev + 0.5) / 1.8;
+          val = Math.max(0, Math.min(1, val));
+          val = scurve(val, contrast);
+          gridChars[idx] = Math.max(0, Math.min(rampLen - 1, (val * (rampLen - 1)) | 0));
+          gridColors[idx] = Math.min(COLOR_LEVELS - 1, (val * COLOR_LEVELS) | 0);
+
+          // W logo — scatter-reveal on intro, highlight on hover
+          if (wLogoMaskGrid[idx]) {
+            let h3 = (c * 123456789 + r * 987654321) | 0;
+            h3 = ((h3 ^ (h3 >>> 13)) * 1274126177) | 0;
+            const logoHash = ((h3 ^ (h3 >>> 16)) & 0x7fff) / 0x7fff;
+            if (logoMenuIntro > logoHash) {
+              if (wHovered) {
+                gridBg[idx] = 1;
+              }
+              gridSkip[idx] = 1;
+            }
+          }
+
+          // Menu (+) icon — scatter-reveal on intro, highlight on hover
+          if (menuMaskGrid[idx]) {
+            let h4 = (c * 987654321 + r * 123456789) | 0;
+            h4 = ((h4 ^ (h4 >>> 13)) * 1274126177) | 0;
+            const menuHash = ((h4 ^ (h4 >>> 16)) & 0x7fff) / 0x7fff;
+            if (logoMenuIntro > menuHash) {
+              if (menuHovered) {
+                gridBg[idx] = 1;
+              }
+              gridSkip[idx] = 1;
+            }
+          }
+
+          // Name mask — scatter-reveal on intro, scatter-dissolve on scroll
+          if (nameMaskGrid[idx]) {
+            let h = (c * 374761393 + r * 668265263) | 0;
+            h = ((h ^ (h >>> 13)) * 1274126177) | 0;
+            const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
+            if (introProgress > hash && hash > nameFade) {
+              gridSkip[idx] = 1;
+            }
+          }
+
+          // Content: scatter-reveal in, scatter-dissolve out (white on exit)
+          if (contentTitleFade > 0 && contentTitleGrid[idx]) {
+            let h2 = ((c + 17) * 374761393 + (r + 31) * 668265263) | 0;
+            h2 = ((h2 ^ (h2 >>> 13)) * 1274126177) | 0;
+            const hash2 = ((h2 ^ (h2 >>> 16)) & 0x7fff) / 0x7fff;
+            const effectiveFade = contentTitleFade * maskOpacity;
+            if (effectiveFade >= hash2) {
+              const isClosing = contentTarget === 0;
+              if (isClosing) {
+                // Exit: render as white so dissolve is visible
+                gridColors[idx] = COLOR_LEVELS;
+              } else if (hoveredSubItem >= 0) {
+                const hb = subBounds[hoveredSubItem];
+                const cellPx = c * charW;
+                if (hb && cellPx >= hb.x && cellPx < hb.x + hb.w && py >= hb.y && py < hb.y + hb.h) {
+                  gridBg[idx] = 1; // white bg on hover
+                }
+                gridSkip[idx] = 1;
+              } else {
+                gridSkip[idx] = 1;
+              }
+            }
+          }
+        }
+      }
+
+      // --- Terrain melt: scatter-dissolve terrain to black, reveal masks as terrain ---
+      if (contentProgress > 0) {
+        // Fade background to black
+        const inv = contentProgress;
+        const invBgR = Math.round(bgR * (1 - inv));
+        const invBgG = Math.round(bgG * (1 - inv));
+        const invBgB = Math.round(bgB * (1 - inv));
+        ctx.fillStyle = `rgb(${invBgR},${invBgG},${invBgB})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Scatter-dissolve: terrain melts away, W/+ fill with terrain to stay visible
+        const totalCells = rows * cols;
+        for (let i = 0; i < totalCells; i++) {
+          const cr = Math.floor(i / cols);
+          const cc = i % cols;
+          let hd = (cc * 271828183 + cr * 314159265) | 0;
+          hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
+          const dHash = ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
+
+          if (gridSkip[i] === 0) {
+            // Terrain cell — dissolve to black
+            if (contentProgress > dHash) gridSkip[i] = 1;
+          } else if (!isClosing && (wLogoMaskGrid[i] || menuMaskGrid[i])) {
+            // W/+ cells — reveal as terrain during forward melt so they stay visible on feed
+            if (contentProgress > dHash) {
+              gridSkip[i] = 0;
+              gridBg[i] = 0;
+            }
+          }
+          // Name cutout cells: stay as empty space (no action)
+        }
+        // Re-apply W/+ hover highlight after melt (melt clears gridBg)
+        if (wHovered || menuHovered) {
+          for (let i = 0; i < totalCells; i++) {
+            if (wHovered && wLogoMaskGrid[i]) {
+              gridBg[i] = 1;
+              gridSkip[i] = 1;
+            }
+            if (menuHovered && menuMaskGrid[i]) {
+              gridBg[i] = 1;
+              gridSkip[i] = 1;
+            }
+          }
+        }
+      }
+
+      // --- Render white backgrounds for highlighted (hovered) cells ---
+      ctx.fillStyle = '#fff';
+      for (let r = 0; r < rows; r++) {
+        const py = r * charH;
+        const rowOffset = r * cols;
+        let bgRunStart = -1;
+        for (let c = 0; c <= cols; c++) {
+          const hasBg = c < cols && gridBg[rowOffset + c] === 1;
+          if (hasBg && bgRunStart < 0) {
+            bgRunStart = c;
+          } else if (!hasBg && bgRunStart >= 0) {
+            ctx.fillRect(bgRunStart * charW, py, (c - bgRunStart) * charW, charH);
+            bgRunStart = -1;
+          }
+        }
+      }
+
+      // --- Render (batched by row + color runs) ---
+      ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
+      ctx.textBaseline = 'top';
+
+      for (let r = 0; r < rows; r++) {
+        const py = r * charH;
+        const rowOffset = r * cols;
+        let runStart = -1;
+        let runColor = -1;
+        let runStr = '';
+
+        for (let c = 0; c <= cols; c++) {
+          const idx = rowOffset + c;
+          const isEnd = c === cols;
+          const isSkip = !isEnd && gridSkip[idx] === 1;
+          const color = isEnd || isSkip ? -1 : gridColors[idx];
+
+          if (color !== runColor || isEnd || isSkip) {
+            if (runStr.length > 0 && runColor >= 0) {
+              ctx.fillStyle = colorLUT[runColor];
+              ctx.fillText(runStr, runStart * charW, py);
+            }
+            runStart = c;
+            runColor = color;
+            runStr = isEnd || isSkip ? '' : RAMP[gridChars[idx]];
+          } else {
+            runStr += RAMP[gridChars[idx]];
+          }
+
+          if (isSkip && !isEnd) {
+            runStart = c + 1;
+            runColor = -1;
+            runStr = '';
+          }
+        }
+      }
+
+      // Reset globalAlpha after reverse melt rendering
+      rafRef.current = requestAnimationFrame(draw);
+    }
+
+    function hitTest(ex: number, ey: number) {
+      const px = ex * canvasDpr;
+      const py = ey * canvasDpr;
+
+      const contentTitleVis = Math.max(0, Math.min(1, (contentProgressRef.current - 0.6) / 0.4));
+
+      // W logo & menu — always clickable after intro
+      if (logoMenuIntroProgressRef.current > 0.3) {
+        const wb = wLogoBoundsRef.current;
+        if (px >= wb.x && px < wb.x + wb.w && py >= wb.y && py < wb.y + wb.h) return 'logo';
+        const mb = menuBoundsRef.current;
+        if (px >= mb.x && px < mb.x + mb.w && py >= mb.y && py < mb.y + mb.h) return 'menu';
+      }
+
+      // Sub-items — only when content title is revealed
+      if (contentTitleVis > 0.3) {
+        const sBounds = subItemBoundsRef.current;
+        for (let i = 0; i < sBounds.length; i++) {
+          const b = sBounds[i];
+          if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `sub:${i}`;
+        }
+      }
+
+      return null;
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX * canvasDpr, y: e.clientY * canvasDpr };
+      document.body.style.cursor = hitTest(e.clientX, e.clientY) !== null ? 'pointer' : '';
+    };
+
+    const onClick = (e: MouseEvent) => {
+      const hit = hitTest(e.clientX, e.clientY);
+      if (hit === 'logo') {
+        onLogoClick?.();
+      } else if (hit === 'menu') {
+        onMenuClick?.();
+      } else if (typeof hit === 'string' && hit.startsWith('sub:')) {
+        const idx = parseInt(hit.slice(4));
+        const detail = config.detailRef?.current;
+        if (detail && idx === 0) {
+          // Detail mode: clicking the name opens external URL
+          window.open(detail.url, '_blank');
+        } else {
+          const items = contentSubItemsRef?.current;
+          if (items?.[idx]?.url) {
+            if (onSubItemClick) {
+              onSubItemClick(items[idx].url);
+            } else {
+              window.open(items[idx].url, '_blank');
+            }
+          }
+        }
+      }
+    };
+
+    resize();
+    rafRef.current = requestAnimationFrame(draw);
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click', onClick);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('click', onClick);
+      document.body.style.cursor = '';
+    };
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
+}

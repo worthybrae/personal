@@ -1,0 +1,133 @@
+<h2>Binary Topography — Refined</h2>
+<p class="subtitle">Slower drift, mouse influence creates a gravity well in the contour field. Move your cursor over it.</p>
+
+<div style="display: flex; justify-content: center; margin-top: 24px;">
+  <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+    <canvas id="topo" width="900" height="500" style="display: block; cursor: crosshair;"></canvas>
+  </div>
+</div>
+
+<p style="text-align: center; margin-top: 16px; font-size: 13px; opacity: 0.5;">Move your mouse over the canvas — the contour field reacts to your cursor position</p>
+
+<script>
+(function() {
+  const c = document.getElementById('topo');
+  const ctx = c.getContext('2d');
+  const cols = 100, rows = 55;
+  const cw = c.width / cols, ch = c.height / rows;
+
+  let mouseX = -1, mouseY = -1;
+  let smoothMX = 0.5, smoothMY = 0.5;
+
+  c.addEventListener('mousemove', (e) => {
+    const rect = c.getBoundingClientRect();
+    mouseX = (e.clientX - rect.left) / rect.width;
+    mouseY = (e.clientY - rect.top) / rect.height;
+  });
+
+  c.addEventListener('mouseleave', () => {
+    mouseX = -1;
+    mouseY = -1;
+  });
+
+  let frame = 0;
+
+  function draw() {
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    // Smooth mouse tracking
+    if (mouseX >= 0) {
+      smoothMX += (mouseX - smoothMX) * 0.08;
+      smoothMY += (mouseY - smoothMY) * 0.08;
+    }
+
+    const fontSize = Math.min(cw, ch) * 0.72;
+    ctx.font = `${fontSize}px "SF Mono", "Fira Code", "Cascadia Code", monospace`;
+    ctx.textBaseline = 'middle';
+
+    // Much slower time progression
+    const t = frame * 0.003;
+
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col / cols;
+        const y = r / rows;
+
+        // Base topographic field — slow, layered waves
+        let v = Math.sin(x * 5.0 + t * 1.2) * Math.cos(y * 3.5 - t * 0.8) * 0.5
+              + Math.sin((x + y) * 4.0 + t * 0.6) * 0.4
+              + Math.sin(x * 10 + y * 6 + t * 1.5) * 0.15
+              + Math.cos(x * 7 - y * 9 + t * 0.4) * 0.2;
+
+        // Mouse gravity well — warps the field toward cursor
+        if (mouseX >= 0) {
+          const dx = x - smoothMX;
+          const dy = y - smoothMY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const influence = Math.exp(-dist * dist * 8) * 1.8;
+          // Create a ripple/displacement around the mouse
+          v += Math.sin(dist * 20 - t * 8) * influence * 0.5;
+          // Also push contour density higher near cursor
+          v += influence * 0.6;
+        }
+
+        const normalized = (v + 2.0) / 4.0;
+
+        // Contour line detection — multiple thresholds for layered topo look
+        const contourSpacing = 0.09;
+        const modVal = normalized % contourSpacing;
+        const distToLine = Math.abs(modVal - contourSpacing / 2);
+        const isContour = distToLine < 0.012;
+        const isNearContour = distToLine < 0.025;
+        const isPeak = normalized > 0.72;
+
+        if (isContour || isPeak) {
+          const char = normalized > 0.5 ? '1' : '0';
+
+          // Color palette: cyan-teal for contours, brighter for peaks
+          let hue, sat, light, alpha;
+
+          if (isPeak && !isContour) {
+            hue = 170 + normalized * 30;
+            sat = 50;
+            light = 25 + normalized * 20;
+            alpha = normalized * 0.5;
+          } else {
+            hue = 165 + normalized * 50;
+            sat = 55 + normalized * 25;
+            light = 35 + normalized * 35;
+            alpha = isContour ? (0.6 + normalized * 0.35) : 0.3;
+          }
+
+          // Mouse proximity glow
+          if (mouseX >= 0) {
+            const dx = x - smoothMX;
+            const dy = y - smoothMY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 0.25) {
+              const boost = (1 - dist / 0.25);
+              light += boost * 20;
+              alpha = Math.min(1, alpha + boost * 0.3);
+              sat += boost * 15;
+            }
+          }
+
+          ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+          ctx.fillText(char, col * cw + cw * 0.15, r * ch + ch * 0.55);
+        } else if (isNearContour) {
+          // Faint near-contour chars for depth
+          const char = normalized > 0.5 ? '1' : '0';
+          ctx.fillStyle = `hsla(180, 30%, 25%, 0.12)`;
+          ctx.fillText(char, col * cw + cw * 0.15, r * ch + ch * 0.55);
+        }
+      }
+    }
+
+    frame++;
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+})();
+</script>
