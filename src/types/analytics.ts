@@ -48,6 +48,7 @@ export interface SpotifyNowPlaying {
   album_art_url: string;
   progress_ms: number;
   duration_ms: number;
+  played_at?: string;
 }
 
 export interface SpotifyTopTracks {

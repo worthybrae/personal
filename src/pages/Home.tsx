@@ -72,17 +72,19 @@ export default function Home() {
   const showFeed = page === 'feed' || feedClosing;
 
   // Now-playing: fetch and expose via ref for terrain canvas
-  const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean } | null>(null);
+  const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
   useEffect(() => {
     const fetchNP = () => {
       if (document.visibilityState === 'hidden') return;
       api.getSpotifyNowPlaying().then((d: SpotifyNowPlaying) => {
-        nowPlayingRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing } : null;
+        nowPlayingRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing, playedAt: d.played_at } : null;
       }).catch(() => {});
     };
     fetchNP();
     const id = setInterval(fetchNP, 30_000);
-    return () => clearInterval(id);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchNP(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   const { data: blogData } = useFetch(() => api.getBlogPosts());

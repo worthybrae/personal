@@ -20,7 +20,7 @@ export interface TerrainConfig {
   contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
   meltCompleteRef?: React.MutableRefObject<boolean>;
-  nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean } | null>;
+  nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
   skipIntro?: boolean;
 }
 
@@ -258,6 +258,7 @@ export function useTerrainAnimation(
     let npBarsCol = 0;         // col where equalizer bars start
     let npBarsRow = 0;
     let npIsPlaying = false;
+    let npTimeStr = '';         // relative time like "3m" when paused
     let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
@@ -392,10 +393,20 @@ export function useTerrainAnimation(
       }
     }
 
-    function setupNowPlaying(track: string, artist: string, isPlaying: boolean) {
+    function setupNowPlaying(track: string, artist: string, isPlaying: boolean, playedAt?: string) {
       npIsPlaying = isPlaying;
-      npLabelStr = isPlaying ? 'LISTENING TO' : 'LAST LISTENED TO';
+      npLabelStr = isPlaying ? 'LISTENING TO' : 'LISTENED TO';
       npTextStr = `${track} — ${artist}`.toUpperCase();
+
+      // Compute relative time for paused state
+      npTimeStr = '';
+      if (!isPlaying && playedAt) {
+        const ago = Date.now() - new Date(playedAt).getTime();
+        if (ago < 60_000) npTimeStr = `${Math.max(1, Math.floor(ago / 1000))}s`;
+        else if (ago < 3_600_000) npTimeStr = `${Math.floor(ago / 60_000)}m`;
+        else if (ago < 86_400_000) npTimeStr = `${Math.floor(ago / 3_600_000)}hr`;
+        else npTimeStr = `${Math.floor(ago / 86_400_000)}d`;
+      }
 
       // Box sizing: bars(5) + space(2) + max(label, track) + padding
       const barsWidth = 5;
@@ -601,13 +612,14 @@ export function useTerrainAnimation(
         pendingMaskRebuild = false;
       }
 
-      // --- Now-playing mask: rebuild on track change ---
+      // --- Now-playing mask: rebuild on track change or playing state change ---
       const np = nowPlayingRef?.current;
       const npTrack = np?.track ?? '';
-      if (npTrack !== lastNowPlayingTrack) {
-        lastNowPlayingTrack = npTrack;
+      const npKey = `${npTrack}|${np?.isPlaying}`;
+      if (npKey !== lastNowPlayingTrack) {
+        lastNowPlayingTrack = npKey;
         if (np && np.track) {
-          setupNowPlaying(np.track, np.artist, np.isPlaying);
+          setupNowPlaying(np.track, np.artist, np.isPlaying, np.playedAt);
         } else {
           npBoxTop = Infinity;
         }
@@ -841,17 +853,15 @@ export function useTerrainAnimation(
           return gridSkip[r * cols + c] === 1;
         };
 
-        // --- Equalizer bars (5 bars, span label + track rows) ---
-        const barChars = '░▒▓█';
-        for (let b = 0; b < 5; b++) {
-          const bCol = npBarsCol + b;
-          // Animated height: oscillate between label row and track row
-          const barRows = [npBarsRow, npBarsRow + 1]; // both rows
-          for (const bRow of barRows) {
-            if (!canDraw(bRow, bCol)) continue;
-            const idx = bRow * cols + bCol;
-            if (npIsPlaying) {
-              // Animated: layered sin waves for organic randomness
+        // --- Equalizer bars (playing) or relative time (paused) ---
+        if (npIsPlaying) {
+          const barChars = '░▒▓█';
+          for (let b = 0; b < 5; b++) {
+            const bCol = npBarsCol + b;
+            const barRows = [npBarsRow, npBarsRow + 1];
+            for (const bRow of barRows) {
+              if (!canDraw(bRow, bCol)) continue;
+              const idx = bRow * cols + bCol;
               const p1 = Math.sin(ts * 0.005 + b * 1.7);
               const p2 = Math.sin(ts * 0.0083 + b * 2.9 + 0.5);
               const p3 = Math.sin(ts * 0.013 + b * 0.7 + bRow * 3.1);
@@ -860,12 +870,18 @@ export function useTerrainAnimation(
               const charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
               ctx.fillStyle = colorLUT[gridColors[idx]];
               ctx.fillText(barChars[charIdx], bCol * charW, bRow * charH);
-            } else {
-              // Paused: static short bars on track row only
-              if (bRow === npBarsRow) continue;
-              ctx.fillStyle = colorLUT[Math.max(0, (gridColors[idx] * 0.4) | 0)];
-              ctx.fillText('░', bCol * charW, bRow * charH);
             }
+          }
+        } else if (npTimeStr) {
+          // Paused: show relative time (e.g. "3m") centered in bars area, on track row
+          const timeStartCol = npBarsCol + Math.floor((5 - npTimeStr.length) / 2);
+          for (let i = 0; i < npTimeStr.length; i++) {
+            const c = timeStartCol + i;
+            if (!canDraw(npTextRow, c)) continue;
+            const idx = npTextRow * cols + c;
+            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+            ctx.fillStyle = colorLUT[colorIdx];
+            ctx.fillText(npTimeStr[i], c * charW, npTextRow * charH);
           }
         }
 

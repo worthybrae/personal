@@ -103,6 +103,7 @@ def _get_now_playing_impl() -> dict:
                 "album_art_url": album_images[0]["url"] if album_images else "",
                 "progress_ms": 0,
                 "duration_ms": item.get("duration_ms", 0),
+                "played_at": items[0].get("played_at", ""),
             }
     except Exception:
         pass
