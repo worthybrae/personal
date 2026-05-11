@@ -107,8 +107,8 @@ export function useTerrainAnimation(
       const fs = isMob
         ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
         : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
-      const targetRows = 6;
-      const logoSize = targetRows * fs;
+      // W glyph fills ~67% of font size, so 9*fs ≈ 6 visible rows
+      const logoSize = 9 * fs;
       const logoX = 24 * dpr;
       const logoY = 20 * dpr;
       w2ctx.fillStyle = '#fff';
@@ -138,7 +138,8 @@ export function useTerrainAnimation(
       mctx.fillStyle = '#000';
       mctx.fillRect(0, 0, m.width, m.height);
 
-      const menuFontSize = logoSize * 1.25;
+      // + glyph fills ~80% of font size, so 7.5*fs ≈ 6 visible rows
+      const menuFontSize = 7.5 * fs;
       mctx.fillStyle = '#fff';
       mctx.textAlign = 'right';
       mctx.textBaseline = 'top';
