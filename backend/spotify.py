@@ -75,11 +75,11 @@ def _get_now_playing_impl() -> dict:
         return _empty_now_playing()
     try:
         current = sp.current_user_playing_track()
-        if current and current.get("item"):
+        if current and current.get("item") and current.get("is_playing"):
             item = current["item"]
             album_images = item.get("album", {}).get("images", [])
             return {
-                "is_playing": current.get("is_playing", False),
+                "is_playing": True,
                 "track": item.get("name", ""),
                 "artist": ", ".join(a["name"] for a in item.get("artists", [])),
                 "album": item.get("album", {}).get("name", ""),
