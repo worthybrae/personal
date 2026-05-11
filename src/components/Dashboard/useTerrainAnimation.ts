@@ -55,12 +55,6 @@ export function useTerrainAnimation(
     height: number;
   } | null>(null);
 
-  const nowPlayingMaskRef = useRef<{
-    data: Uint8ClampedArray;
-    width: number;
-    height: number;
-  } | null>(null);
-
   const wLogoBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const menuBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const mouseRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
@@ -190,8 +184,13 @@ export function useTerrainAnimation(
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
     let lastDetailKey = '';
-    let nowPlayingGrid: Uint8Array = new Uint8Array(0);
-    let npZoneStartRow = Infinity; // rows >= this are the now-playing zone
+    let npZoneStartRow = Infinity;
+    let npTextRow = 0;
+    let npLabelRow = 0;
+    let npTextStr = '';
+    let npLabelStr = '';
+    let npTextStartCol = 0;
+    let npLabelStartCol = 0;
     let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
@@ -326,63 +325,19 @@ export function useTerrainAnimation(
       }
     }
 
-    function buildNowPlayingMask(track: string, artist: string, isPlaying: boolean) {
-      if (!canvas) return;
-      const off = document.createElement('canvas');
-      off.width = canvas.width;
-      off.height = canvas.height;
-      const o = off.getContext('2d')!;
-      o.fillStyle = '#000';
-      o.fillRect(0, 0, off.width, off.height);
+    function setupNowPlaying(track: string, artist: string, isPlaying: boolean) {
+      npLabelStr = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
+      npTextStr = `${track} — ${artist}`.toUpperCase();
 
-      const isPortrait = canvas.height > canvas.width;
-      // Size relative to canvas — same approach as WORTHY RAE
-      const trackH = isPortrait ? canvas.width * 0.06 : canvas.height * 0.055;
-      const labelH = trackH * 0.45;
+      // Text row is 2 rows from bottom, label 1 row above that
+      npTextRow = rows - 2;
+      npLabelRow = npTextRow - 1;
+      // Zone: 2 empty rows above label, through bottom
+      npZoneStartRow = npLabelRow - 2;
 
-      o.fillStyle = '#fff';
-      o.textAlign = 'center';
-      o.textBaseline = 'middle';
-
-      const label = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
-      const trackLine = `${track}  —  ${artist}`.toUpperCase();
-
-      // Position from bottom
-      const trackY = off.height - trackH * 1.2;
-      const labelY = trackY - trackH * 0.9;
-
-      // Label
-      o.font = `900 ${labelH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      o.fillText(label, off.width / 2, labelY, off.width * 0.9);
-
-      // Track + artist
-      o.font = `900 ${trackH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      o.fillText(trackLine, off.width / 2, trackY, off.width * 0.92);
-
-      // Zone starts above the label with some padding
-      const zoneTopPx = labelY - labelH * 1.5;
-      npZoneStartRow = Math.max(0, Math.floor(zoneTopPx / charH));
-
-      nowPlayingMaskRef.current = {
-        data: o.getImageData(0, 0, off.width, off.height).data,
-        width: off.width,
-        height: off.height,
-      };
-
-      // Bake to grid
-      const mask = nowPlayingMaskRef.current;
-      nowPlayingGrid = new Uint8Array(cols * rows);
-      for (let r = 0; r < rows; r++) {
-        const py = Math.floor(r * charH);
-        for (let c = 0; c < cols; c++) {
-          const px = Math.floor(c * charW);
-          const idx = r * cols + c;
-          if (px < mask.width && py < mask.height) {
-            const offset = (py * mask.width + px) * 4;
-            nowPlayingGrid[idx] = mask.data[offset] > 128 ? 1 : 0;
-          }
-        }
-      }
+      // Center the text
+      npTextStartCol = Math.floor((cols - npTextStr.length) / 2);
+      npLabelStartCol = Math.floor((cols - npLabelStr.length) / 2);
     }
 
     const isMobile = window.innerWidth < 768;
@@ -566,9 +521,8 @@ export function useTerrainAnimation(
       if (npTrack !== lastNowPlayingTrack) {
         lastNowPlayingTrack = npTrack;
         if (np && np.track) {
-          buildNowPlayingMask(np.track, np.artist, np.isPlaying);
+          setupNowPlaying(np.track, np.artist, np.isPlaying);
         } else {
-          nowPlayingGrid = new Uint8Array(cols * rows);
           npZoneStartRow = Infinity;
         }
       }
@@ -654,20 +608,13 @@ export function useTerrainAnimation(
             }
           }
 
-          // Now-playing zone: clear terrain, let it flow through text only
+          // Now-playing zone: suppress terrain, text drawn after grid render
           if (npVisible > 0 && r >= npZoneStartRow) {
             let h5 = (c * 518230729 + r * 392041631) | 0;
             h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
             const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
-            const npReveal = npIntro * npVisible;
-            if (npReveal > npHash) {
-              if (nowPlayingGrid[idx]) {
-                // Text cell — render terrain through it
-                gridSkip[idx] = 0;
-              } else {
-                // Zone background — clear to dark
-                gridSkip[idx] = 1;
-              }
+            if (npIntro * npVisible > npHash) {
+              gridSkip[idx] = 1;
             }
           }
 
@@ -797,7 +744,36 @@ export function useTerrainAnimation(
         }
       }
 
-      // Reset globalAlpha after reverse melt rendering
+      // --- Now-playing: draw text characters with terrain colors ---
+      if (npVisible > 0 && npTextStr) {
+        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
+        ctx.textBaseline = 'top';
+
+        // Label row (dimmer)
+        for (let i = 0; i < npLabelStr.length; i++) {
+          const c = npLabelStartCol + i;
+          if (c < 0 || c >= cols) continue;
+          const r = npLabelRow;
+          const idx = r * cols + c;
+          // Only draw if this cell was scatter-revealed (skipped)
+          if (gridSkip[idx] !== 1) continue;
+          const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+          ctx.fillStyle = colorLUT[colorIdx];
+          ctx.fillText(npLabelStr[i], c * charW, r * charH);
+        }
+
+        // Track row (brighter)
+        for (let i = 0; i < npTextStr.length; i++) {
+          const c = npTextStartCol + i;
+          if (c < 0 || c >= cols) continue;
+          const r = npTextRow;
+          const idx = r * cols + c;
+          if (gridSkip[idx] !== 1) continue;
+          ctx.fillStyle = colorLUT[gridColors[idx]];
+          ctx.fillText(npTextStr[i], c * charW, r * charH);
+        }
+      }
+
       rafRef.current = requestAnimationFrame(draw);
     }
 
