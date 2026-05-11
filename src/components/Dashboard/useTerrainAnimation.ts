@@ -107,13 +107,21 @@ export function useTerrainAnimation(
       const fs = isMob
         ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
         : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
-      // W glyph fills ~67% of font size, so 9*fs ≈ 6 visible rows
-      const logoSize = 9 * fs;
+      // W logo: measure actual glyph height and scale to fill exactly 6 grid rows
+      const cW = fs * 0.602;
+      const cH = fs;
+      const targetIconRows = 6;
+      const targetH = targetIconRows * cH;
       const logoX = 24 * dpr;
       const logoY = 20 * dpr;
       w2ctx.fillStyle = '#fff';
       w2ctx.textAlign = 'left';
       w2ctx.textBaseline = 'top';
+      const wTestSize = 10 * fs;
+      w2ctx.font = `900 ${wTestSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      const wTestM = w2ctx.measureText('W');
+      const wGlyphH = wTestM.actualBoundingBoxAscent + wTestM.actualBoundingBoxDescent;
+      const logoSize = wGlyphH > 0 ? wTestSize * (targetH / wGlyphH) : 13 * fs;
       w2ctx.font = `900 ${logoSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
       w2ctx.fillText('W', logoX, logoY);
       const wMetrics = w2ctx.measureText('W');
@@ -121,7 +129,7 @@ export function useTerrainAnimation(
         x: logoX,
         y: logoY,
         w: wMetrics.width,
-        h: logoSize,
+        h: targetH,
       };
 
       wLogoMaskRef.current = {
@@ -130,7 +138,7 @@ export function useTerrainAnimation(
         height: w2.height,
       };
 
-      // --- Menu (+) icon mask — top right ---
+      // --- Menu (+) icon mask — grid-aligned rectangles for cross-platform consistency ---
       const m = document.createElement('canvas');
       m.width = canvasWidth;
       m.height = canvasHeight;
@@ -138,21 +146,31 @@ export function useTerrainAnimation(
       mctx.fillStyle = '#000';
       mctx.fillRect(0, 0, m.width, m.height);
 
-      // + glyph fills ~80% of font size, so 7.5*fs ≈ 6 visible rows
-      const menuFontSize = 7.5 * fs;
       mctx.fillStyle = '#fff';
-      mctx.textAlign = 'right';
-      mctx.textBaseline = 'top';
-      mctx.font = `900 ${menuFontSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      const menuMetrics = mctx.measureText('+');
-      const menuX = canvasWidth - logoX;
-      const menuY = logoY - menuFontSize * 0.18;
-      mctx.fillText('+', menuX, menuY);
+      const plusCols = 7;
+      const barThick = 2;
+      const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
+      const plusTopRow = Math.floor(logoY / cH);
+      const plusLeftCol = plusRightCol - plusCols;
+      const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
+      const plusMidRow = plusTopRow + Math.floor((targetIconRows - barThick) / 2);
+      // Vertical bar
+      for (let r = plusTopRow; r < plusTopRow + targetIconRows; r++) {
+        for (let c = plusMidCol; c < plusMidCol + barThick; c++) {
+          mctx.fillRect(c * cW, r * cH, cW + 1, cH + 1);
+        }
+      }
+      // Horizontal bar
+      for (let r = plusMidRow; r < plusMidRow + barThick; r++) {
+        for (let c = plusLeftCol; c < plusLeftCol + plusCols; c++) {
+          mctx.fillRect(c * cW, r * cH, cW + 1, cH + 1);
+        }
+      }
       menuBoundsRef.current = {
-        x: menuX - menuMetrics.width,
-        y: menuY,
-        w: menuMetrics.width,
-        h: logoSize,
+        x: plusLeftCol * cW,
+        y: plusTopRow * cH,
+        w: plusCols * cW,
+        h: targetIconRows * cH,
       };
 
       menuMaskRef.current = {
