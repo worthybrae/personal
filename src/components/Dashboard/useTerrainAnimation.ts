@@ -263,6 +263,30 @@ export function useTerrainAnimation(
     let npFullTextStr = '';     // full untruncated track text for scrolling
     let lastNowPlayingTrack = '';
 
+    // Feed card geometry
+    interface FeedCard {
+      baseTop: number;    // grid row of top edge (before scroll)
+      baseBottom: number;
+      left: number;       // grid col of left edge
+      right: number;
+      iconCol: number;    // col where icon starts
+      textCol: number;    // col where text (category/name/desc) starts
+      catRow: number;     // row offsets from baseTop
+      nameRow: number;
+      descRow: number;
+      catStr: string;
+      nameStr: string;
+      descStr: string;
+      iconStr: string;
+      url: string;
+    }
+    let feedCards: FeedCard[] = [];
+    let feedCardWidth = 0;
+    let feedScrollOffset = 0;
+    let feedScrollTarget = 0;
+    let feedMaxScroll = 0;
+    let lastFeedItemsKey = '';
+
     function buildContentTitleMask(_label: string) {
       if (!canvas) return;
       const items = contentSubItemsRef?.current;
@@ -441,6 +465,69 @@ export function useTerrainAnimation(
       npTextRow = npBoxTop + 3;
     }
 
+    function setupFeedCards(items: { text: string; url: string; description?: string; category?: string; icon?: string }[]) {
+      if (items.length === 0) {
+        feedCards = [];
+        feedMaxScroll = 0;
+        return;
+      }
+
+      const padH = 2;       // horizontal padding inside card
+      const iconWidth = 5;   // icon column width (chars)
+      const gapAfterIcon = 2;
+      const cardHeight = 6;  // rows per card: pad + category + name + description + pad + border
+      const cardGap = 3;     // rows between cards
+
+      // Compute uniform card width from widest item
+      let maxTextWidth = 0;
+      for (const item of items) {
+        const catLen = (item.category ?? '').length;
+        const nameLen = item.text.toUpperCase().length;
+        const descLen = (item.description ?? '').toUpperCase().length;
+        maxTextWidth = Math.max(maxTextWidth, catLen, nameLen, descLen);
+      }
+      const contentWidth = iconWidth + gapAfterIcon + maxTextWidth;
+      const maxBoxCols = Math.min(cols - 6, 60);
+      const cappedContent = Math.min(contentWidth, maxBoxCols - (1 + padH + padH + 1));
+      const cappedTextWidth = cappedContent - iconWidth - gapAfterIcon;
+      feedCardWidth = 1 + padH + cappedContent + padH + 1;
+
+      // Center horizontally
+      const cardLeft = Math.floor((cols - feedCardWidth) / 2);
+      const cardRight = cardLeft + feedCardWidth - 1;
+      const contentLeft = cardLeft + 1 + padH;
+      const iconCol = contentLeft;
+      const textCol = contentLeft + iconWidth + gapAfterIcon;
+
+      // Vertical layout: start 6 rows from top
+      const startRow = 6;
+
+      feedCards = items.map((item, i) => {
+        const baseTop = startRow + i * (cardHeight + cardGap);
+        const nameStr = item.text.toUpperCase();
+        const descStr = (item.description ?? '').toUpperCase();
+        return {
+          baseTop,
+          baseBottom: baseTop + cardHeight - 1,
+          left: cardLeft,
+          right: cardRight,
+          iconCol,
+          textCol,
+          catRow: baseTop + 1,
+          nameRow: baseTop + 2,
+          descRow: baseTop + 3,
+          catStr: (item.category ?? '').toUpperCase(),
+          nameStr: nameStr.length > cappedTextWidth ? nameStr.slice(0, cappedTextWidth - 1) + '…' : nameStr,
+          descStr: descStr.length > cappedTextWidth ? descStr.slice(0, cappedTextWidth - 1) + '…' : descStr,
+          iconStr: item.icon ?? '',
+          url: item.url,
+        };
+      });
+
+      const totalFeedHeight = startRow + items.length * (cardHeight + cardGap);
+      feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3);
+    }
+
     const isMobile = window.innerWidth < 768;
     const frameBudget = isMobile ? 60 : 0; // Desktop: uncapped. Mobile: ~16fps
     const terrainFn = warpedTerrain;
@@ -615,6 +702,18 @@ export function useTerrainAnimation(
         maskOpacityTarget = 1;
         pendingMaskRebuild = false;
       }
+
+      // --- Feed cards: rebuild on item change ---
+      const feedItems = contentSubItemsRef?.current ?? [];
+      const feedItemsKey = feedItems.map(f => `${f.text}:${f.icon}`).join('|');
+      if (feedItemsKey !== lastFeedItemsKey) {
+        lastFeedItemsKey = feedItemsKey;
+        setupFeedCards(feedItems);
+        feedScrollTarget = 0;
+        feedScrollOffset = 0;
+      }
+      // feedCards, feedScrollOffset, feedScrollTarget, feedMaxScroll used in future tasks
+      void feedCards; void feedScrollOffset; void feedScrollTarget; void feedMaxScroll;
 
       // --- Now-playing mask: rebuild on track change or playing state change ---
       const np = nowPlayingRef?.current;
