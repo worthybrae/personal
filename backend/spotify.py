@@ -1,7 +1,10 @@
 import os
+import logging
 import time
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+
+logger = logging.getLogger(__name__)
 
 _cache: dict = {}
 _NOW_PLAYING_TTL = 30
@@ -31,6 +34,8 @@ def _get_client() -> spotipy.Spotify | None:
     refresh_token = os.getenv("SPOTIFY_REFRESH_TOKEN", "")
 
     if not client_id or not client_secret or not refresh_token:
+        logger.warning("Spotify credentials missing: client_id=%s client_secret=%s refresh_token=%s",
+                        bool(client_id), bool(client_secret), bool(refresh_token))
         _sp_failed = True
         return None
 
@@ -54,7 +59,8 @@ def _get_client() -> spotipy.Spotify | None:
         _sp = spotipy.Spotify(auth_manager=auth_manager)
         # Force a token refresh now to validate credentials
         auth_manager.get_access_token(as_dict=False)
-    except Exception:
+    except Exception as e:
+        logger.error("Spotify client init failed: %s", e)
         _sp = None
         _sp_failed = True
         return None
