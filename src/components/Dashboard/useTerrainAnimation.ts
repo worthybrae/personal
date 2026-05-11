@@ -660,8 +660,7 @@ export function useTerrainAnimation(
         feedScrollTarget = 0;
         feedScrollOffset = 0;
       }
-      // feedCards, feedScrollOffset, feedScrollTarget, feedMaxScroll used in future tasks
-      void feedCards; void feedScrollOffset; void feedScrollTarget; void feedMaxScroll;
+      void feedMaxScroll; // used in Task 6 scroll clamping
 
       // --- Now-playing mask: rebuild on track change or playing state change ---
       const np = nowPlayingRef?.current;
@@ -704,6 +703,10 @@ export function useTerrainAnimation(
 
       const RAMP = ".,':;|!ilc/1{[?eoasd0OkxXdpbWM#@@";
       const rampLen = RAMP.length;
+
+      // --- Smooth lerp feed scroll ---
+      const feedScrollDiff = feedScrollTarget - feedScrollOffset;
+      feedScrollOffset = Math.abs(feedScrollDiff) < 0.01 ? feedScrollTarget : feedScrollOffset + feedScrollDiff * 0.08;
 
       for (let r = 0; r < rows; r++) {
         const py = r * charH;
@@ -764,6 +767,31 @@ export function useTerrainAnimation(
             const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
             if (npIntro * npVisible > npHash) {
               gridSkip[idx] = 1;
+            }
+          }
+
+          // Feed card boxes: suppress terrain inside card bounds
+          if (contentTitleFade > 0 && feedCards.length > 0) {
+            const scrolledR = r + feedScrollOffset;
+            for (let fi = 0; fi < feedCards.length; fi++) {
+              const fc = feedCards[fi];
+              if (scrolledR >= fc.baseTop && scrolledR <= fc.baseBottom && c >= fc.left && c <= fc.right) {
+                let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
+                hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
+                const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
+                if (contentTitleFade * maskOpacity >= feedHash) {
+                  const isClosing = contentTarget === 0;
+                  if (isClosing) {
+                    gridColors[idx] = COLOR_LEVELS;
+                  } else if (hoveredSubItem === fi) {
+                    gridBg[idx] = 1;
+                    gridSkip[idx] = 1;
+                  } else {
+                    gridSkip[idx] = 1;
+                  }
+                }
+                break;
+              }
             }
           }
 
