@@ -335,8 +335,10 @@ export function useTerrainAnimation(
       o.fillStyle = '#000';
       o.fillRect(0, 0, off.width, off.height);
 
-      const dpr = canvas.width / window.innerWidth;
-      const npFontSize = Math.max(10, Math.min(14, window.innerWidth / 100)) * dpr;
+      const isPortrait = canvas.height > canvas.width;
+      // Size relative to canvas — same approach as WORTHY RAE
+      const trackH = isPortrait ? canvas.width * 0.06 : canvas.height * 0.055;
+      const labelH = trackH * 0.45;
 
       o.fillStyle = '#fff';
       o.textAlign = 'center';
@@ -345,19 +347,20 @@ export function useTerrainAnimation(
       const label = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
       const trackLine = `${track}  —  ${artist}`.toUpperCase();
 
-      // Single text block near bottom
-      const textY = off.height - npFontSize * 3;
+      // Position from bottom
+      const trackY = off.height - trackH * 1.2;
+      const labelY = trackY - trackH * 0.9;
 
-      // Small label
-      o.font = `700 ${npFontSize * 0.7}px 'JetBrains Mono','Courier New',monospace`;
-      o.fillText(label, off.width / 2, textY, off.width * 0.9);
+      // Label
+      o.font = `900 ${labelH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      o.fillText(label, off.width / 2, labelY, off.width * 0.9);
 
       // Track + artist
-      o.font = `900 ${npFontSize * 1.1}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      o.fillText(trackLine, off.width / 2, textY + npFontSize * 1.8, off.width * 0.9);
+      o.font = `900 ${trackH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      o.fillText(trackLine, off.width / 2, trackY, off.width * 0.92);
 
-      // Zone starts a few character rows above the text
-      const zoneTopPx = textY - npFontSize * 2.5;
+      // Zone starts above the label with some padding
+      const zoneTopPx = labelY - labelH * 1.5;
       npZoneStartRow = Math.max(0, Math.floor(zoneTopPx / charH));
 
       nowPlayingMaskRef.current = {
