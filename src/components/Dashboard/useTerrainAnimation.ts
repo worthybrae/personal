@@ -334,7 +334,7 @@ export function useTerrainAnimation(
 
     function setupNowPlaying(track: string, artist: string, isPlaying: boolean) {
       npIsPlaying = isPlaying;
-      npLabelStr = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
+      npLabelStr = isPlaying ? 'LISTENING TO' : 'LAST LISTENED TO';
       npTextStr = `${track} — ${artist}`.toUpperCase();
 
       // Box sizing: bars(5) + space(2) + max(label, track) + padding
@@ -774,40 +774,12 @@ export function useTerrainAnimation(
       if (npVisible > 0 && npTextStr && npBoxTop < rows) {
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
         ctx.textBaseline = 'top';
-        const dimColor = 'rgba(255,255,255,0.12)';
 
         // Helper: only draw if cell was scatter-revealed
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
           return gridSkip[r * cols + c] === 1;
         };
-
-        // --- ASCII border ---
-        for (let c = npBoxLeft; c <= npBoxRight; c++) {
-          // Top border
-          if (canDraw(npBoxTop, c)) {
-            ctx.fillStyle = dimColor;
-            const ch = c === npBoxLeft ? '┌' : c === npBoxRight ? '┐' : '─';
-            ctx.fillText(ch, c * charW, npBoxTop * charH);
-          }
-          // Bottom border
-          if (canDraw(npBoxBottom, c)) {
-            ctx.fillStyle = dimColor;
-            const ch = c === npBoxLeft ? '└' : c === npBoxRight ? '┘' : '─';
-            ctx.fillText(ch, c * charW, npBoxBottom * charH);
-          }
-        }
-        // Side borders (rows between top and bottom)
-        for (let r = npBoxTop + 1; r < npBoxBottom; r++) {
-          if (canDraw(r, npBoxLeft)) {
-            ctx.fillStyle = dimColor;
-            ctx.fillText('│', npBoxLeft * charW, r * charH);
-          }
-          if (canDraw(r, npBoxRight)) {
-            ctx.fillStyle = dimColor;
-            ctx.fillText('│', npBoxRight * charW, r * charH);
-          }
-        }
 
         // --- Equalizer bars (5 bars, span label + track rows) ---
         const barChars = '░▒▓█';
@@ -819,11 +791,12 @@ export function useTerrainAnimation(
             if (!canDraw(bRow, bCol)) continue;
             const idx = bRow * cols + bCol;
             if (npIsPlaying) {
-              // Animated: sin wave per bar, use timestamp
-              const phase = ts * 0.004 + b * 1.3;
-              const wave = (Math.sin(phase) + 1) * 0.5; // 0..1
-              // On label row: bar shows when wave > 0.3; on track row: always
-              if (bRow === npBarsRow && wave < 0.35) continue;
+              // Animated: layered sin waves for organic randomness
+              const p1 = Math.sin(ts * 0.005 + b * 1.7);
+              const p2 = Math.sin(ts * 0.0083 + b * 2.9 + 0.5);
+              const p3 = Math.sin(ts * 0.013 + b * 0.7 + bRow * 3.1);
+              const wave = Math.max(0, Math.min(1, (p1 + p2 * 0.6 + p3 * 0.3 + 1.2) / 2.8));
+              if (bRow === npBarsRow && wave < 0.4) continue;
               const charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
               ctx.fillStyle = colorLUT[gridColors[idx]];
               ctx.fillText(barChars[charIdx], bCol * charW, bRow * charH);
