@@ -5,7 +5,6 @@ import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 
 const NOISE_SCALE = 0.015;
-const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
 const COLOR_LEVELS = 64;
 
 export interface TerrainConfig {
@@ -141,6 +140,20 @@ export function useTerrainAnimation(
       w2ctx.fillStyle = '#fff';
       w2ctx.font = `900 ${logoSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
       w2ctx.fillText('W', logoX, logoY);
+      // Scan final render to get actual top row for + alignment
+      const wFinal = w2ctx.getImageData(0, 0, w2.width, w2.height).data;
+      let wFinalMinR = Infinity;
+      for (let r = 0; r < Math.ceil(w2.height / cH); r++) {
+        const py = Math.floor(r * cH);
+        for (let c = 0; c < Math.ceil(w2.width / cW); c++) {
+          const px = Math.floor(c * cW);
+          if (px < w2.width && py < w2.height && wFinal[(py * w2.width + px) * 4] > 128) {
+            wFinalMinR = r;
+            break;
+          }
+        }
+        if (wFinalMinR < Infinity) break;
+      }
       const wMetrics = w2ctx.measureText('W');
       wLogoBoundsRef.current = {
         x: logoX,
@@ -150,7 +163,7 @@ export function useTerrainAnimation(
       };
 
       wLogoMaskRef.current = {
-        data: w2ctx.getImageData(0, 0, w2.width, w2.height).data,
+        data: wFinal,
         width: w2.width,
         height: w2.height,
       };
@@ -168,7 +181,7 @@ export function useTerrainAnimation(
       const barThick = 2;
       const plusRows = 6;
       const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
-      const plusTopRow = wMinR < Infinity ? wMinR : Math.floor(logoY / cH);
+      const plusTopRow = wFinalMinR < Infinity ? wFinalMinR : Math.floor(logoY / cH);
       const plusLeftCol = plusRightCol - plusCols;
       const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
       const plusMidRow = plusTopRow + Math.floor((plusRows - barThick) / 2);
@@ -419,7 +432,7 @@ export function useTerrainAnimation(
 
     function resize() {
       if (!canvas) return;
-      canvasDpr = Math.min(window.devicePixelRatio, 2);
+      canvasDpr = window.devicePixelRatio;
       canvas.width = window.innerWidth * canvasDpr;
       canvas.height = window.innerHeight * canvasDpr;
       canvas.style.width = window.innerWidth + 'px';
