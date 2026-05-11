@@ -1,7 +1,7 @@
 // src/components/Dashboard/useTerrainAnimation.ts
 
 import { useEffect, useRef, useCallback } from 'react';
-import { warpedTerrain, warpedTerrainLite } from './noise';
+import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 
 const NOISE_SCALE = 0.015;
@@ -168,7 +168,7 @@ export function useTerrainAnimation(
       const barThick = 2;
       const plusRows = 6;
       const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
-      const plusTopRow = Math.floor(logoY / cH);
+      const plusTopRow = wMinR < Infinity ? wMinR : Math.floor(logoY / cH);
       const plusLeftCol = plusRightCol - plusCols;
       const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
       const plusMidRow = plusTopRow + Math.floor((plusRows - barThick) / 2);
@@ -415,7 +415,7 @@ export function useTerrainAnimation(
 
     const isMobile = window.innerWidth < 768;
     const frameBudget = isMobile ? 60 : 0; // Desktop: uncapped. Mobile: ~16fps
-    const terrainFn = isMobile ? warpedTerrainLite : warpedTerrain;
+    const terrainFn = warpedTerrain;
 
     function resize() {
       if (!canvas) return;
