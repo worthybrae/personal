@@ -37,7 +37,10 @@ _client: BetaAnalyticsDataClient | None = None
 def _get_client() -> BetaAnalyticsDataClient:
     global _client
     if _client is None:
-        creds_path = "/app/ga.json"
+        # Check local path first (dev), then Docker path (production)
+        local_path = os.path.join(os.path.dirname(__file__), "ga.json")
+        docker_path = "/app/ga.json"
+        creds_path = local_path if os.path.exists(local_path) else docker_path
         if os.path.exists(creds_path):
             credentials = service_account.Credentials.from_service_account_file(
                 creds_path

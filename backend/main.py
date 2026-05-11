@@ -1,6 +1,9 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,8 +22,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+STATIC_DIR = Path(__file__).parent / "static"
 
-@app.get("/")
+
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
@@ -86,6 +91,18 @@ async def spotify_callback(code: str):
 async def letterboxd_recent():
     from letterboxd import get_recent_films
     return get_recent_films()
+
+
+# Serve frontend static files (JS, CSS, assets)
+if STATIC_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        file = STATIC_DIR / path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(STATIC_DIR / "index.html")
 
 
 if __name__ == "__main__":

@@ -7,22 +7,20 @@ import { getDuotoneColor, scurve } from './color';
 const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
 
-export const LABELS = ['WORK', 'ART', 'BLOG'] as const;
-export type LabelId = Lowercase<(typeof LABELS)[number]>;
-
 export interface TerrainConfig {
   speedDivisor?: number;
   showNameMask?: boolean;
   contrast?: number;
-  onLabelClick?: (label: LabelId) => void;
   onLogoClick?: () => void;
   onMenuClick?: () => void;
   onSubItemClick?: (url: string) => void;
   contentOpenRef?: React.RefObject<boolean>;
-  activeLabelRef?: React.RefObject<LabelId | null>;
+  activeLabelRef?: React.RefObject<string | null>;
   scrollTargetRef?: React.RefObject<number>;
-  contentSubItemsRef?: React.RefObject<{ text: string; url: string }[]>;
+  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
+  meltCompleteRef?: React.MutableRefObject<boolean>;
+  skipIntro?: boolean;
 }
 
 export function useTerrainAnimation(
@@ -30,8 +28,11 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLabelClick, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef } = config;
+  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, skipIntro } = config;
   const rafRef = useRef(0);
+  const introStartRef = useRef(-1);
+  const logoMenuIntroProgressRef = useRef(0);
+  const contentProgressRef = useRef(-1);
 
   const nameMaskRef = useRef<{
     data: Uint8ClampedArray;
@@ -45,11 +46,6 @@ export function useTerrainAnimation(
     height: number;
   } | null>(null);
 
-  const bioMaskRef = useRef<{
-    data: Uint8ClampedArray;
-    width: number;
-    height: number;
-  } | null>(null);
 
   const contentTitleMaskRef = useRef<{
     data: Uint8ClampedArray;
@@ -57,8 +53,6 @@ export function useTerrainAnimation(
     height: number;
   } | null>(null);
 
-  // Label hit regions (canvas pixel coords) and mouse state
-  const labelBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
   const wLogoBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const menuBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const mouseRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
@@ -159,52 +153,6 @@ export function useTerrainAnimation(
         height: m.height,
       };
 
-      // --- Bio mask (large text, terrain shows through letter shapes) ---
-      const bio = document.createElement('canvas');
-      bio.width = canvasWidth;
-      bio.height = canvasHeight;
-      const bctx = bio.getContext('2d')!;
-      bctx.fillStyle = '#000';
-      bctx.fillRect(0, 0, bio.width, bio.height);
-
-      // Cutout bounds — position everything inside these
-      const bioDpr = canvasWidth / window.innerWidth;
-      const cutMaxW = Math.min(672, window.innerWidth - 48) * bioDpr;
-      const cutMaxH = (window.innerHeight - 100) * bioDpr;
-      const cutCX = canvasWidth / 2;
-      const cutCY = canvasHeight * 0.53;
-
-      const isPortraitBio = canvasHeight > canvasWidth;
-      const bioLineH = isPortraitBio ? cutMaxW * 0.22 : cutMaxH * 0.1;
-
-      bctx.fillStyle = '#fff';
-      bctx.textAlign = 'center';
-      bctx.textBaseline = 'middle';
-
-      // Links — stacked vertically, centered in cutout
-      bctx.font = `900 ${bioLineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      const labels = LABELS;
-      const totalH = labels.length * bioLineH * 1.3;
-      const startY = cutCY - totalH / 2 + bioLineH * 0.65;
-      const bounds: { x: number; y: number; w: number; h: number }[] = [];
-      for (let i = 0; i < labels.length; i++) {
-        const ly = startY + i * bioLineH * 1.3;
-        bctx.fillText(labels[i], cutCX, ly, cutMaxW * 0.9);
-        const tw = bctx.measureText(labels[i]).width;
-        bounds.push({
-          x: cutCX - tw / 2,
-          y: ly - bioLineH * 0.55,
-          w: tw,
-          h: bioLineH * 1.1,
-        });
-      }
-      labelBoundsRef.current = bounds;
-
-      bioMaskRef.current = {
-        data: bctx.getImageData(0, 0, bio.width, bio.height).data,
-        width: bio.width,
-        height: bio.height,
-      };
     },
     [showNameMask],
   );
@@ -223,13 +171,13 @@ export function useTerrainAnimation(
     let gridChars: Uint8Array = new Uint8Array(0);
     let gridColors: Uint8Array = new Uint8Array(0);
     let gridSkip: Uint8Array = new Uint8Array(0);
+    let gridBg: Uint8Array = new Uint8Array(0);
     const colorLUT: string[] = new Array(COLOR_LEVELS);
 
     // Pre-baked grid-resolution mask lookups (avoid per-frame pixel lookups)
     let nameMaskGrid: Uint8Array = new Uint8Array(0);
     let wLogoMaskGrid: Uint8Array = new Uint8Array(0);
     let menuMaskGrid: Uint8Array = new Uint8Array(0);
-    let bioMaskGrid: Uint8Array = new Uint8Array(0);
     let contentTitleGrid: Uint8Array = new Uint8Array(0);
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
@@ -291,23 +239,56 @@ export function useTerrainAnimation(
           h: titleH * 0.5,
         });
       } else if (hasItems) {
-        o.font = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const totalH = items.length * titleH * 1.3;
-        const startY = cutCY - totalH / 2 + titleH * 0.65;
+        // Feed layout: category tag + name + description + MAU per item
+        const catFont = `700 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const descFont = `700 ${titleH * 0.3}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+        const mauFont = `900 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+
+        // Each entry: category + name + desc + optional mau + gap
+        const entryH = titleH * 0.3 + titleH + titleH * 0.35 + titleH * 0.5;
+        const totalH = items.length * entryH;
+        let curY = cutCY - totalH / 2 + titleH * 0.3;
+
         for (let i = 0; i < items.length; i++) {
-          const ly = startY + i * titleH * 1.3;
-          o.fillText(items[i].text.toUpperCase(), cutCX, ly, cutMaxW * 0.9);
-          const tw = o.measureText(items[i].text.toUpperCase()).width;
+          const item = items[i];
+
+          // Category tag (small)
+          if (item.category) {
+            o.font = catFont;
+            o.fillText(item.category, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.35;
+          }
+
+          // Item name (large)
+          o.font = nameFont;
+          o.fillText(item.text.toUpperCase(), cutCX, curY, cutMaxW * 0.9);
+          const tw = o.measureText(item.text.toUpperCase()).width;
           newBounds.push({
             x: cutCX - tw / 2,
-            y: ly - titleH * 0.55,
+            y: curY - titleH * 0.55,
             w: Math.min(tw, cutMaxW * 0.9),
             h: titleH * 1.1,
           });
+          curY += titleH * 0.8;
+
+          // Description (medium)
+          if (item.description) {
+            o.font = descFont;
+            o.fillText(item.description, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.4;
+          }
+
+          // MAU (small)
+          if (item.mau) {
+            o.font = mauFont;
+            o.fillText(item.mau, cutCX, curY, cutMaxW * 0.9);
+            curY += titleH * 0.35;
+          }
+
+          // Gap between entries
+          curY += titleH * 0.5;
         }
-      } else {
-        o.font = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        o.fillText(label.toUpperCase(), cutCX, cutCY, cutMaxW * 0.9);
       }
 
       subItemBoundsRef.current = newBounds;
@@ -359,16 +340,15 @@ export function useTerrainAnimation(
       gridChars = new Uint8Array(size);
       gridColors = new Uint8Array(size);
       gridSkip = new Uint8Array(size);
+      gridBg = new Uint8Array(size);
 
       // Bake mask lookups to grid resolution (avoids per-pixel checks in draw)
       nameMaskGrid = new Uint8Array(size);
       wLogoMaskGrid = new Uint8Array(size);
       menuMaskGrid = new Uint8Array(size);
-      bioMaskGrid = new Uint8Array(size);
       const nameMask = nameMaskRef.current;
       const wMask = wLogoMaskRef.current;
       const menuMask = menuMaskRef.current;
-      const bioMask = bioMaskRef.current;
 
       for (let r = 0; r < rows; r++) {
         const py = Math.floor(r * charH);
@@ -384,9 +364,6 @@ export function useTerrainAnimation(
           if (menuMask && px < menuMask.width && py < menuMask.height) {
             menuMaskGrid[idx] = menuMask.data[(py * menuMask.width + px) * 4] > 128 ? 1 : 0;
           }
-          if (bioMask && px < bioMask.width && py < bioMask.height) {
-            bioMaskGrid[idx] = bioMask.data[(py * bioMask.width + px) * 4] > 128 ? 1 : 0;
-          }
         }
       }
 
@@ -394,9 +371,12 @@ export function useTerrainAnimation(
     }
 
     let lastDrawTime = 0;
-    let contentProgress = 0;
-    let introStart = -1;
-    let logoMenuIntroProgress = 0;
+    // Initialize contentProgress only on first mount; persist across effect re-runs
+    if (contentProgressRef.current < 0) {
+      contentProgressRef.current = contentOpenRef?.current ? 1 : 0;
+    }
+    // Use refs so intro state survives effect re-runs (e.g. navigation)
+    // Animation only plays on first page load, then stays complete
     let maskOpacity = 1;
     let maskOpacityTarget = 1;
     let pendingMaskRebuild = false;
@@ -414,11 +394,11 @@ export function useTerrainAnimation(
       const t = ts / speedDivisor;
 
       // --- Intro animation (terrain first, then name + logo scatter in) ---
-      if (introStart < 0) introStart = ts;
-      const introElapsed = ts - introStart;
+      if (introStartRef.current < 0) introStartRef.current = skipIntro ? ts - 10000 : ts;
+      const introElapsed = ts - introStartRef.current;
       const introProgress = Math.max(0, Math.min(1, (introElapsed - 400) / 1800));
       const logoMenuIntro = Math.max(0, Math.min(1, (introElapsed - 800) / 1000));
-      logoMenuIntroProgress = logoMenuIntro;
+      logoMenuIntroProgressRef.current = logoMenuIntro;
 
       // Smooth lerp scroll toward route-driven target
       const scrollTarget = scrollTargetRef?.current ?? 0;
@@ -426,8 +406,21 @@ export function useTerrainAnimation(
       const scrollDiff = scrollTarget - scrollCurrent;
       scrollProgressRef.current = Math.abs(scrollDiff) < 0.001
         ? scrollTarget
-        : scrollCurrent + scrollDiff * 0.035;
+        : scrollCurrent + scrollDiff * 0.045;
       const scroll = scrollProgressRef.current;
+
+      // --- Content open animation ---
+      let contentProgress = contentProgressRef.current;
+      const contentTarget = contentOpenRef?.current ? 1 : 0;
+      const contentLerp = contentTarget === 0 ? 0.033 : 0.104;
+      contentProgress += (contentTarget - contentProgress) * contentLerp;
+      if (Math.abs(contentProgress - contentTarget) < 0.001) contentProgress = contentTarget;
+      contentProgressRef.current = contentProgress;
+
+      if (meltCompleteRef) meltCompleteRef.current = contentProgress >= 1;
+
+      // Closing = reversing back to home while contentProgress hasn't reached 0 yet
+      const isClosing = contentTarget === 0 && contentProgress > 0;
 
       // --- Color LUT (reuse array, just overwrite values) ---
       const bgSample = getDuotoneColor(0, t);
@@ -435,13 +428,19 @@ export function useTerrainAnimation(
       const bgG = Math.floor(bgSample.bgG);
       const bgB = Math.floor(bgSample.bgB);
 
+      // During reverse melt, scale character colors to match bg brightness
+      const colorScale = isClosing ? (1 - contentProgress) : 1;
+
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
         const col = getDuotoneColor(val, t);
         const dim = 0.35 + val * 1.15;
-        const mr = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
-        const mg = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
-        const mb = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
+        const rawR = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
+        const rawG = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
+        const rawB = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
+        const mr = Math.round(rawR * colorScale);
+        const mg = Math.round(rawG * colorScale);
+        const mb = Math.round(rawB * colorScale);
         colorLUT[i] = `rgb(${mr},${mg},${mb})`;
       }
       colorLUT[COLOR_LEVELS] = '#fff'; // white override for hover
@@ -453,30 +452,21 @@ export function useTerrainAnimation(
       // --- Name dissolve (scroll 0→0.7) ---
       const nameFade = Math.max(0, Math.min(1, scroll / 0.7));
 
-      // --- Bio label reveal (scroll 0.6→1.0, reverses on scroll back) ---
-      const bioProgress = Math.max(0, Math.min(1, (scroll - 0.6) / 0.4));
-
-      // --- Content open animation (sequential: labels out, pause, content in) ---
-      const contentTarget = contentOpenRef?.current ? 1 : 0;
-      contentProgress += (contentTarget - contentProgress) * 0.06;
-      if (Math.abs(contentProgress - contentTarget) < 0.001) contentProgress = contentTarget;
-      // Phase 1: labels scatter away (0→0.3)
-      const labelDissolveFade = Math.max(0, Math.min(1, contentProgress / 0.3));
-
-      // Phase 2: content titles scatter in (0.45→1.0) — gap creates sequential feel
-      const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.45) / 0.55));
+      // Content titles scatter in (0.4→1.0)
+      const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
       const currentLabel = activeLabelRef?.current ?? null;
       const subItems = contentSubItemsRef?.current ?? [];
-      const subItemsKey = subItems.map(s => s.text).join('|');
+      const subItemsKey = subItems.map(s => `${s.text}:${s.description || ''}:${s.mau || ''}`).join('|');
       const detail = config.detailRef?.current;
       const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
       if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
-        // Content changed — if already showing content, fade out first
-        if (lastContentLabel !== null && contentTitleFade > 0.5) {
+        // Content changed — if already showing content, cross-fade via maskOpacity
+        // Only cross-fade when switching labels, not when closing content entirely
+        if (lastContentLabel !== null && contentTitleFade > 0.5 && currentLabel !== null) {
           maskOpacityTarget = 0;
           pendingMaskRebuild = true;
         } else {
-          // First content load — just build immediately
+          // Closing content or first load — update immediately
           lastContentLabel = currentLabel;
           lastSubItemsKey = subItemsKey;
           lastDetailKey = detailKey;
@@ -501,17 +491,6 @@ export function useTerrainAnimation(
       // --- Hovered label / W logo detection ---
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
-      const bounds = labelBoundsRef.current;
-      let hoveredIdx = -1;
-      for (let i = 0; i < bounds.length; i++) {
-        const b = bounds[i];
-        if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
-          hoveredIdx = i;
-          break;
-        }
-      }
-      const hoverBound = hoveredIdx >= 0 ? bounds[hoveredIdx] : null;
-
       const wb = wLogoBoundsRef.current;
       const wHovered = mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
       const mb = menuBoundsRef.current;
@@ -530,6 +509,7 @@ export function useTerrainAnimation(
 
       // --- Compute terrain grid (reuse pre-allocated buffers) ---
       gridSkip.fill(0);
+      gridBg.fill(0);
 
       const RAMP = ".,':;|!ilc/1{[?eoasd0OkxXdpbWM#@@";
       const rampLen = RAMP.length;
@@ -550,31 +530,29 @@ export function useTerrainAnimation(
           gridChars[idx] = Math.max(0, Math.min(rampLen - 1, (val * (rampLen - 1)) | 0));
           gridColors[idx] = Math.min(COLOR_LEVELS - 1, (val * COLOR_LEVELS) | 0);
 
-          // W logo — scatter-reveal on intro, white on hover
+          // W logo — scatter-reveal on intro, highlight on hover
           if (wLogoMaskGrid[idx]) {
             let h3 = (c * 123456789 + r * 987654321) | 0;
             h3 = ((h3 ^ (h3 >>> 13)) * 1274126177) | 0;
             const logoHash = ((h3 ^ (h3 >>> 16)) & 0x7fff) / 0x7fff;
             if (logoMenuIntro > logoHash) {
               if (wHovered) {
-                gridColors[idx] = COLOR_LEVELS;
-              } else {
-                gridSkip[idx] = 1;
+                gridBg[idx] = 1;
               }
+              gridSkip[idx] = 1;
             }
           }
 
-          // Menu (+) icon — scatter-reveal on intro, white on hover
+          // Menu (+) icon — scatter-reveal on intro, highlight on hover
           if (menuMaskGrid[idx]) {
             let h4 = (c * 987654321 + r * 123456789) | 0;
             h4 = ((h4 ^ (h4 >>> 13)) * 1274126177) | 0;
             const menuHash = ((h4 ^ (h4 >>> 16)) & 0x7fff) / 0x7fff;
             if (logoMenuIntro > menuHash) {
               if (menuHovered) {
-                gridColors[idx] = COLOR_LEVELS;
-              } else {
-                gridSkip[idx] = 1;
+                gridBg[idx] = 1;
               }
+              gridSkip[idx] = 1;
             }
           }
 
@@ -584,30 +562,7 @@ export function useTerrainAnimation(
             h = ((h ^ (h >>> 13)) * 1274126177) | 0;
             const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
             if (introProgress > hash && hash > nameFade) {
-              if (nameFade > 0) {
-                // Dissolving out: render white so scatter is visible
-                gridColors[idx] = COLOR_LEVELS;
-              } else {
-                gridSkip[idx] = 1; // Static: cutout
-              }
-            }
-          }
-
-          // Bio labels — blank cutouts, dissolve when content opens
-          if (bioMaskGrid[idx] && bioProgress > 0) {
-            // Effective visibility: scroll reveals them, content open dissolves them
-            const effectiveBio = bioProgress * (1 - labelDissolveFade);
-            let h = (c * 374761393 + r * 668265263) | 0;
-            h = ((h ^ (h >>> 13)) * 1274126177) | 0;
-            const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
-            if (effectiveBio >= hash) {
-              const px = c * charW;
-              if (hoverBound && px >= hoverBound.x && px < hoverBound.x + hoverBound.w
-                  && py >= hoverBound.y && py < hoverBound.y + hoverBound.h) {
-                gridColors[idx] = COLOR_LEVELS; // white on hover
-              } else {
-                gridSkip[idx] = 1; // blank cutout
-              }
+              gridSkip[idx] = 1;
             }
           }
 
@@ -626,14 +581,76 @@ export function useTerrainAnimation(
                 const hb = subBounds[hoveredSubItem];
                 const cellPx = c * charW;
                 if (hb && cellPx >= hb.x && cellPx < hb.x + hb.w && py >= hb.y && py < hb.y + hb.h) {
-                  gridColors[idx] = COLOR_LEVELS;
-                } else {
-                  gridSkip[idx] = 1;
+                  gridBg[idx] = 1; // white bg on hover
                 }
+                gridSkip[idx] = 1;
               } else {
                 gridSkip[idx] = 1;
               }
             }
+          }
+        }
+      }
+
+      // --- Terrain melt: scatter-dissolve terrain to black, reveal masks as terrain ---
+      if (contentProgress > 0) {
+        // Fade background to black
+        const inv = contentProgress;
+        const invBgR = Math.round(bgR * (1 - inv));
+        const invBgG = Math.round(bgG * (1 - inv));
+        const invBgB = Math.round(bgB * (1 - inv));
+        ctx.fillStyle = `rgb(${invBgR},${invBgG},${invBgB})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Scatter-dissolve: terrain melts away, W/+ fill with terrain to stay visible
+        const totalCells = rows * cols;
+        for (let i = 0; i < totalCells; i++) {
+          const cr = Math.floor(i / cols);
+          const cc = i % cols;
+          let hd = (cc * 271828183 + cr * 314159265) | 0;
+          hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
+          const dHash = ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
+
+          if (gridSkip[i] === 0) {
+            // Terrain cell — dissolve to black
+            if (contentProgress > dHash) gridSkip[i] = 1;
+          } else if (!isClosing && (wLogoMaskGrid[i] || menuMaskGrid[i])) {
+            // W/+ cells — reveal as terrain during forward melt so they stay visible on feed
+            if (contentProgress > dHash) {
+              gridSkip[i] = 0;
+              gridBg[i] = 0;
+            }
+          }
+          // Name cutout cells: stay as empty space (no action)
+        }
+        // Re-apply W/+ hover highlight after melt (melt clears gridBg)
+        if (wHovered || menuHovered) {
+          for (let i = 0; i < totalCells; i++) {
+            if (wHovered && wLogoMaskGrid[i]) {
+              gridBg[i] = 1;
+              gridSkip[i] = 1;
+            }
+            if (menuHovered && menuMaskGrid[i]) {
+              gridBg[i] = 1;
+              gridSkip[i] = 1;
+            }
+          }
+        }
+      }
+
+      // --- Render white backgrounds for highlighted (hovered) cells ---
+      ctx.fillStyle = '#fff';
+      for (let r = 0; r < rows; r++) {
+        const py = r * charH;
+        const rowOffset = r * cols;
+        let bgRunStart = -1;
+        for (let c = 0; c <= cols; c++) {
+          const hasBg = c < cols && gridBg[rowOffset + c] === 1;
+          if (hasBg && bgRunStart < 0) {
+            bgRunStart = c;
+          } else if (!hasBg && bgRunStart >= 0) {
+            ctx.fillRect(bgRunStart * charW, py, (c - bgRunStart) * charW, charH);
+            bgRunStart = -1;
           }
         }
       }
@@ -675,6 +692,7 @@ export function useTerrainAnimation(
         }
       }
 
+      // Reset globalAlpha after reverse melt rendering
       rafRef.current = requestAnimationFrame(draw);
     }
 
@@ -682,14 +700,10 @@ export function useTerrainAnimation(
       const px = ex * canvasDpr;
       const py = ey * canvasDpr;
 
-      // Visibility gates — match the draw loop conditions
-      const scroll = scrollProgressRef.current ?? 0;
-      const bioVis = Math.max(0, Math.min(1, (scroll - 0.5) / 0.5));
-      const labelVis = bioVis * (1 - Math.max(0, Math.min(1, contentProgress / 0.4)));
-      const contentTitleVis = Math.max(0, Math.min(1, (contentProgress - 0.6) / 0.4));
+      const contentTitleVis = Math.max(0, Math.min(1, (contentProgressRef.current - 0.6) / 0.4));
 
-      // W logo & menu — clickable once intro scatter-reveal completes or bio is visible
-      if (logoMenuIntroProgress > 0.3 || bioVis > 0.3) {
+      // W logo & menu — always clickable after intro
+      if (logoMenuIntroProgressRef.current > 0.3) {
         const wb = wLogoBoundsRef.current;
         if (px >= wb.x && px < wb.x + wb.w && py >= wb.y && py < wb.y + wb.h) return 'logo';
         const mb = menuBoundsRef.current;
@@ -702,15 +716,6 @@ export function useTerrainAnimation(
         for (let i = 0; i < sBounds.length; i++) {
           const b = sBounds[i];
           if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `sub:${i}`;
-        }
-      }
-
-      // Labels — only when visible and not dissolved by content opening
-      if (labelVis > 0.3) {
-        const bounds = labelBoundsRef.current;
-        for (let i = 0; i < bounds.length; i++) {
-          const b = bounds[i];
-          if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return i;
         }
       }
 
@@ -744,8 +749,6 @@ export function useTerrainAnimation(
             }
           }
         }
-      } else if (typeof hit === 'number') {
-        onLabelClick?.(LABELS[hit].toLowerCase() as LabelId);
       }
     };
 
@@ -762,5 +765,5 @@ export function useTerrainAnimation(
       window.removeEventListener('click', onClick);
       document.body.style.cursor = '';
     };
-  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLabelClick, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef]);
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
 }

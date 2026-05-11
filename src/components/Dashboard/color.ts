@@ -18,8 +18,8 @@ interface Duotone {
 }
 
 export const DUOTONES: Duotone[] = [
-  { name: 'prestige', a: { r: 80, g: 255, b: 180 }, b: { r: 255, g: 240, b: 100 }, bg: { r: 12, g: 20, b: 15 } },
   { name: 'reef', a: { r: 100, g: 180, b: 255 }, b: { r: 255, g: 160, b: 140 }, bg: { r: 12, g: 12, b: 22 } },
+  { name: 'prestige', a: { r: 80, g: 255, b: 180 }, b: { r: 255, g: 240, b: 100 }, bg: { r: 12, g: 20, b: 15 } },
   { name: 'dusk', a: { r: 200, g: 120, b: 255 }, b: { r: 255, g: 220, b: 90 }, bg: { r: 16, g: 10, b: 24 } },
   { name: 'frost', a: { r: 160, g: 235, b: 255 }, b: { r: 255, g: 180, b: 210 }, bg: { r: 14, g: 16, b: 24 } },
   { name: 'neon', a: { r: 180, g: 255, b: 100 }, b: { r: 255, g: 100, b: 190 }, bg: { r: 10, g: 14, b: 10 } },

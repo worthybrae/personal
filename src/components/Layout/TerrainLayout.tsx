@@ -11,7 +11,8 @@ interface TerrainLayoutProps {
 
 export default function TerrainLayout({ title, children }: TerrainLayoutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useTerrainAnimation(canvasRef, {
+  const noScroll = useRef(0);
+  useTerrainAnimation(canvasRef, noScroll, {
     speedDivisor: 8000,
     showNameMask: false,
     contrast: 6,

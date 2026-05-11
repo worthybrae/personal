@@ -44,3 +44,7 @@ env/
 venv/
 ENV/
 .vercel
+
+.superpowers/
+docs/
+.playwright-mcp/
