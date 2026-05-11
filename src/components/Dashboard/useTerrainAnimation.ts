@@ -289,9 +289,7 @@ export function useTerrainAnimation(
 
     function buildContentTitleMask(_label: string) {
       if (!canvas) return;
-      const items = contentSubItemsRef?.current;
       const detail = config.detailRef?.current;
-      const hasItems = items && items.length > 0;
 
       const off = document.createElement('canvas');
       off.width = canvas.width;
@@ -342,58 +340,8 @@ export function useTerrainAnimation(
           w: Math.min(mauTw, cutMaxW * 0.9),
           h: titleH * 0.5,
         });
-      } else if (hasItems) {
-        // Feed layout: category tag + name + description + MAU per item
-        const catFont = `700 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const nameFont = `900 ${titleH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const descFont = `700 ${titleH * 0.3}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        const mauFont = `900 ${titleH * 0.25}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-
-        // Each entry: category + name + desc + optional mau + gap
-        const entryH = titleH * 0.3 + titleH + titleH * 0.35 + titleH * 0.5;
-        const totalH = items.length * entryH;
-        let curY = cutCY - totalH / 2 + titleH * 0.3;
-
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-
-          // Category tag (small)
-          if (item.category) {
-            o.font = catFont;
-            o.fillText(item.category, cutCX, curY, cutMaxW * 0.9);
-            curY += titleH * 0.35;
-          }
-
-          // Item name (large)
-          o.font = nameFont;
-          o.fillText(item.text.toUpperCase(), cutCX, curY, cutMaxW * 0.9);
-          const tw = o.measureText(item.text.toUpperCase()).width;
-          newBounds.push({
-            x: cutCX - tw / 2,
-            y: curY - titleH * 0.55,
-            w: Math.min(tw, cutMaxW * 0.9),
-            h: titleH * 1.1,
-          });
-          curY += titleH * 0.8;
-
-          // Description (medium)
-          if (item.description) {
-            o.font = descFont;
-            o.fillText(item.description, cutCX, curY, cutMaxW * 0.9);
-            curY += titleH * 0.4;
-          }
-
-          // MAU (small)
-          if (item.mau) {
-            o.font = mauFont;
-            o.fillText(item.mau, cutCX, curY, cutMaxW * 0.9);
-            curY += titleH * 0.35;
-          }
-
-          // Gap between entries
-          curY += titleH * 0.5;
-        }
       }
+      // Feed items: no mask needed — handled by card boxes in draw loop
 
       subItemBoundsRef.current = newBounds;
 
