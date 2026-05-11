@@ -9,7 +9,7 @@ import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
 import { ExternalLink } from 'lucide-react';
-import NowPlayingBar from '@/components/NowPlayingBar';
+import type { SpotifyNowPlaying } from '@/types/analytics';
 
 type Page = 'home' | 'feed' | 'work-detail' | 'art-detail';
 
@@ -71,6 +71,20 @@ export default function Home() {
 
   const showFeed = page === 'feed' || feedClosing;
 
+  // Now-playing: fetch and expose via ref for terrain canvas
+  const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean } | null>(null);
+  useEffect(() => {
+    const fetchNP = () => {
+      if (document.visibilityState === 'hidden') return;
+      api.getSpotifyNowPlaying().then((d: SpotifyNowPlaying) => {
+        nowPlayingRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing } : null;
+      }).catch(() => {});
+    };
+    fetchNP();
+    const id = setInterval(fetchNP, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
   // Feed items
@@ -111,6 +125,7 @@ export default function Home() {
       scrollTargetRef,
       contentSubItemsRef,
       meltCompleteRef,
+      nowPlayingRef,
     }),
     [handleLogoClick, handleMenuClick],
   );
@@ -221,7 +236,6 @@ export default function Home() {
         </DetailOverlay>
       )}
 
-      <NowPlayingBar />
     </div>
   );
 }

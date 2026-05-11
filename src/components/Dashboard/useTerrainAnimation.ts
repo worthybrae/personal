@@ -21,6 +21,7 @@ export interface TerrainConfig {
   contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
   meltCompleteRef?: React.MutableRefObject<boolean>;
+  nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean } | null>;
   skipIntro?: boolean;
 }
 
@@ -29,7 +30,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, skipIntro } = config;
+  const { speedDivisor = 9000, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, nowPlayingRef, skipIntro } = config;
   const rafRef = useRef(0);
   const introStartRef = useRef(-1);
   const logoMenuIntroProgressRef = useRef(0);
@@ -49,6 +50,12 @@ export function useTerrainAnimation(
 
 
   const contentTitleMaskRef = useRef<{
+    data: Uint8ClampedArray;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const nowPlayingMaskRef = useRef<{
     data: Uint8ClampedArray;
     width: number;
     height: number;
@@ -183,6 +190,8 @@ export function useTerrainAnimation(
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
     let lastDetailKey = '';
+    let nowPlayingGrid: Uint8Array = new Uint8Array(0);
+    let lastNowPlayingTrack = '';
 
     function buildContentTitleMask(_label: string) {
       if (!canvas) return;
@@ -311,6 +320,57 @@ export function useTerrainAnimation(
           if (px < mask.width && py < mask.height) {
             const offset = (py * mask.width + px) * 4;
             contentTitleGrid[idx] = mask.data[offset] > 128 ? 1 : 0;
+          }
+        }
+      }
+    }
+
+    function buildNowPlayingMask(track: string, artist: string, isPlaying: boolean) {
+      if (!canvas) return;
+      const off = document.createElement('canvas');
+      off.width = canvas.width;
+      off.height = canvas.height;
+      const o = off.getContext('2d')!;
+      o.fillStyle = '#000';
+      o.fillRect(0, 0, off.width, off.height);
+
+      const dpr = canvas.width / window.innerWidth;
+      const npFontSize = Math.max(9, Math.min(12, window.innerWidth / 120)) * dpr;
+
+      o.fillStyle = '#fff';
+      o.textAlign = 'center';
+      o.textBaseline = 'middle';
+
+      const label = isPlaying ? 'NOW PLAYING' : 'LAST PLAYED';
+      const trackLine = `${track}  —  ${artist}`.toUpperCase();
+
+      // Label line
+      const labelY = off.height - npFontSize * 4;
+      o.font = `700 ${npFontSize * 0.75}px 'JetBrains Mono','Courier New',monospace`;
+      o.fillText(label, off.width / 2, labelY, off.width * 0.8);
+
+      // Track line
+      const trackY = labelY + npFontSize * 1.6;
+      o.font = `700 ${npFontSize}px 'JetBrains Mono','Courier New',monospace`;
+      o.fillText(trackLine, off.width / 2, trackY, off.width * 0.85);
+
+      nowPlayingMaskRef.current = {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      };
+
+      // Bake to grid
+      const mask = nowPlayingMaskRef.current;
+      nowPlayingGrid = new Uint8Array(cols * rows);
+      for (let r = 0; r < rows; r++) {
+        const py = Math.floor(r * charH);
+        for (let c = 0; c < cols; c++) {
+          const px = Math.floor(c * charW);
+          const idx = r * cols + c;
+          if (px < mask.width && py < mask.height) {
+            const offset = (py * mask.width + px) * 4;
+            nowPlayingGrid[idx] = mask.data[offset] > 128 ? 1 : 0;
           }
         }
       }
@@ -491,6 +551,21 @@ export function useTerrainAnimation(
         pendingMaskRebuild = false;
       }
 
+      // --- Now-playing mask: rebuild on track change ---
+      const np = nowPlayingRef?.current;
+      const npTrack = np?.track ?? '';
+      if (npTrack !== lastNowPlayingTrack) {
+        lastNowPlayingTrack = npTrack;
+        if (np && np.track) {
+          buildNowPlayingMask(np.track, np.artist, np.isPlaying);
+        } else {
+          nowPlayingGrid = new Uint8Array(cols * rows);
+        }
+      }
+      // Visible on home page, fades with content
+      const npVisible = np?.track ? Math.max(0, 1 - contentProgress * 3) : 0;
+      const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
+
       // --- Hovered label / W logo detection ---
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
@@ -565,6 +640,16 @@ export function useTerrainAnimation(
             h = ((h ^ (h >>> 13)) * 1274126177) | 0;
             const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
             if (introProgress > hash && hash > nameFade) {
+              gridSkip[idx] = 1;
+            }
+          }
+
+          // Now-playing: scatter-reveal at bottom, dissolve with content
+          if (npVisible > 0 && nowPlayingGrid[idx]) {
+            let h5 = (c * 518230729 + r * 392041631) | 0;
+            h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
+            const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
+            if (npIntro * npVisible > npHash) {
               gridSkip[idx] = 1;
             }
           }

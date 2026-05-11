@@ -47,8 +47,3 @@
   margin: 0;
   padding: 0;
 }
-
-@keyframes soundwave {
-  0% { transform: scaleY(0.3); }
-  100% { transform: scaleY(1); }
-}
