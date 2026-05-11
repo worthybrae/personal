@@ -103,7 +103,12 @@ export function useTerrainAnimation(
       w2ctx.fillRect(0, 0, w2.width, w2.height);
 
       const dpr = canvasWidth / window.innerWidth;
-      const logoSize = 64 * dpr;
+      const isMob = window.innerWidth < 768;
+      const fs = isMob
+        ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
+        : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
+      const targetRows = 6;
+      const logoSize = targetRows * fs;
       const logoX = 24 * dpr;
       const logoY = 20 * dpr;
       w2ctx.fillStyle = '#fff';
@@ -133,7 +138,7 @@ export function useTerrainAnimation(
       mctx.fillStyle = '#000';
       mctx.fillRect(0, 0, m.width, m.height);
 
-      const menuFontSize = logoSize * 1.7;
+      const menuFontSize = logoSize * 1.25;
       mctx.fillStyle = '#fff';
       mctx.textAlign = 'right';
       mctx.textBaseline = 'top';
