@@ -565,9 +565,9 @@ export function useTerrainAnimation(
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
       const wb = wLogoBoundsRef.current;
-      const wHovered = mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
+      const wHovered = !isMobile && mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
       const mb = menuBoundsRef.current;
-      const menuHovered = mx >= mb.x && mx < mb.x + mb.w && my >= mb.y && my < mb.y + mb.h;
+      const menuHovered = !isMobile && mx >= mb.x && mx < mb.x + mb.w && my >= mb.y && my < mb.y + mb.h;
 
       // --- Sub-item hover detection ---
       let hoveredSubItem = -1;
