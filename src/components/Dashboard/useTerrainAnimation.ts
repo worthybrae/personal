@@ -107,11 +107,10 @@ export function useTerrainAnimation(
       const fs = isMob
         ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
         : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
-      // W logo: measure actual glyph height and scale to fill exactly 6 grid rows
+      // W logo: render at test size, scan pixel data to count actual grid rows, rescale to 6
       const cW = fs * 0.602;
       const cH = fs;
       const targetIconRows = 6;
-      const targetH = targetIconRows * cH;
       const logoX = 24 * dpr;
       const logoY = 20 * dpr;
       w2ctx.fillStyle = '#fff';
@@ -119,9 +118,27 @@ export function useTerrainAnimation(
       w2ctx.textBaseline = 'top';
       const wTestSize = 10 * fs;
       w2ctx.font = `900 ${wTestSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      const wTestM = w2ctx.measureText('W');
-      const wGlyphH = wTestM.actualBoundingBoxAscent + wTestM.actualBoundingBoxDescent;
-      const logoSize = wGlyphH > 0 ? wTestSize * (targetH / wGlyphH) : 13 * fs;
+      w2ctx.fillText('W', logoX, logoY);
+      // Scan at grid resolution to measure actual rendered height
+      const wScan = w2ctx.getImageData(0, 0, w2.width, w2.height).data;
+      let wMinR = Infinity, wMaxR = 0;
+      for (let r = 0; r < Math.ceil(w2.height / cH); r++) {
+        const py = Math.floor(r * cH);
+        for (let c = 0; c < Math.ceil(w2.width / cW); c++) {
+          const px = Math.floor(c * cW);
+          if (px < w2.width && py < w2.height && wScan[(py * w2.width + px) * 4] > 128) {
+            if (r < wMinR) wMinR = r;
+            if (r > wMaxR) wMaxR = r;
+            break;
+          }
+        }
+      }
+      const wMeasured = wMaxR >= wMinR ? wMaxR - wMinR + 1 : 7;
+      const logoSize = wTestSize * (targetIconRows / wMeasured);
+      // Clear and redraw at corrected size
+      w2ctx.fillStyle = '#000';
+      w2ctx.fillRect(0, 0, w2.width, w2.height);
+      w2ctx.fillStyle = '#fff';
       w2ctx.font = `900 ${logoSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
       w2ctx.fillText('W', logoX, logoY);
       const wMetrics = w2ctx.measureText('W');
@@ -129,7 +146,7 @@ export function useTerrainAnimation(
         x: logoX,
         y: logoY,
         w: wMetrics.width,
-        h: targetH,
+        h: targetIconRows * cH,
       };
 
       wLogoMaskRef.current = {
@@ -154,23 +171,29 @@ export function useTerrainAnimation(
       const plusLeftCol = plusRightCol - plusCols;
       const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
       const plusMidRow = plusTopRow + Math.floor((targetIconRows - barThick) / 2);
+      // Fill exactly one grid cell without bleeding into neighbors
+      const fillCell = (r: number, c: number) => {
+        const x = Math.floor(c * cW);
+        const y = Math.floor(r * cH);
+        mctx.fillRect(x, y, Math.ceil((c + 1) * cW) - x, Math.ceil((r + 1) * cH) - y);
+      };
       // Vertical bar
       for (let r = plusTopRow; r < plusTopRow + targetIconRows; r++) {
         for (let c = plusMidCol; c < plusMidCol + barThick; c++) {
-          mctx.fillRect(c * cW, r * cH, cW + 1, cH + 1);
+          fillCell(r, c);
         }
       }
       // Horizontal bar
       for (let r = plusMidRow; r < plusMidRow + barThick; r++) {
         for (let c = plusLeftCol; c < plusLeftCol + plusCols; c++) {
-          mctx.fillRect(c * cW, r * cH, cW + 1, cH + 1);
+          fillCell(r, c);
         }
       }
       menuBoundsRef.current = {
-        x: plusLeftCol * cW,
-        y: plusTopRow * cH,
-        w: plusCols * cW,
-        h: targetIconRows * cH,
+        x: Math.floor(plusLeftCol * cW),
+        y: Math.floor(plusTopRow * cH),
+        w: Math.ceil(plusCols * cW),
+        h: Math.ceil(targetIconRows * cH),
       };
 
       menuMaskRef.current = {
