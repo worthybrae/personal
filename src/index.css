@@ -49,6 +49,6 @@
 }
 
 @keyframes soundwave {
-  0% { height: 4px; }
-  100% { height: 20px; }
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1); }
 }

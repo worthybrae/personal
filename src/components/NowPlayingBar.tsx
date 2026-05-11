@@ -7,11 +7,12 @@ export default function NowPlayingBar() {
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
-    const fetch = () => {
+    const fetchNowPlaying = () => {
+      if (document.visibilityState === 'hidden') return;
       api.getSpotifyNowPlaying().then(setData).catch(() => {});
     };
-    fetch();
-    intervalRef.current = setInterval(fetch, 30_000);
+    fetchNowPlaying();
+    intervalRef.current = setInterval(fetchNowPlaying, 30_000);
     return () => clearInterval(intervalRef.current);
   }, []);
 
@@ -30,7 +31,7 @@ export default function NowPlayingBar() {
         {[0.8, 0.5, 1, 0.6, 0.9].map((scale, i) => (
           <div
             key={i}
-            className="w-[3px] rounded-sm"
+            className="w-[3px] rounded-sm origin-bottom"
             style={
               data.is_playing
                 ? {

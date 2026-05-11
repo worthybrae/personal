@@ -1,7 +1,6 @@
 import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
 import { Sparkline, AsciiBar, CountUp } from './AsciiChart';
-import SpotifyRecord from './SpotifyRecord';
 import FilmStrip from './FilmStrip';
 
 export default function OverviewPanel() {
@@ -53,9 +52,6 @@ export default function OverviewPanel() {
           </div>
         )}
       </div>
-
-      {/* Spotify */}
-      <SpotifyRecord />
 
       {/* Letterboxd */}
       <FilmStrip />
