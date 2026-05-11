@@ -9,6 +9,7 @@ import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
 import { ExternalLink } from 'lucide-react';
+import NowPlayingBar from '@/components/NowPlayingBar';
 
 type Page = 'home' | 'feed' | 'work-detail' | 'art-detail';
 
@@ -219,6 +220,8 @@ export default function Home() {
           <TechTags tags={artPiece.tech} />
         </DetailOverlay>
       )}
+
+      <NowPlayingBar />
     </div>
   );
 }
