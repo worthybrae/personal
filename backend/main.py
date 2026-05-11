@@ -70,17 +70,17 @@ async def blog_detail(slug: str):
 
 
 @app.get("/api/spotify/now-playing")
-async def spotify_now_playing():
+def spotify_now_playing():
     from spotify import get_now_playing
     return get_now_playing()
 
 @app.get("/api/spotify/top-tracks")
-async def spotify_top_tracks():
+def spotify_top_tracks():
     from spotify import get_top_tracks
     return get_top_tracks()
 
 @app.get("/api/spotify/callback")
-async def spotify_callback(code: str):
+def spotify_callback(code: str):
     """One-time OAuth callback to capture refresh token."""
     from spotify import _get_client
     _get_client()
@@ -88,7 +88,7 @@ async def spotify_callback(code: str):
 
 
 @app.get("/api/letterboxd/recent")
-async def letterboxd_recent():
+def letterboxd_recent():
     from letterboxd import get_recent_films
     return get_recent_films()
 
