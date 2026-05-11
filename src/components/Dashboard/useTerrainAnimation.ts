@@ -166,19 +166,19 @@ export function useTerrainAnimation(
       mctx.fillStyle = '#fff';
       const plusCols = 8;
       const barThick = 2;
+      const plusRows = 5;
       const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
       const plusTopRow = Math.floor(logoY / cH);
       const plusLeftCol = plusRightCol - plusCols;
       const plusMidCol = plusLeftCol + Math.floor((plusCols - barThick) / 2);
-      const plusMidRow = plusTopRow + Math.floor((targetIconRows - barThick) / 2);
-      // Fill exactly one grid cell without bleeding into neighbors
+      const plusMidRow = plusTopRow + Math.floor((plusRows - barThick) / 2);
       const fillCell = (r: number, c: number) => {
         const x = Math.floor(c * cW);
         const y = Math.floor(r * cH);
-        mctx.fillRect(x, y, Math.ceil((c + 1) * cW) - x, Math.ceil((r + 1) * cH) - y);
+        mctx.fillRect(x, y, Math.floor((c + 1) * cW) - x, Math.floor((r + 1) * cH) - y);
       };
       // Vertical bar
-      for (let r = plusTopRow; r < plusTopRow + targetIconRows; r++) {
+      for (let r = plusTopRow; r < plusTopRow + plusRows; r++) {
         for (let c = plusMidCol; c < plusMidCol + barThick; c++) {
           fillCell(r, c);
         }
@@ -193,7 +193,7 @@ export function useTerrainAnimation(
         x: Math.floor(plusLeftCol * cW),
         y: Math.floor(plusTopRow * cH),
         w: Math.ceil(plusCols * cW),
-        h: Math.ceil(targetIconRows * cH),
+        h: Math.ceil(plusRows * cH),
       };
 
       menuMaskRef.current = {
