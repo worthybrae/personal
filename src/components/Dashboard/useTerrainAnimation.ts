@@ -17,7 +17,7 @@ export interface TerrainConfig {
   contentOpenRef?: React.RefObject<boolean>;
   activeLabelRef?: React.RefObject<string | null>;
   scrollTargetRef?: React.RefObject<number>;
-  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string }[]>;
+  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
   meltCompleteRef?: React.MutableRefObject<boolean>;
   nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;

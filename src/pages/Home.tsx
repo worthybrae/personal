@@ -4,7 +4,6 @@ import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation'
 import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
 import { ART_PIECES, getArtPiece } from '@/lib/art';
-import FeedOverlay, { type FeedItem } from '@/components/FeedOverlay';
 import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
@@ -89,27 +88,27 @@ export default function Home() {
 
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
-  // Feed items
-  const feedItems = useMemo<FeedItem[]>(() => {
+  const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
+
+  const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
 
     const workItems = PROJECTS.map((p) => ({
-      text: p.name, url: `/work/${p.slug}`, description: p.description, category: 'WEBSITE', videoUrl: p.videoUrl,
+      text: p.name, url: `/work/${p.slug}`, description: p.description, category: 'WEBSITE', icon: '</>',
     }));
 
     const artItems = ART_PIECES.map((a) => ({
-      text: a.name, url: `/art/${a.slug}`, description: a.description, category: 'ART', videoUrl: a.videoUrl,
+      text: a.name, url: `/art/${a.slug}`, description: a.description, category: 'ART', icon: '~',
     }));
 
     const blogItems = (blogData?.posts ?? []).map((b) => ({
-      text: b.title.toUpperCase(), url: `/blog/${b.slug}`, description: b.description.toUpperCase(), category: 'BLOG',
+      text: b.title.toUpperCase(), url: `/blog/${b.slug}`, description: b.description.toUpperCase(), category: 'BLOG', icon: '>>',
     }));
 
-    return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean) as FeedItem[];
+    return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
   }, [showFeed, blogData]);
 
-  const contentSubItemsRef = useRef<{ text: string; url: string }[]>([]);
-  contentSubItemsRef.current = [];
+  contentSubItemsRef.current = feedSubItems;
 
   const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
   const handleMenuClick = useCallback(() => navigate('/feed'), [navigate]);
@@ -122,6 +121,7 @@ export default function Home() {
     () => ({
       onLogoClick: handleLogoClick,
       onMenuClick: handleMenuClick,
+      onSubItemClick: handleItemClick,
       contentOpenRef,
       activeLabelRef,
       scrollTargetRef,
@@ -129,7 +129,7 @@ export default function Home() {
       meltCompleteRef,
       nowPlayingRef,
     }),
-    [handleLogoClick, handleMenuClick],
+    [handleLogoClick, handleMenuClick, handleItemClick],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
@@ -140,10 +140,6 @@ export default function Home() {
   return (
     <div>
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
-
-      {showFeed && (
-        <FeedOverlay items={feedItems} onItemClick={handleItemClick} meltCompleteRef={meltCompleteRef} closing={feedClosing} />
-      )}
 
       {page === 'work-detail' && project && (
         <DetailOverlay>
