@@ -921,6 +921,90 @@ export function useTerrainAnimation(
         }
       }
 
+      // --- Feed card content ---
+      if (contentTitleFade > 0 && feedCards.length > 0) {
+        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
+        ctx.textBaseline = 'top';
+
+        // Note: canDraw is the same helper as in the now-playing section.
+        // If refactoring, hoist it above both blocks. For now, scoped locally.
+        const canDraw = (r: number, c: number) => {
+          if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
+          return gridSkip[r * cols + c] === 1;
+        };
+
+        for (let fi = 0; fi < feedCards.length; fi++) {
+          const fc = feedCards[fi];
+          // Convert virtual card rows to screen rows via scroll offset
+          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
+          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+
+          // Cull cards entirely off-screen
+          if (screenBottom < 0 || screenTop >= rows) continue;
+
+          const catScreenRow = Math.round(fc.catRow - feedScrollOffset);
+          const nameScreenRow = Math.round(fc.nameRow - feedScrollOffset);
+          const descScreenRow = Math.round(fc.descRow - feedScrollOffset);
+
+          // --- Icon (on name row, full brightness) ---
+          for (let i = 0; i < fc.iconStr.length; i++) {
+            const c = fc.iconCol + i;
+            if (!canDraw(nameScreenRow, c)) continue;
+            const idx = nameScreenRow * cols + c;
+            ctx.fillStyle = colorLUT[gridColors[idx]];
+            ctx.fillText(fc.iconStr[i], c * charW, nameScreenRow * charH);
+          }
+
+          // --- Category (dim, ~40% brightness) ---
+          for (let i = 0; i < fc.catStr.length; i++) {
+            const c = fc.textCol + i;
+            if (!canDraw(catScreenRow, c)) continue;
+            const idx = catScreenRow * cols + c;
+            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+            ctx.fillStyle = colorLUT[colorIdx];
+            ctx.fillText(fc.catStr[i], c * charW, catScreenRow * charH);
+          }
+
+          // --- Name (full brightness) ---
+          for (let i = 0; i < fc.nameStr.length; i++) {
+            const c = fc.textCol + i;
+            if (!canDraw(nameScreenRow, c)) continue;
+            const idx = nameScreenRow * cols + c;
+            ctx.fillStyle = colorLUT[gridColors[idx]];
+            ctx.fillText(fc.nameStr[i], c * charW, nameScreenRow * charH);
+          }
+
+          // --- Description (dim, ~40% brightness) ---
+          for (let i = 0; i < fc.descStr.length; i++) {
+            const c = fc.textCol + i;
+            if (!canDraw(descScreenRow, c)) continue;
+            const idx = descScreenRow * cols + c;
+            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+            ctx.fillStyle = colorLUT[colorIdx];
+            ctx.fillText(fc.descStr[i], c * charW, descScreenRow * charH);
+          }
+        }
+
+        // Update hit detection bounds (after the feedCards rendering loop, before closing the if block)
+        const newFeedBounds: { x: number; y: number; w: number; h: number }[] = [];
+        for (let fi = 0; fi < feedCards.length; fi++) {
+          const fc = feedCards[fi];
+          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
+          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+          if (screenBottom < 0 || screenTop >= rows) {
+            newFeedBounds.push({ x: -1, y: -1, w: 0, h: 0 }); // off-screen placeholder
+          } else {
+            newFeedBounds.push({
+              x: fc.left * charW,
+              y: screenTop * charH,
+              w: (fc.right - fc.left + 1) * charW,
+              h: (screenBottom - screenTop + 1) * charH,
+            });
+          }
+        }
+        subItemBoundsRef.current = newFeedBounds;
+      }
+
       // --- Now-playing box: border, equalizer bars, text ---
       if (npVisible > 0 && npTextStr && npBoxTop < rows) {
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
