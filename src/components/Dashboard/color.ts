@@ -143,3 +143,48 @@ export function getDuotoneColor(val: number, t: number): DuotoneColor {
     bgR: bg.r, bgG: bg.g, bgB: bg.b,
   };
 }
+
+/** Fast duotone color using RGB lerp instead of HSL — skips trig ops */
+export function getDuotoneColorFast(val: number, t: number): DuotoneColor {
+  const cycleSec = 30;
+  const total = DUOTONES.length * cycleSec;
+  const pos = ((t * 4) % total) / cycleSec;
+  const idx = Math.floor(pos) % DUOTONES.length;
+  const nextIdx = (idx + 1) % DUOTONES.length;
+  const blend = pos - Math.floor(pos);
+  const ease = blend * blend * (3 - 2 * blend);
+
+  const d1 = DUOTONES[idx];
+  const d2 = DUOTONES[nextIdx];
+
+  function sampleDuoFast(duo: Duotone, v: number): RGB {
+    if (v < 0.05) {
+      const st = v / 0.05;
+      return { r: lerp(duo.bg.r, duo.a.r, st), g: lerp(duo.bg.g, duo.a.g, st), b: lerp(duo.bg.b, duo.a.b, st) };
+    } else {
+      const st0 = (v - 0.05) / 0.95;
+      const st = st0 * st0 * (3 - 2 * st0);
+      return { r: lerp(duo.a.r, duo.b.r, st), g: lerp(duo.a.g, duo.b.g, st), b: lerp(duo.a.b, duo.b.b, st) };
+    }
+  }
+
+  const c1 = sampleDuoFast(d1, val);
+  const c2 = sampleDuoFast(d2, val);
+
+  const r = lerp(c1.r, c2.r, ease);
+  const g = lerp(c1.g, c2.g, ease);
+  const b = lerp(c1.b, c2.b, ease);
+
+  // Lightweight saturation boost (skip HSL round-trip)
+  const avg = (r + g + b) / 3;
+  const sat = 1.6;
+
+  return {
+    r: Math.max(0, Math.min(255, avg + (r - avg) * sat)),
+    g: Math.max(0, Math.min(255, avg + (g - avg) * sat)),
+    b: Math.max(0, Math.min(255, avg + (b - avg) * sat)),
+    bgR: lerp(d1.bg.r, d2.bg.r, ease),
+    bgG: lerp(d1.bg.g, d2.bg.g, ease),
+    bgB: lerp(d1.bg.b, d2.bg.b, ease),
+  };
+}

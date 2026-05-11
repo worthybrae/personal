@@ -1,11 +1,12 @@
 // src/components/Dashboard/useTerrainAnimation.ts
 
 import { useEffect, useRef, useCallback } from 'react';
-import { warpedTerrain } from './noise';
-import { getDuotoneColor, scurve } from './color';
+import { warpedTerrain, warpedTerrainLite } from './noise';
+import { getDuotoneColor, getDuotoneColorFast, scurve } from './color';
 
 const NOISE_SCALE = 0.015;
-const COLOR_LEVELS = 64;
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+const COLOR_LEVELS = IS_MOBILE ? 32 : 64;
 
 export interface TerrainConfig {
   speedDivisor?: number;
@@ -316,17 +317,18 @@ export function useTerrainAnimation(
     }
 
     const isMobile = window.innerWidth < 768;
-    const frameBudget = isMobile ? 40 : 0; // Desktop: uncapped. Mobile: ~25fps
+    const frameBudget = isMobile ? 50 : 0; // Desktop: uncapped. Mobile: ~20fps
+    const terrainFn = isMobile ? warpedTerrainLite : warpedTerrain;
 
     function resize() {
       if (!canvas) return;
-      canvasDpr = Math.min(window.devicePixelRatio, 2);
+      canvasDpr = isMobile ? 1 : Math.min(window.devicePixelRatio, 2);
       canvas.width = window.innerWidth * canvasDpr;
       canvas.height = window.innerHeight * canvasDpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
       fontSize = isMobile
-        ? Math.max(7, Math.min(12, window.innerWidth / 100)) * canvasDpr
+        ? Math.max(9, Math.min(14, window.innerWidth / 70)) * canvasDpr
         : Math.max(5, Math.min(9, window.innerWidth / 180)) * canvasDpr;
       charW = fontSize * 0.602;
       charH = fontSize * 1.0;
@@ -423,7 +425,8 @@ export function useTerrainAnimation(
       const isClosing = contentTarget === 0 && contentProgress > 0;
 
       // --- Color LUT (reuse array, just overwrite values) ---
-      const bgSample = getDuotoneColor(0, t);
+      const colorFn = isMobile ? getDuotoneColorFast : getDuotoneColor;
+      const bgSample = colorFn(0, t);
       const bgR = Math.floor(bgSample.bgR);
       const bgG = Math.floor(bgSample.bgG);
       const bgB = Math.floor(bgSample.bgB);
@@ -433,7 +436,7 @@ export function useTerrainAnimation(
 
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
-        const col = getDuotoneColor(val, t);
+        const col = colorFn(val, t);
         const dim = 0.35 + val * 1.15;
         const rawR = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
         const rawG = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
@@ -523,7 +526,7 @@ export function useTerrainAnimation(
           // Compute terrain for every cell
           const nx = c * NOISE_SCALE;
           const ny = r * NOISE_SCALE;
-          let elev = warpedTerrain(nx, ny, t);
+          let elev = terrainFn(nx, ny, t);
           let val = (elev + 0.5) / 1.8;
           val = Math.max(0, Math.min(1, val));
           val = scurve(val, contrast);

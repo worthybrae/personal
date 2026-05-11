@@ -89,3 +89,17 @@ export function warpedTerrain(x: number, y: number, t: number): number {
 
   return fbm(wx, wy, 6) * 0.6 + ridged(wx * 0.8 + 20, wy * 0.8 + 20, 5) * 0.8;
 }
+
+/** Lightweight terrain for mobile — single warp layer, fewer octaves (~11 perlin evals vs ~25) */
+export function warpedTerrainLite(x: number, y: number, t: number): number {
+  const tx = Math.sin(t * 0.13) * 8 + Math.cos(t * 0.07) * 5;
+  const ty = Math.cos(t * 0.11) * 8 + Math.sin(t * 0.09) * 5;
+
+  const wx1 = fbm(x + tx, y + ty, 2);
+  const wy1 = fbm(x + 5.2 + tx * 0.3, y + 1.3 + ty * 0.5, 2);
+
+  const wx = x + wx1 * 2.5;
+  const wy = y + wy1 * 2.5;
+
+  return fbm(wx, wy, 4) * 0.6 + ridged(wx * 0.8 + 20, wy * 0.8 + 20, 3) * 0.8;
+}
