@@ -20,7 +20,6 @@ function parseRoute(path: string): { page: Page; slug?: string } {
 }
 
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
-const headerFont = "'Arial Black','Impact','Helvetica Neue',sans-serif";
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -199,30 +198,33 @@ export default function Home() {
 
       {showWork && displayProject && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
-          <div
-            className="text-xs tracking-[0.3em] uppercase mb-2 opacity-40"
-            style={{ fontFamily: monoFont }}
-          >
-            WEBSITE
-          </div>
-          <div
-            className="font-black text-4xl md:text-5xl uppercase tracking-tight text-white"
-            style={{ fontFamily: headerFont }}
-          >
-            {displayProject.name}
-          </div>
-          <div
-            className="text-xs md:text-sm uppercase tracking-wider mt-2 text-white/30"
-            style={{ fontFamily: monoFont }}
-          >
-            {displayProject.description}
-          </div>
-          <div className="flex justify-center gap-4 mt-4">
-            <a href={displayProject.url} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="Visit site">
-              <ExternalLink size={20} />
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-left">
+              <h1
+                className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
+                style={{ fontFamily: monoFont }}
+              >
+                {displayProject.name}
+              </h1>
+              <div
+                className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
+                style={{ fontFamily: monoFont }}
+              >
+                {displayProject.description}
+              </div>
+            </div>
+            <a
+              href={displayProject.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
+              style={{ fontFamily: monoFont }}
+            >
+              <ExternalLink size={12} />
+              View
             </a>
           </div>
-          <div className="mt-6">
+          <div className="mt-8">
             <MediaBlock videoUrl={displayProject.videoUrl} imageUrl={displayProject.imageUrl} />
           </div>
           <div
@@ -245,32 +247,35 @@ export default function Home() {
 
       {showArt && displayArtPiece && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
-          <div
-            className="text-xs tracking-[0.3em] uppercase mb-2 opacity-40"
-            style={{ fontFamily: monoFont }}
-          >
-            ART
-          </div>
-          <div
-            className="font-black text-4xl md:text-5xl uppercase tracking-tight text-white"
-            style={{ fontFamily: headerFont }}
-          >
-            {displayArtPiece.name}
-          </div>
-          <div
-            className="text-xs md:text-sm uppercase tracking-wider mt-2 text-white/30"
-            style={{ fontFamily: monoFont }}
-          >
-            {displayArtPiece.description}
-          </div>
-          {displayArtPiece.githubUrl && (
-            <div className="flex justify-center gap-4 mt-4">
-              <a href={displayArtPiece.githubUrl} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="View source">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
-              </a>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-left">
+              <h1
+                className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
+                style={{ fontFamily: monoFont }}
+              >
+                {displayArtPiece.name}
+              </h1>
+              <div
+                className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
+                style={{ fontFamily: monoFont }}
+              >
+                {displayArtPiece.description}
+              </div>
             </div>
-          )}
-          <div className="mt-6">
+            {displayArtPiece.githubUrl && (
+              <a
+                href={displayArtPiece.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
+                style={{ fontFamily: monoFont }}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+                View
+              </a>
+            )}
+          </div>
+          <div className="mt-8">
             <MediaBlock videoUrl={displayArtPiece.videoUrl} imageUrl={displayArtPiece.imageUrl} />
           </div>
           <div
@@ -320,27 +325,9 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeCompl
   const overlayRef = useRef<HTMLDivElement>(null);
   const onFadeCompleteRef = useRef(onFadeComplete);
   onFadeCompleteRef.current = onFadeComplete;
-  // Track forward melt completion — overlay starts full-screen, shrinks when done
-  const [meltDone, setMeltDone] = useState(false);
 
-  // Forward melt: watch for contentProgress to reach ~1, then switch to normal layout
-  useEffect(() => {
-    if (fadeOut || meltDone) return;
-    let cancelled = false;
-    const check = () => {
-      if (cancelled) return;
-      if (meltProgressRef.current >= 0.99) {
-        setMeltDone(true);
-        return;
-      }
-      requestAnimationFrame(check);
-    };
-    requestAnimationFrame(check);
-    return () => { cancelled = true; };
-  }, [fadeOut, meltDone, meltProgressRef]);
-
-  // For fadeOut: content stays at full opacity while cover canvas accumulates terrain on top.
-  // Once fully covered (~75%), unmount so the dissolve phase reveals feed (not old content).
+  // For fadeOut (reverse melt): content stays at full opacity while cover canvas
+  // accumulates terrain on top. Once fully covered (~75%), unmount.
   useEffect(() => {
     if (!fadeOut) return;
     let cancelled = false;
@@ -358,19 +345,16 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeCompl
     return () => { cancelled = true; };
   }, [fadeOut, meltProgressRef]);
 
-  // Full-screen with black bg during any transition (forward or reverse)
-  const isTransitioning = fadeOut || !meltDone;
-
   return (
     <div
       ref={overlayRef}
       className="fixed left-0 right-0 bottom-0 z-10 overflow-y-auto"
       style={{
-        top: isTransitioning ? '0px' : '100px',
-        paddingTop: isTransitioning ? '120px' : '20px',
+        top: fadeOut ? '0px' : '100px',
+        paddingTop: fadeOut ? '120px' : '20px',
         paddingBottom: '120px',
         pointerEvents: fadeOut ? 'none' : 'auto',
-        backgroundColor: isTransitioning ? '#000' : undefined,
+        backgroundColor: '#000',
       }}
     >
       <div className="max-w-2xl mx-auto px-6 text-center">

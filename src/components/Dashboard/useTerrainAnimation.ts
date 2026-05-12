@@ -938,8 +938,9 @@ export function useTerrainAnimation(
             // Terrain cell — dissolve to black
             if (contentProgress > dHash) gridSkip[i] = 1;
           } else if (!isClosing && (wLogoMaskGrid[i] || menuMaskGrid[i])) {
-            // W/+ cells — reveal as terrain all at once (not scatter) to avoid visual jitter
-            if (contentProgress > 0.3) {
+            // W/+ cells — scatter-reveal using same hash pattern as terrain dissolve
+            const reveal = Math.max(0, (contentProgress - 0.15) / 0.55);
+            if (reveal > dHash) {
               gridSkip[i] = 0;
               gridBg[i] = 0;
             }
@@ -1217,10 +1218,11 @@ export function useTerrainAnimation(
 
           if (isForwardCover) {
             // Forward melt: terrain scatter-dissolves to reveal detail content.
-            // Non-dissolved cells copied from main canvas (includes W, +, feed cards, everything).
-            // Full screen — no header skip, no W/+ exclusion.
+            // Only cover below header (100px) — header stays on main canvas so W/+ animate naturally.
+            const contentStartPx = 100 * canvasDpr;
             for (let r = 0; r < rows; r++) {
               const py = r * charH;
+              if (py + charH <= contentStartPx) continue;
               const rowOff = r * cols;
               let runS = -1;
               for (let c = 0; c <= cols; c++) {
