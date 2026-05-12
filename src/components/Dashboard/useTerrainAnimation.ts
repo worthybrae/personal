@@ -764,8 +764,8 @@ export function useTerrainAnimation(
           npBoxTop = Infinity;
         }
       }
-      // Visible only on home page — fades out as contentProgress increases, hidden when feed is showing
-      const npVisible = np?.track && feedCards.length === 0 && !detailToFeedMelt ? Math.max(0, 1 - contentProgress * 3) : 0;
+      // Visible only on home page — fades out as contentProgress increases, hidden during any transition or feed
+      const npVisible = np?.track && feedCards.length === 0 && !feedToDetailMelt && !detailToFeedMelt ? Math.max(0, 1 - contentProgress * 3) : 0;
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
       // --- Hovered label / W logo detection ---
