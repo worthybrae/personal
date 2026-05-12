@@ -1,3 +1,6 @@
+FRONTEND_PORT ?= 5176
+BACKEND_PORT ?= 8001
+
 .PHONY: help build run stop clean logs restart run-frontend run-backend run-local
 
 help:
@@ -17,18 +20,20 @@ help:
 	@echo "  make clean         - Stop and remove containers, images, and volumes"
 
 run-frontend:
-	@echo "Starting Vite frontend on http://localhost:5173..."
-	npm run dev
+	@echo "Starting Vite frontend on http://localhost:$(FRONTEND_PORT)..."
+	VITE_BACKEND_PORT=$(BACKEND_PORT) npx vite --port $(FRONTEND_PORT)
 
 run-backend:
-	@echo "Starting FastAPI backend on http://localhost:8000..."
-	cd backend && python main.py
+	@echo "Starting FastAPI backend on http://localhost:$(BACKEND_PORT)..."
+	cd backend && PORT=$(BACKEND_PORT) FRONTEND_PORT=$(FRONTEND_PORT) python main.py
 
 run-local:
 	@echo "Starting frontend and backend..."
-	@echo "Frontend: http://localhost:5173"
-	@echo "Backend:  http://localhost:8000"
-	npx concurrently --names "frontend,backend" --prefix-colors "cyan,magenta" "npm run dev" "cd backend && python main.py"
+	@echo "Frontend: http://localhost:$(FRONTEND_PORT)"
+	@echo "Backend:  http://localhost:$(BACKEND_PORT)"
+	npx concurrently --names "frontend,backend" --prefix-colors "cyan,magenta" \
+		"VITE_BACKEND_PORT=$(BACKEND_PORT) npx vite --port $(FRONTEND_PORT)" \
+		"cd backend && PORT=$(BACKEND_PORT) FRONTEND_PORT=$(FRONTEND_PORT) python main.py"
 
 build:
 	@echo "🔨 Building Docker image..."

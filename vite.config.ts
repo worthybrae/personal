@@ -11,7 +11,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5173,
+    port: 5176,
     strictPort: false,
     allowedHosts: [
       '.railway.app',
@@ -20,10 +20,9 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        // Check if we're in production (Railway) or local dev
         target: process.env.NODE_ENV === 'production'
           ? 'http://127.0.0.1:8080'  // Railway
-          : 'http://127.0.0.1:8000', // Local
+          : `http://127.0.0.1:${process.env.VITE_BACKEND_PORT || 8001}`, // Local
         changeOrigin: true,
         secure: false,
       },

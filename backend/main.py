@@ -10,10 +10,11 @@ load_dotenv()
 
 app = FastAPI()
 
+frontend_port = os.getenv("FRONTEND_PORT", "5176")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        f"http://localhost:{frontend_port}",
         "https://worthyrae.com",
         "https://www.worthyrae.com",
     ],
@@ -107,5 +108,5 @@ if STATIC_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8001"))
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -6,11 +6,8 @@ function App() {
   return (
     <Router basename="/">
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/feed" element={<Home />} />
-        <Route path="/work/:slug" element={<Home />} />
-        <Route path="/art/:slug" element={<Home />} />
         <Route path="/blog/:slug" element={<BlogPage />} />
+        <Route path="/*" element={<Home />} />
       </Routes>
     </Router>
   );

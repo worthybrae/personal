@@ -20,7 +20,10 @@ export interface TerrainConfig {
   contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
   meltCompleteRef?: React.MutableRefObject<boolean>;
+  meltProgressRef?: React.MutableRefObject<number>;
+  detailToFeedRef?: React.MutableRefObject<boolean>;
   nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
+  coverCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   skipIntro?: boolean;
 }
 
@@ -29,7 +32,18 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, nowPlayingRef, skipIntro } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro } = config;
+
+  // Wrap callbacks in refs so they never cause the useEffect to re-run.
+  // navigate() from React Router changes identity on route changes, which cascades
+  // through useCallback → useMemo → useEffect deps, resetting all animation state.
+  const onLogoClickRef = useRef(onLogoClick);
+  const onMenuClickRef = useRef(onMenuClick);
+  const onSubItemClickRef = useRef(onSubItemClick);
+  onLogoClickRef.current = onLogoClick;
+  onMenuClickRef.current = onMenuClick;
+  onSubItemClickRef.current = onSubItemClick;
+
   const rafRef = useRef(0);
   const introStartRef = useRef(-1);
   const logoMenuIntroProgressRef = useRef(0);
@@ -223,13 +237,14 @@ export function useTerrainAnimation(
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     let cols = 0;
     let rows = 0;
     let fontSize = 0;
     let charW = 0;
     let charH = 0;
     let canvasDpr = 1;
+    // Cover canvas context (for terrain cover/reveal over detail content)
+    let coverCtx: CanvasRenderingContext2D | null = null;
     // Pre-allocated buffers — reused every frame (no GC pressure)
     let gridChars: Uint8Array = new Uint8Array(0);
     let gridColors: Uint8Array = new Uint8Array(0);
@@ -279,6 +294,7 @@ export function useTerrainAnimation(
       descStr: string;
       iconStr: string;
       url: string;
+      textScale: number;  // font multiplier (2 = each char spans 2 grid cols/rows)
     }
     let feedCards: FeedCard[] = [];
     let feedCardWidth = 0;
@@ -286,6 +302,12 @@ export function useTerrainAnimation(
     let feedScrollTarget = 0;
     let feedMaxScroll = 0;
     let lastFeedItemsKey = '';
+    let wasFeedMode = false;
+    let feedToDetailMelt = false;
+    let detailToFeedMelt = false;
+    let d2fContentReset = false;
+    let d2fMeltProgress = 0;
+    let detailToFeedBrightness = -1; // -1 = inactive, 0→1 = fading in from dark (detail→feed)
 
     function buildContentTitleMask(_label: string) {
       if (!canvas) return;
@@ -420,35 +442,43 @@ export function useTerrainAnimation(
         return;
       }
 
-      const padH = 2;       // horizontal padding inside card
-      const iconWidth = 5;   // icon column width (chars)
-      const gapAfterIcon = 2;
-      const cardHeight = 6;  // rows per card: pad + category + name + description + pad + border
-      const cardGap = 3;     // rows between cards
+      const textScale = 2;    // each character spans 2 grid cols & 2 grid rows
+      const padH = 2;          // horizontal padding inside card (grid cols)
+      const padV = 1;          // vertical padding (grid rows)
+      const iconChars = 3;     // max icon characters
+      const gapAfterIcon = 2;  // gap between icon and text (grid cols)
+      const cardGap = 4;       // rows between cards
 
-      // Compute uniform card width from widest item
-      let maxTextWidth = 0;
+      // Each text line spans textScale rows; 2 lines (name + desc)
+      const cardHeight = padV + textScale * 2 + padV; // 1 + 4 + 1 = 6
+
+      // Text width: measure in characters, then convert to grid columns via textScale
+      let maxTextChars = 0;
       for (const item of items) {
-        const catLen = (item.category ?? '').length;
         const nameLen = item.text.toUpperCase().length;
         const descLen = (item.description ?? '').toUpperCase().length;
-        maxTextWidth = Math.max(maxTextWidth, catLen, nameLen, descLen);
+        maxTextChars = Math.max(maxTextChars, nameLen, descLen);
       }
-      const contentWidth = iconWidth + gapAfterIcon + maxTextWidth;
-      const maxBoxCols = Math.min(cols - 6, 60);
-      const cappedContent = Math.min(contentWidth, maxBoxCols - (1 + padH + padH + 1));
-      const cappedTextWidth = cappedContent - iconWidth - gapAfterIcon;
-      feedCardWidth = 1 + padH + cappedContent + padH + 1;
+
+      const iconCols = iconChars * textScale;
+      const textCols = maxTextChars * textScale;
+      const contentCols = iconCols + gapAfterIcon + textCols;
+      const maxBoxCols = Math.min(cols - 6, 90);
+      const cappedContentCols = Math.min(contentCols, maxBoxCols - (1 + padH + padH + 1));
+      const cappedTextCols = cappedContentCols - iconCols - gapAfterIcon;
+      const cappedTextChars = Math.floor(cappedTextCols / textScale);
+      feedCardWidth = 1 + padH + cappedContentCols + padH + 1;
 
       // Center horizontally
       const cardLeft = Math.floor((cols - feedCardWidth) / 2);
       const cardRight = cardLeft + feedCardWidth - 1;
       const contentLeft = cardLeft + 1 + padH;
       const iconCol = contentLeft;
-      const textCol = contentLeft + iconWidth + gapAfterIcon;
+      const textCol = contentLeft + iconCols + gapAfterIcon;
 
-      // Vertical layout: start 6 rows from top
-      const startRow = 6;
+      // Vertical layout: start below the 100px header
+      const headerRows = Math.ceil(100 * canvasDpr / charH);
+      const startRow = headerRows + 2;
 
       feedCards = items.map((item, i) => {
         const baseTop = startRow + i * (cardHeight + cardGap);
@@ -461,14 +491,15 @@ export function useTerrainAnimation(
           right: cardRight,
           iconCol,
           textCol,
-          catRow: baseTop + 1,
-          nameRow: baseTop + 2,
-          descRow: baseTop + 3,
-          catStr: (item.category ?? '').toUpperCase(),
-          nameStr: nameStr.length > cappedTextWidth ? nameStr.slice(0, cappedTextWidth - 1) + '…' : nameStr,
-          descStr: descStr.length > cappedTextWidth ? descStr.slice(0, cappedTextWidth - 1) + '…' : descStr,
+          catRow: 0,
+          nameRow: baseTop + padV,
+          descRow: baseTop + padV + textScale,
+          catStr: '',
+          nameStr: nameStr.length > cappedTextChars ? nameStr.slice(0, cappedTextChars - 1) + '…' : nameStr,
+          descStr: descStr.length > cappedTextChars ? descStr.slice(0, cappedTextChars - 1) + '…' : descStr,
           iconStr: item.icon ?? '',
           url: item.url,
+          textScale,
         };
       });
 
@@ -563,6 +594,7 @@ export function useTerrainAnimation(
       logoMenuIntroProgressRef.current = logoMenuIntro;
 
       // Smooth lerp scroll toward route-driven target
+      // Smooth lerp scroll toward route-driven target
       const scrollTarget = scrollTargetRef?.current ?? 0;
       const scrollCurrent = scrollProgressRef.current ?? 0;
       const scrollDiff = scrollTarget - scrollCurrent;
@@ -574,15 +606,77 @@ export function useTerrainAnimation(
       // --- Content open animation ---
       let contentProgress = contentProgressRef.current;
       const contentTarget = contentOpenRef?.current ? 1 : 0;
-      const contentLerp = contentTarget === 0 ? 0.033 : 0.104;
+      const contentLerp = contentTarget === 0 ? 0.033 : feedToDetailMelt ? 0.055 : 0.104;
       contentProgress += (contentTarget - contentProgress) * contentLerp;
       if (Math.abs(contentProgress - contentTarget) < 0.001) contentProgress = contentTarget;
+      if (feedToDetailMelt && contentProgress >= 1) feedToDetailMelt = false;
       contentProgressRef.current = contentProgress;
 
-      if (meltCompleteRef) meltCompleteRef.current = contentProgress >= 1;
+      // Detail → feed: start reverse melt and feed content simultaneously
+      if (detailToFeedRef?.current) {
+        detailToFeedRef.current = false;
+        detailToFeedMelt = true;
+        d2fMeltProgress = 0;
+        d2fContentReset = true;
+        contentProgress = 0;
+        contentProgressRef.current = 0;
+      }
 
-      // Closing = reversing back to home while contentProgress hasn't reached 0 yet
-      const isClosing = contentTarget === 0 && contentProgress > 0;
+      // --- Feed cards: rebuild on item change ---
+      const feedItems = contentSubItemsRef?.current ?? [];
+      const feedItemsKey = feedItems.map(f => `${f.text}:${f.icon}`).join('|');
+      if (feedItemsKey !== lastFeedItemsKey) {
+        const hadFeedCards = feedCards.length > 0;
+        lastFeedItemsKey = feedItemsKey;
+        setupFeedCards(feedItems);
+        feedScrollTarget = 0;
+        feedScrollOffset = 0;
+        // Feed → detail: restart melt animation so terrain transitions to black
+        if (hadFeedCards && feedCards.length === 0 && contentTarget === 1) {
+          contentProgress = 0;
+          contentProgressRef.current = 0;
+          feedToDetailMelt = true;
+        }
+        // Detail → feed (old path): only when NOT using reverse melt
+        if (!hadFeedCards && feedCards.length > 0 && contentProgress > 0.3 && !detailToFeedMelt) {
+          contentProgress = 0;
+          contentProgressRef.current = 0;
+          detailToFeedBrightness = 0;
+        }
+      }
+      // Reset scroll when feed closes
+      if (feedCards.length > 0 && contentTarget === 0 && contentProgress < 0.1) {
+        feedScrollTarget = 0;
+        feedScrollOffset = 0;
+      }
+
+      // Reverse melt progress (detail → feed) — slower so cover accumulation is visible
+      if (detailToFeedMelt) {
+        d2fMeltProgress += (1 - d2fMeltProgress) * 0.035;
+        if (d2fMeltProgress > 0.999) d2fMeltProgress = 1;
+
+      }
+
+      // Update melt complete AFTER feed cards section (contentProgress may have been reset above)
+      if (meltCompleteRef) meltCompleteRef.current = contentProgress >= 1;
+      if (meltProgressRef) meltProgressRef.current = detailToFeedMelt ? d2fMeltProgress : contentProgress;
+
+      // Complete reverse melt AFTER setting meltProgressRef (overlay sees progress=1 for one frame)
+      if (detailToFeedMelt && d2fMeltProgress >= 1) {
+        detailToFeedMelt = false;
+        d2fMeltProgress = 0;
+        if (!d2fContentReset) {
+          contentProgress = 0;
+          contentProgressRef.current = 0;
+        }
+        d2fContentReset = false;
+      }
+
+      // Detail→feed brightness fade (lerp from dark to full brightness)
+      if (detailToFeedBrightness >= 0 && detailToFeedBrightness < 1) {
+        detailToFeedBrightness += (1 - detailToFeedBrightness) * 0.04;
+        if (detailToFeedBrightness > 0.999) detailToFeedBrightness = -1;
+      }
 
       // --- Color LUT (reuse array, just overwrite values) ---
       const colorFn = getDuotoneColor;
@@ -591,8 +685,15 @@ export function useTerrainAnimation(
       const bgG = Math.floor(bgSample.bgG);
       const bgB = Math.floor(bgSample.bgB);
 
-      // During reverse melt, scale character colors to match bg brightness
-      const colorScale = isClosing ? (1 - contentProgress) : 1;
+      // Scale character colors: dim during feed→home close, or during detail→feed brightness fade
+      const feedActive = feedCards.length > 0 || wasFeedMode;
+      const isClosing = contentTarget === 0 && contentProgress > 0;
+      // During reverse melt: main canvas at FULL brightness — it's hidden behind the
+      // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
+      const brightnessScale = detailToFeedMelt
+        ? 1
+        : (detailToFeedBrightness >= 0 ? detailToFeedBrightness : 1);
+      const colorScale = (isClosing && !feedActive) ? (1 - contentProgress) : brightnessScale;
 
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
@@ -609,7 +710,10 @@ export function useTerrainAnimation(
       colorLUT[COLOR_LEVELS] = '#fff'; // white override for hover
 
       // --- Clear ---
-      ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+      const clearBgR = Math.round(bgR * brightnessScale);
+      const clearBgG = Math.round(bgG * brightnessScale);
+      const clearBgB = Math.round(bgB * brightnessScale);
+      ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // --- Name dissolve (scroll 0→0.7) ---
@@ -623,13 +727,10 @@ export function useTerrainAnimation(
       const detail = config.detailRef?.current;
       const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
       if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
-        // Content changed — if already showing content, cross-fade via maskOpacity
-        // Only cross-fade when switching labels, not when closing content entirely
         if (lastContentLabel !== null && contentTitleFade > 0.5 && currentLabel !== null) {
           maskOpacityTarget = 0;
           pendingMaskRebuild = true;
         } else {
-          // Closing content or first load — update immediately
           lastContentLabel = currentLabel;
           lastSubItemsKey = subItemsKey;
           lastDetailKey = detailKey;
@@ -651,21 +752,6 @@ export function useTerrainAnimation(
         pendingMaskRebuild = false;
       }
 
-      // --- Feed cards: rebuild on item change ---
-      const feedItems = contentSubItemsRef?.current ?? [];
-      const feedItemsKey = feedItems.map(f => `${f.text}:${f.icon}`).join('|');
-      if (feedItemsKey !== lastFeedItemsKey) {
-        lastFeedItemsKey = feedItemsKey;
-        setupFeedCards(feedItems);
-        feedScrollTarget = 0;
-        feedScrollOffset = 0;
-      }
-      // Reset scroll when feed closes
-      if (feedCards.length > 0 && contentTarget === 0 && contentProgress < 0.1) {
-        feedScrollTarget = 0;
-        feedScrollOffset = 0;
-      }
-
       // --- Now-playing mask: rebuild on track change or playing state change ---
       const np = nowPlayingRef?.current;
       const npTrack = np?.track ?? '';
@@ -678,8 +764,8 @@ export function useTerrainAnimation(
           npBoxTop = Infinity;
         }
       }
-      // Visible on home page, fades with content
-      const npVisible = np?.track ? Math.max(0, 1 - contentProgress * 3) : 0;
+      // Visible only on home page — hide whenever feed cards exist or during transitional melts
+      const npVisible = np?.track && !feedToDetailMelt && detailToFeedBrightness < 0 && feedCards.length === 0 ? Math.max(0, 1 - contentProgress * 3) : 0;
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
       // --- Hovered label / W logo detection ---
@@ -785,7 +871,7 @@ export function useTerrainAnimation(
                 const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
                 if (contentTitleFade * maskOpacity >= feedHash) {
                   const isClosing = contentTarget === 0;
-                  if (isClosing) {
+                  if (isClosing && !feedActive) {
                     gridColors[idx] = COLOR_LEVELS;
                   } else if (hoveredSubItem === fi) {
                     gridBg[idx] = 1;
@@ -826,7 +912,11 @@ export function useTerrainAnimation(
       }
 
       // --- Terrain melt: scatter-dissolve terrain to black, reveal masks as terrain ---
-      if (contentProgress > 0) {
+      // Skip melt when feed is showing or was just showing (prevents black flash on feed→home)
+      const isFeedMode = feedCards.length > 0;
+      if (isFeedMode) wasFeedMode = true;
+      if (contentProgress < 0.01 || contentTarget === 1) wasFeedMode = false;
+      if (contentProgress > 0 && !isFeedMode && !wasFeedMode) {
         // Fade background to black
         const inv = contentProgress;
         const invBgR = Math.round(bgR * (1 - inv));
@@ -848,8 +938,8 @@ export function useTerrainAnimation(
             // Terrain cell — dissolve to black
             if (contentProgress > dHash) gridSkip[i] = 1;
           } else if (!isClosing && (wLogoMaskGrid[i] || menuMaskGrid[i])) {
-            // W/+ cells — reveal as terrain during forward melt so they stay visible on feed
-            if (contentProgress > dHash) {
+            // W/+ cells — reveal as terrain all at once (not scatter) to avoid visual jitter
+            if (contentProgress > 0.3) {
               gridSkip[i] = 0;
               gridBg[i] = 0;
             }
@@ -867,6 +957,27 @@ export function useTerrainAnimation(
               gridBg[i] = 1;
               gridSkip[i] = 1;
             }
+          }
+        }
+      }
+
+      // --- Reverse terrain melt: terrain reforms from dark (detail→feed) ---
+      if (detailToFeedMelt && d2fMeltProgress > 0) {
+        const totalCells = rows * cols;
+        for (let i = 0; i < totalCells; i++) {
+          // W/+ cells keep their normal mask state
+          if (wLogoMaskGrid[i] || menuMaskGrid[i]) continue;
+
+          const cr = Math.floor(i / cols);
+          const cc = i % cols;
+          let hd = (cc * 271828183 + cr * 314159265) | 0;
+          hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
+          const dHash = ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
+
+          // Reverse of forward melt: cells reform as progress increases
+          // Last to dissolve (high hash) are first to reform
+          if (gridSkip[i] === 0 && (1 - d2fMeltProgress) > dHash) {
+            gridSkip[i] = 1; // still dissolved
           }
         }
       }
@@ -927,11 +1038,7 @@ export function useTerrainAnimation(
 
       // --- Feed card content ---
       if (contentTitleFade > 0 && feedCards.length > 0) {
-        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
-        ctx.textBaseline = 'top';
-
         // Note: canDraw is the same helper as in the now-playing section.
-        // If refactoring, hoist it above both blocks. For now, scoped locally.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
           return gridSkip[r * cols + c] === 1;
@@ -939,6 +1046,7 @@ export function useTerrainAnimation(
 
         for (let fi = 0; fi < feedCards.length; fi++) {
           const fc = feedCards[fi];
+          const ts2 = fc.textScale;
           // Convert virtual card rows to screen rows via scroll offset
           const screenTop = Math.round(fc.baseTop - feedScrollOffset);
           const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
@@ -946,32 +1054,25 @@ export function useTerrainAnimation(
           // Cull cards entirely off-screen
           if (screenBottom < 0 || screenTop >= rows) continue;
 
-          const catScreenRow = Math.round(fc.catRow - feedScrollOffset);
           const nameScreenRow = Math.round(fc.nameRow - feedScrollOffset);
           const descScreenRow = Math.round(fc.descRow - feedScrollOffset);
 
+          // Use scaled font for feed card text
+          ctx.font = `${fontSize * ts2}px 'JetBrains Mono','Courier New',monospace`;
+          ctx.textBaseline = 'top';
+
           // --- Icon (on name row, full brightness) ---
           for (let i = 0; i < fc.iconStr.length; i++) {
-            const c = fc.iconCol + i;
+            const c = fc.iconCol + i * ts2;
             if (!canDraw(nameScreenRow, c)) continue;
             const idx = nameScreenRow * cols + c;
             ctx.fillStyle = colorLUT[gridColors[idx]];
             ctx.fillText(fc.iconStr[i], c * charW, nameScreenRow * charH);
           }
 
-          // --- Category (dim, ~40% brightness) ---
-          for (let i = 0; i < fc.catStr.length; i++) {
-            const c = fc.textCol + i;
-            if (!canDraw(catScreenRow, c)) continue;
-            const idx = catScreenRow * cols + c;
-            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
-            ctx.fillStyle = colorLUT[colorIdx];
-            ctx.fillText(fc.catStr[i], c * charW, catScreenRow * charH);
-          }
-
           // --- Name (full brightness) ---
           for (let i = 0; i < fc.nameStr.length; i++) {
-            const c = fc.textCol + i;
+            const c = fc.textCol + i * ts2;
             if (!canDraw(nameScreenRow, c)) continue;
             const idx = nameScreenRow * cols + c;
             ctx.fillStyle = colorLUT[gridColors[idx]];
@@ -980,7 +1081,7 @@ export function useTerrainAnimation(
 
           // --- Description (dim, ~40% brightness) ---
           for (let i = 0; i < fc.descStr.length; i++) {
-            const c = fc.textCol + i;
+            const c = fc.textCol + i * ts2;
             if (!canDraw(descScreenRow, c)) continue;
             const idx = descScreenRow * cols + c;
             const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
@@ -1099,6 +1200,69 @@ export function useTerrainAnimation(
         }
       }
 
+      // --- Cover canvas: copy from main canvas with scatter mask ---
+      // Placed AFTER all main canvas rendering so drawImage captures everything:
+      // terrain, W logo, + icon, feed cards, now-playing.
+      const coverCanvas = coverCanvasRef?.current;
+      if (coverCanvas) {
+        if (!coverCtx) coverCtx = coverCanvas.getContext('2d');
+        if (coverCanvas.width !== canvas.width || coverCanvas.height !== canvas.height) {
+          coverCanvas.width = canvas.width;
+          coverCanvas.height = canvas.height;
+        }
+        if (coverCtx) {
+          coverCtx.clearRect(0, 0, coverCanvas.width, coverCanvas.height);
+          const isForwardCover = contentTarget === 1 && contentProgress < 1 && !isFeedMode && !wasFeedMode && !detailToFeedMelt;
+          const isReverseCover = detailToFeedMelt;
+
+          if (isForwardCover) {
+            // Forward melt: terrain scatter-dissolves to reveal detail content.
+            // Non-dissolved cells copied from main canvas (includes W, +, feed cards, everything).
+            // Full screen — no header skip, no W/+ exclusion.
+            for (let r = 0; r < rows; r++) {
+              const py = r * charH;
+              const rowOff = r * cols;
+              let runS = -1;
+              for (let c = 0; c <= cols; c++) {
+                const idx = rowOff + c;
+                const draw = c < cols && gridSkip[idx] === 0;
+                if (draw && runS < 0) { runS = c; }
+                else if (!draw && runS >= 0) {
+                  const sx = runS * charW, w = (c - runS) * charW;
+                  coverCtx.drawImage(canvas, sx, py, w, charH, sx, py, w, charH);
+                  runS = -1;
+                }
+              }
+            }
+          } else if (isReverseCover) {
+            // Reverse melt: feed terrain scatter-accumulates ON TOP of detail content.
+            // Copies directly from main canvas — includes terrain, W, +, feed cards, everything.
+            const p = d2fMeltProgress;
+            for (let r = 0; r < rows; r++) {
+              const py = r * charH;
+              let runS = -1;
+              for (let c = 0; c <= cols; c++) {
+                let opaque = false;
+                if (c < cols) {
+                  let hd = (c * 271828183 + r * 314159265) | 0;
+                  hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
+                  const h = ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
+                  const appear = h * 0.7;
+                  const disappear = h * 0.2 + 0.8;
+                  opaque = p >= appear && p < disappear;
+                }
+                if (opaque && runS < 0) { runS = c; }
+                else if (!opaque && runS >= 0) {
+                  const sx = runS * charW, w = (c - runS) * charW;
+                  coverCtx.drawImage(canvas, sx, py, w, charH, sx, py, w, charH);
+                  runS = -1;
+                }
+              }
+            }
+          }
+        }
+      }
+
       rafRef.current = requestAnimationFrame(draw);
     }
 
@@ -1136,9 +1300,9 @@ export function useTerrainAnimation(
     const onClick = (e: MouseEvent) => {
       const hit = hitTest(e.clientX, e.clientY);
       if (hit === 'logo') {
-        onLogoClick?.();
+        onLogoClickRef.current?.();
       } else if (hit === 'menu') {
-        onMenuClick?.();
+        onMenuClickRef.current?.();
       } else if (typeof hit === 'string' && hit.startsWith('sub:')) {
         const idx = parseInt(hit.slice(4));
         const detail = config.detailRef?.current;
@@ -1148,8 +1312,8 @@ export function useTerrainAnimation(
         } else {
           const items = contentSubItemsRef?.current;
           if (items?.[idx]?.url) {
-            if (onSubItemClick) {
-              onSubItemClick(items[idx].url);
+            if (onSubItemClickRef.current) {
+              onSubItemClickRef.current(items[idx].url);
             } else {
               window.open(items[idx].url, '_blank');
             }
@@ -1209,5 +1373,6 @@ export function useTerrainAnimation(
       canvas.removeEventListener('touchmove', onTouchMove);
       document.body.style.cursor = '';
     };
-  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks are accessed via stable refs (onLogoClickRef etc.)
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
 }

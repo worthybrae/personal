@@ -1,5 +1,5 @@
-import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation';
 import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
@@ -12,11 +12,11 @@ import type { SpotifyNowPlaying } from '@/types/analytics';
 
 type Page = 'home' | 'feed' | 'work-detail' | 'art-detail';
 
-function pageFromPath(path: string): Page {
-  if (path === '/feed') return 'feed';
-  if (path.startsWith('/work/')) return 'work-detail';
-  if (path.startsWith('/art/')) return 'art-detail';
-  return 'home';
+function parseRoute(path: string): { page: Page; slug?: string } {
+  if (path === '/feed') return { page: 'feed' };
+  if (path.startsWith('/work/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/work/'.length)) };
+  if (path.startsWith('/art/')) return { page: 'art-detail', slug: decodeURIComponent(path.slice('/art/'.length)) };
+  return { page: 'home' };
 }
 
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
@@ -24,10 +24,10 @@ const headerFont = "'Arial Black','Impact','Helvetica Neue',sans-serif";
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const coverCanvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { slug } = useParams<{ slug?: string }>();
-  const page = pageFromPath(location.pathname);
+  const { page, slug } = parseRoute(location.pathname);
 
   const isContent = page !== 'home';
 
@@ -43,25 +43,47 @@ export default function Home() {
 
   const scrollProgressRef = useRef(page === 'home' ? 0 : 1);
   const meltCompleteRef = useRef(page !== 'home');
+  const meltProgressRef = useRef(page !== 'home' ? 1 : 0);
+  const detailToFeedRef = useRef(false);
 
   // Track feed closing animation
   const [feedClosing, setFeedClosing] = useState(false);
-  const [prevPage, setPrevPage] = useState(page);
 
-  if (prevPage !== page) {
-    setPrevPage(page);
-    if (prevPage === 'feed' && page === 'home') {
+  // Track detail→feed fade-out: keep old detail overlay mounted during transition
+  const prevPageRef = useRef(page);
+  const prevSlugRef = useRef(slug);
+  const [fadingDetail, setFadingDetail] = useState<{ page: 'work-detail' | 'art-detail'; slug: string } | null>(null);
+
+  // Detect page transitions in useLayoutEffect (not during render) to avoid
+  // StrictMode double-render discarding the setState-during-render call.
+  // useLayoutEffect fires synchronously after commit, before paint.
+  useLayoutEffect(() => {
+    const prev = prevPageRef.current;
+    const prevSlug = prevSlugRef.current;
+    prevPageRef.current = page;
+    prevSlugRef.current = slug;
+
+    if (prev === page) return;
+
+    if (prev === 'feed' && page === 'home') {
       setFeedClosing(true);
     }
-  }
+    if (prev === 'feed' && (page === 'work-detail' || page === 'art-detail')) {
+      meltCompleteRef.current = false;
+    }
+    if ((prev === 'work-detail' || prev === 'art-detail') && page === 'feed') {
+      detailToFeedRef.current = true;
+      meltProgressRef.current = 0;
+      setFadingDetail({ page: prev, slug: prevSlug ?? '' });
+    }
+  }, [page, slug]);
 
   useEffect(() => {
     if (feedClosing) {
-      const meltTimer = setTimeout(() => {
-        contentOpenRef.current = false;
-      }, 500);
+      // Set immediately — no delay needed since FeedOverlay HTML is gone
+      contentOpenRef.current = false;
       const unmountTimer = setTimeout(() => setFeedClosing(false), 800);
-      return () => { clearTimeout(meltTimer); clearTimeout(unmountTimer); };
+      return () => { clearTimeout(unmountTimer); };
     }
     if (!isContent) {
       contentOpenRef.current = false;
@@ -93,16 +115,37 @@ export default function Home() {
   const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
 
+    const projectIcons: Record<string, string> = {
+      coderview: '[#]',
+      streamclout: '[~]',
+    };
+    const projectDescs: Record<string, string> = {
+      streamclout: '40T+ SPOTIFY STREAMS',
+    };
     const workItems = PROJECTS.map((p) => ({
-      text: p.name, url: `/work/${p.slug}`, description: p.description, category: 'WEBSITE', icon: '</>',
+      text: p.name, url: `/work/${p.slug}`,
+      description: projectDescs[p.slug] ?? p.description,
+      icon: projectIcons[p.slug] ?? '</>',
     }));
 
+    const artIcons: Record<string, string> = {
+      'ai-architecture': '{*}',
+      'livestream-art': '[o]',
+    };
+    const artDescs: Record<string, string> = {
+      'ai-architecture': 'GENERATIVE AI VIDEOS',
+      'livestream-art': 'COMPUTER VISION VIDEOS',
+    };
     const artItems = ART_PIECES.map((a) => ({
-      text: a.name, url: `/art/${a.slug}`, description: a.description, category: 'ART', icon: '~',
+      text: a.name, url: `/art/${a.slug}`,
+      description: artDescs[a.slug] ?? a.description,
+      icon: artIcons[a.slug] ?? '(~)',
     }));
 
     const blogItems = (blogData?.posts ?? []).map((b) => ({
-      text: b.title.toUpperCase(), url: `/blog/${b.slug}`, description: b.description.toUpperCase(), category: 'BLOG', icon: '>>',
+      text: b.title.toUpperCase(), url: `/blog/${b.slug}`,
+      description: b.description.toUpperCase(),
+      icon: '>>>',
     }));
 
     return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
@@ -127,22 +170,35 @@ export default function Home() {
       scrollTargetRef,
       contentSubItemsRef,
       meltCompleteRef,
+      meltProgressRef,
+      detailToFeedRef,
       nowPlayingRef,
+      coverCanvasRef,
     }),
     [handleLogoClick, handleMenuClick, handleItemClick],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
 
-  // Detail page data
+  // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
   const artPiece = page === 'art-detail' && slug ? getArtPiece(slug) : null;
+  const fadingProject = fadingDetail?.page === 'work-detail' ? getProject(fadingDetail.slug) : null;
+  const fadingArtPiece = fadingDetail?.page === 'art-detail' ? getArtPiece(fadingDetail.slug) : null;
+
+  const showWork = page === 'work-detail' || fadingDetail?.page === 'work-detail';
+  const showArt = page === 'art-detail' || fadingDetail?.page === 'art-detail';
+  const displayProject = project || fadingProject;
+  const displayArtPiece = artPiece || fadingArtPiece;
+  const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
+  const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
+
   return (
     <div>
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
 
-      {page === 'work-detail' && project && (
-        <DetailOverlay>
+      {showWork && displayProject && (
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
           <div
             className="text-xs tracking-[0.3em] uppercase mb-2 opacity-40"
             style={{ fontFamily: monoFont }}
@@ -153,21 +209,21 @@ export default function Home() {
             className="font-black text-4xl md:text-5xl uppercase tracking-tight text-white"
             style={{ fontFamily: headerFont }}
           >
-            {project.name}
+            {displayProject.name}
           </div>
           <div
             className="text-xs md:text-sm uppercase tracking-wider mt-2 text-white/30"
             style={{ fontFamily: monoFont }}
           >
-            {project.description}
+            {displayProject.description}
           </div>
           <div className="flex justify-center gap-4 mt-4">
-            <a href={project.url} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="Visit site">
+            <a href={displayProject.url} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="Visit site">
               <ExternalLink size={20} />
             </a>
           </div>
           <div className="mt-6">
-            <MediaBlock videoUrl={project.videoUrl} imageUrl={project.imageUrl} />
+            <MediaBlock videoUrl={displayProject.videoUrl} imageUrl={displayProject.imageUrl} />
           </div>
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
@@ -175,20 +231,20 @@ export default function Home() {
           >
             SUMMARY
           </div>
-          <PretextSummary text={project.summary} />
+          <PretextSummary text={displayProject.summary} />
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
             style={{ fontFamily: monoFont }}
           >
             TOOLS
           </div>
-          <TechTags tags={project.tech} />
-          <ProjectAnalyticsSection slug={project.slug} />
+          <TechTags tags={displayProject.tech} />
+          <ProjectAnalyticsSection slug={displayProject.slug} />
         </DetailOverlay>
       )}
 
-      {page === 'art-detail' && artPiece && (
-        <DetailOverlay>
+      {showArt && displayArtPiece && (
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
           <div
             className="text-xs tracking-[0.3em] uppercase mb-2 opacity-40"
             style={{ fontFamily: monoFont }}
@@ -199,23 +255,23 @@ export default function Home() {
             className="font-black text-4xl md:text-5xl uppercase tracking-tight text-white"
             style={{ fontFamily: headerFont }}
           >
-            {artPiece.name}
+            {displayArtPiece.name}
           </div>
           <div
             className="text-xs md:text-sm uppercase tracking-wider mt-2 text-white/30"
             style={{ fontFamily: monoFont }}
           >
-            {artPiece.description}
+            {displayArtPiece.description}
           </div>
-          {artPiece.githubUrl && (
+          {displayArtPiece.githubUrl && (
             <div className="flex justify-center gap-4 mt-4">
-              <a href={artPiece.githubUrl} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="View source">
+              <a href={displayArtPiece.githubUrl} target="_blank" rel="noopener noreferrer" className="text-white opacity-30 hover:opacity-70 transition-opacity" title="View source">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
               </a>
             </div>
           )}
           <div className="mt-6">
-            <MediaBlock videoUrl={artPiece.videoUrl} imageUrl={artPiece.imageUrl} />
+            <MediaBlock videoUrl={displayArtPiece.videoUrl} imageUrl={displayArtPiece.imageUrl} />
           </div>
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
@@ -223,17 +279,18 @@ export default function Home() {
           >
             SUMMARY
           </div>
-          <PretextSummary text={artPiece.summary} />
+          <PretextSummary text={displayArtPiece.summary} />
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
             style={{ fontFamily: monoFont }}
           >
             TOOLS
           </div>
-          <TechTags tags={artPiece.tech} />
+          <TechTags tags={displayArtPiece.tech} />
         </DetailOverlay>
       )}
 
+      <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
     </div>
   );
 }
@@ -254,20 +311,67 @@ function TechTags({ tags }: { tags: string[] }) {
   );
 }
 
-function DetailOverlay({ children }: { children: React.ReactNode }) {
-  const [visible, setVisible] = useState(false);
+function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeComplete }: {
+  children: React.ReactNode;
+  meltProgressRef: React.MutableRefObject<number>;
+  fadeOut?: boolean;
+  onFadeComplete?: () => void;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const onFadeCompleteRef = useRef(onFadeComplete);
+  onFadeCompleteRef.current = onFadeComplete;
+  // Track forward melt completion — overlay starts full-screen, shrinks when done
+  const [meltDone, setMeltDone] = useState(false);
 
+  // Forward melt: watch for contentProgress to reach ~1, then switch to normal layout
   useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+    if (fadeOut || meltDone) return;
+    let cancelled = false;
+    const check = () => {
+      if (cancelled) return;
+      if (meltProgressRef.current >= 0.99) {
+        setMeltDone(true);
+        return;
+      }
+      requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+    return () => { cancelled = true; };
+  }, [fadeOut, meltDone, meltProgressRef]);
+
+  // For fadeOut: content stays at full opacity while cover canvas accumulates terrain on top.
+  // Once fully covered (~75%), unmount so the dissolve phase reveals feed (not old content).
+  useEffect(() => {
+    if (!fadeOut) return;
+    let cancelled = false;
+    let fired = false;
+    const check = () => {
+      if (cancelled) return;
+      if (!fired && meltProgressRef.current >= 0.75) {
+        fired = true;
+        onFadeCompleteRef.current?.();
+        return;
+      }
+      requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+    return () => { cancelled = true; };
+  }, [fadeOut, meltProgressRef]);
+
+  // Full-screen with black bg during any transition (forward or reverse)
+  const isTransitioning = fadeOut || !meltDone;
 
   return (
     <div
-      className={`fixed left-0 right-0 bottom-0 z-10 overflow-y-auto transition-opacity duration-500 ${
-        visible ? 'opacity-100' : 'opacity-0'
-      }`}
-      style={{ top: '100px', paddingTop: '20px', paddingBottom: '120px' }}
+      ref={overlayRef}
+      className="fixed left-0 right-0 bottom-0 z-10 overflow-y-auto"
+      style={{
+        top: isTransitioning ? '0px' : '100px',
+        paddingTop: isTransitioning ? '120px' : '20px',
+        paddingBottom: '120px',
+        pointerEvents: fadeOut ? 'none' : 'auto',
+        backgroundColor: isTransitioning ? '#000' : undefined,
+      }}
     >
       <div className="max-w-2xl mx-auto px-6 text-center">
         {children}
