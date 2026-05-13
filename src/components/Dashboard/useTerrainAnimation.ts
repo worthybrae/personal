@@ -308,6 +308,9 @@ export function useTerrainAnimation(
     let d2fContentReset = false;
     let d2fMeltProgress = 0;
     let detailToFeedBrightness = -1; // -1 = inactive, 0→1 = fading in from dark (detail→feed)
+    let npReentryStart = -1;       // timestamp when now-playing re-enters after being hidden
+    let npReentryScatter = 1;      // 0→1 scatter-in for re-entry (1 = fully revealed)
+    let npWasVisible = false;
 
     function buildContentTitleMask(_label: string) {
       if (!canvas) return;
@@ -768,6 +771,23 @@ export function useTerrainAnimation(
       const npVisible = np?.track && feedCards.length === 0 && !feedToDetailMelt && !detailToFeedMelt ? Math.max(0, 1 - contentProgress * 3) : 0;
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
+      // Re-entry scatter: when now-playing becomes visible again after initial intro, animate scatter-in
+      const npNowVisible = npVisible > 0;
+      if (npNowVisible && !npWasVisible && npIntro >= 1) {
+        npReentryStart = ts;
+        npReentryScatter = 0;
+      }
+      if (!npNowVisible) {
+        npReentryScatter = 1;
+        npReentryStart = -1;
+      }
+      npWasVisible = npNowVisible;
+      if (npReentryStart >= 0) {
+        npReentryScatter = Math.max(0, Math.min(1, (ts - npReentryStart) / 1200));
+        if (npReentryScatter >= 1) npReentryStart = -1;
+      }
+      const npScatter = Math.min(npIntro, npReentryScatter);
+
       // --- Hovered label / W logo detection ---
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
@@ -855,7 +875,7 @@ export function useTerrainAnimation(
             let h5 = (c * 518230729 + r * 392041631) | 0;
             h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
             const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
-            if (npIntro * npVisible > npHash) {
+            if (npScatter > npHash) {
               gridSkip[idx] = 1;
             }
           }
