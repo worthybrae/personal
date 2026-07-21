@@ -401,10 +401,12 @@ export function useTerrainAnimation(
       // Bars only shown when playing
       const barsWidth = isPlaying ? 5 : 0;
       const gapAfterBars = isPlaying ? 2 : 0;
+      // Title renders at 2x: each char spans 2 grid cols/rows (same as feed cards)
+      const textScale = 2;
       // Cap text width so the box doesn't overflow the screen
-      const maxBoxCols = Math.min(cols - 6, 60);
-      const maxTextArea = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1);
-      npMaxTextWidth = maxTextArea;
+      const maxBoxCols = Math.min(cols - 6, 80);
+      const maxTextCols = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1);
+      npMaxTextWidth = Math.floor(maxTextCols / textScale); // in CHARS, not cols
       // Truncate display text with ellipsis if needed; full text used for scrolling
       if (npFullTextStr.length > npMaxTextWidth) {
         npTextStr = npFullTextStr.slice(0, npMaxTextWidth - 1) + '…';
@@ -412,14 +414,14 @@ export function useTerrainAnimation(
         npTextStr = npFullTextStr;
       }
       // Size box to actual content, not max width
-      const textDisplayWidth = Math.min(npFullTextStr.length, npMaxTextWidth);
-      const contentWidth = Math.max(npLabelStr.length, textDisplayWidth);
+      const textDisplayCols = Math.min(npFullTextStr.length, npMaxTextWidth) * textScale;
+      const contentWidth = Math.max(npLabelStr.length, textDisplayCols);
       const innerWidth = barsWidth + gapAfterBars + contentWidth;
       const padH = 2; // horizontal padding inside border
       const boxWidth = 1 + padH + innerWidth + padH + 1; // border + pad + content + pad + border
 
-      // Box height: border + pad + label + track + pad + border = 6 rows
-      const boxHeight = 6;
+      // Box height: border + pad + label(1) + title(2 rows at 2x) + pad + border
+      const boxHeight = 7;
 
       // Center horizontally
       npBoxLeft = Math.floor((cols - boxWidth) / 2);
@@ -432,11 +434,11 @@ export function useTerrainAnimation(
       // Content positions (inside the box)
       const contentLeft = npBoxLeft + 1 + padH; // after border + padding
       npBarsCol = contentLeft;
-      npBarsRow = npBoxTop + 2; // first content row (after border + pad)
+      npBarsRow = npBoxTop + 3; // align bars with the 2-row title
       npLabelCol = contentLeft + barsWidth + gapAfterBars;
       npLabelRow = npBoxTop + 2;
       npTextCol = contentLeft + barsWidth + gapAfterBars;
-      npTextRow = npBoxTop + 3;
+      npTextRow = npBoxTop + 3; // spans rows +3 and +4 (2x)
     }
 
     function setupFeedCards(items: { text: string; url: string; description?: string; category?: string; icon?: string }[]) {
@@ -1168,12 +1170,20 @@ export function useTerrainAnimation(
           const c = npLabelCol + i;
           if (!canDraw(npLabelRow, c)) continue;
           const idx = npLabelRow * cols + c;
-          const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+          const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.65) | 0));
           ctx.fillStyle = colorLUT[colorIdx];
           ctx.fillText(npLabelStr[i], c * charW, npLabelRow * charH);
         }
 
-        // --- Track text (full brightness, scrolling if truncated) ---
+        // --- Track text (2x scale, full brightness, scrolling if truncated) ---
+        ctx.font = `${fontSize * 2}px 'JetBrains Mono','Courier New',monospace`;
+        const drawTitleChar = (ch: string, i: number) => {
+          const c = npTextCol + i * 2;
+          if (!canDraw(npTextRow, c)) return;
+          const idx = npTextRow * cols + c;
+          ctx.fillStyle = colorLUT[gridColors[idx]];
+          ctx.fillText(ch, c * charW, npTextRow * charH);
+        };
         if (npFullTextStr.length > npMaxTextWidth) {
           // Pause-scroll-pause-scroll marquee with smoothstep easing
           const pad = '   ';
@@ -1184,41 +1194,33 @@ export function useTerrainAnimation(
           const pauseTime = 2.0; // seconds to hold still
           const scrollTime = Math.max(2, textLen / 4); // seconds per scroll segment
           const cycleTime = pauseTime + scrollTime + pauseTime + scrollTime;
-          const t = ((ts / 1000) % cycleTime);
+          const t2 = ((ts / 1000) % cycleTime);
 
           // smoothstep: ease-in-out
           const ss = (x: number) => x * x * (3 - 2 * x);
 
           let scrollOffset: number;
-          if (t < pauseTime) {
+          if (t2 < pauseTime) {
             scrollOffset = 0;
-          } else if (t < pauseTime + scrollTime) {
-            scrollOffset = ss((t - pauseTime) / scrollTime) * halfLen;
-          } else if (t < pauseTime * 2 + scrollTime) {
+          } else if (t2 < pauseTime + scrollTime) {
+            scrollOffset = ss((t2 - pauseTime) / scrollTime) * halfLen;
+          } else if (t2 < pauseTime * 2 + scrollTime) {
             scrollOffset = halfLen;
           } else {
-            scrollOffset = halfLen + ss((t - pauseTime * 2 - scrollTime) / scrollTime) * (textLen - halfLen);
+            scrollOffset = halfLen + ss((t2 - pauseTime * 2 - scrollTime) / scrollTime) * (textLen - halfLen);
           }
 
           const intOffset = Math.floor(scrollOffset);
           for (let i = 0; i < npMaxTextWidth; i++) {
-            const charIndex = (intOffset + i) % textLen;
-            const ch = loopText[charIndex];
-            const c = npTextCol + i;
-            if (!canDraw(npTextRow, c)) continue;
-            const idx = npTextRow * cols + c;
-            ctx.fillStyle = colorLUT[gridColors[idx]];
-            ctx.fillText(ch, c * charW, npTextRow * charH);
+            drawTitleChar(loopText[(intOffset + i) % textLen], i);
           }
         } else {
           for (let i = 0; i < npTextStr.length; i++) {
-            const c = npTextCol + i;
-            if (!canDraw(npTextRow, c)) continue;
-            const idx = npTextRow * cols + c;
-            ctx.fillStyle = colorLUT[gridColors[idx]];
-            ctx.fillText(npTextStr[i], c * charW, npTextRow * charH);
+            drawTitleChar(npTextStr[i], i);
           }
         }
+        // Restore 1x font for anything drawn after
+        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       }
 
       // --- Cover canvas: copy from main canvas with scatter mask ---
