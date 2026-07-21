@@ -299,10 +299,16 @@ export function useTerrainAnimation(
     }
     let feedCards: FeedCard[] = [];
     let feedCardWidth = 0;
+    let feedStartRow = 0;
+    let feedCardHeight = 0;
+    let feedCardGap = 0;
     let feedScrollOffset = 0;
     let feedScrollTarget = 0;
     let feedMaxScroll = 0;
     let lastFeedItemsKey = '';
+    let lastItemsArrForKeys: unknown = null;
+    let cachedFeedItemsKey = '';
+    let cachedSubItemsKey = '';
     let wasFeedMode = false;
     let feedToDetailMelt = false;
     let detailToFeedMelt = false;
@@ -441,7 +447,7 @@ export function useTerrainAnimation(
       npTextRow = npBoxTop + 3; // spans rows +3 and +4 (2x)
     }
 
-    function setupFeedCards(items: { text: string; url: string; description?: string; category?: string; icon?: string }[]) {
+    function setupFeedCards(items: { text: string; url: string; description?: string; category?: string; icon?: string }[], extraBottomRows = 0) {
       if (items.length === 0) {
         feedCards = [];
         feedMaxScroll = 0;
@@ -485,6 +491,9 @@ export function useTerrainAnimation(
       // Vertical layout: start below the 100px header
       const headerRows = Math.ceil(100 * canvasDpr / charH);
       const startRow = headerRows + 2;
+      feedStartRow = startRow;
+      feedCardHeight = cardHeight;
+      feedCardGap = cardGap;
 
       feedCards = items.map((item, i) => {
         const baseTop = startRow + i * (cardHeight + cardGap);
@@ -510,7 +519,7 @@ export function useTerrainAnimation(
       });
 
       const totalFeedHeight = startRow + items.length * (cardHeight + cardGap);
-      feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3);
+      feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3 + extraBottomRows);
     }
 
     const isMobile = window.innerWidth < 768;
@@ -630,7 +639,12 @@ export function useTerrainAnimation(
 
       // --- Feed cards: rebuild on item change ---
       const feedItems = contentSubItemsRef?.current ?? [];
-      const feedItemsKey = feedItems.map(f => `${f.text}:${f.icon}`).join('|');
+      if (feedItems !== lastItemsArrForKeys) {
+        lastItemsArrForKeys = feedItems;
+        cachedFeedItemsKey = feedItems.map(f => `${f.text}:${f.icon}`).join('|');
+        cachedSubItemsKey = feedItems.map(s => `${s.text}:${s.description || ''}:${s.mau || ''}`).join('|');
+      }
+      const feedItemsKey = cachedFeedItemsKey;
       if (feedItemsKey !== lastFeedItemsKey) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
@@ -728,8 +742,7 @@ export function useTerrainAnimation(
       // Content titles scatter in (0.4→1.0)
       const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
       const currentLabel = activeLabelRef?.current ?? null;
-      const subItems = contentSubItemsRef?.current ?? [];
-      const subItemsKey = subItems.map(s => `${s.text}:${s.description || ''}:${s.mau || ''}`).join('|');
+      const subItemsKey = cachedSubItemsKey;
       const detail = config.detailRef?.current;
       const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
       if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
@@ -882,27 +895,28 @@ export function useTerrainAnimation(
             }
           }
 
-          // Feed card boxes: suppress terrain inside card bounds
+          // Feed card boxes: suppress terrain inside card bounds.
+          // Cards are uniform height/gap, so the card index is arithmetic — O(1) per cell.
           if (contentTitleFade > 0 && feedCards.length > 0) {
             const scrolledR = r + feedScrollOffset;
-            for (let fi = 0; fi < feedCards.length; fi++) {
-              const fc = feedCards[fi];
-              if (scrolledR >= fc.baseTop && scrolledR <= fc.baseBottom && c >= fc.left && c <= fc.right) {
-                let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
-                hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
-                const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
-                if (contentTitleFade * maskOpacity >= feedHash) {
-                  const isClosing = contentTarget === 0;
-                  if (isClosing && !feedActive) {
-                    gridColors[idx] = COLOR_LEVELS;
-                  } else if (hoveredSubItem === fi) {
-                    gridBg[idx] = 1;
-                    gridSkip[idx] = 1;
-                  } else {
-                    gridSkip[idx] = 1;
-                  }
+            const rel = scrolledR - feedStartRow;
+            const period = feedCardHeight + feedCardGap;
+            const fi = Math.floor(rel / period);
+            const fc = fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
+            if (fc && rel - fi * period < feedCardHeight && c >= fc.left && c <= fc.right) {
+              let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
+              hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
+              const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
+              if (contentTitleFade * maskOpacity >= feedHash) {
+                const isClosing = contentTarget === 0;
+                if (isClosing && !feedActive) {
+                  gridColors[idx] = COLOR_LEVELS;
+                } else if (hoveredSubItem === fi) {
+                  gridBg[idx] = 1;
+                  gridSkip[idx] = 1;
+                } else {
+                  gridSkip[idx] = 1;
                 }
-                break;
               }
             }
           }
