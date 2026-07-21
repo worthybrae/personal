@@ -903,7 +903,7 @@ export function useTerrainAnimation(
             const period = feedCardHeight + feedCardGap;
             const fi = Math.floor(rel / period);
             const fc = fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
-            if (fc && rel - fi * period < feedCardHeight && c >= fc.left && c <= fc.right) {
+            if (fc && rel - fi * period <= feedCardHeight - 1 && c >= fc.left && c <= fc.right) {
               let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
               hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
               const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
