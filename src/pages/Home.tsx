@@ -11,6 +11,7 @@ import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
 import { ExternalLink } from 'lucide-react';
 import type { SpotifyNowPlaying } from '@/types/analytics';
+import type { MusicChromeState } from '@/components/Dashboard/musicView';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -113,16 +114,23 @@ export default function Home() {
 
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
-  // setMusicQuery is wired up by a later task (search input); referenced here
-  // to keep the state scaffolded without tripping noUnusedLocals.
   const [musicQuery, setMusicQuery] = useState('');
-  void setMusicQuery;
   const { data: musicCatalog } = useFetch(() => api.getMusicCatalog());
   const musicTracks = useMemo(
     () => filterTracks(musicCatalog?.tracks ?? [], musicQuery),
     [musicCatalog, musicQuery],
   );
   const player = useMusicPlayer(musicCatalog?.tracks ?? []);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const musicUIRef = useRef<MusicChromeState | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  // Keep the ref in sync every render (player UI flows through by reference so
+  // canvas sees live progress).
+  musicUIRef.current = page === 'music'
+    ? { query: musicQuery, focused: searchFocused, caretOn: true, nowPlaying: player.uiRef.current }
+    : null;
 
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
 
@@ -202,6 +210,13 @@ export default function Home() {
     [navigate, player, musicCatalog],
   );
 
+  const handleMusicControl = useCallback((action: 'prev' | 'toggle' | 'next' | 'search') => {
+    if (action === 'prev') player.prev();
+    else if (action === 'toggle') player.toggle();
+    else if (action === 'next') player.next();
+    else if (action === 'search') searchInputRef.current?.focus();
+  }, [player]);
+
   const config = useMemo(
     () => ({
       onLogoClick: handleLogoClick,
@@ -216,11 +231,20 @@ export default function Home() {
       detailToFeedRef,
       nowPlayingRef,
       coverCanvasRef,
+      musicUIRef,
+      onMusicControl: handleMusicControl,
     }),
-    [handleLogoClick, handleMenuClick, handleItemClick],
+    [handleLogoClick, handleMenuClick, handleItemClick, handleMusicControl],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
+
+  // Auto-focus search on entering /music (desktop only — mobile summons the
+  // keyboard on tap instead), and clear the query when leaving.
+  useEffect(() => {
+    if (page === 'music' && window.innerWidth >= 768) searchInputRef.current?.focus();
+    if (page !== 'music') setMusicQuery('');
+  }, [page]);
 
   // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
@@ -238,6 +262,21 @@ export default function Home() {
   return (
     <div>
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
+
+      {page === 'music' && (
+        <input
+          ref={searchInputRef}
+          value={musicQuery}
+          onChange={(e) => setMusicQuery(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setMusicQuery(''); e.currentTarget.blur(); } }}
+          aria-label="Search tracks"
+          autoCapitalize="off"
+          autoCorrect="off"
+          style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+        />
+      )}
 
       {showWork && displayProject && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>

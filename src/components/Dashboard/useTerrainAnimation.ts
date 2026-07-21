@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 import { RAMP } from './ramp';
+import { drawMusicChrome, playerBoxRows, type MusicChromeState, type ControlZone } from './musicView';
 
 const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
@@ -26,6 +27,8 @@ export interface TerrainConfig {
   nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
   coverCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   skipIntro?: boolean;
+  musicUIRef?: React.RefObject<MusicChromeState | null>;
+  onMusicControl?: (action: 'prev' | 'toggle' | 'next' | 'search') => void;
 }
 
 export function useTerrainAnimation(
@@ -33,7 +36,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -44,6 +47,8 @@ export function useTerrainAnimation(
   onLogoClickRef.current = onLogoClick;
   onMenuClickRef.current = onMenuClick;
   onSubItemClickRef.current = onSubItemClick;
+  const onMusicControlRef = useRef(onMusicControl);
+  onMusicControlRef.current = onMusicControl;
 
   const rafRef = useRef(0);
   const introStartRef = useRef(-1);
@@ -298,6 +303,7 @@ export function useTerrainAnimation(
       textScale: number;  // font multiplier (2 = each char spans 2 grid cols/rows)
     }
     let feedCards: FeedCard[] = [];
+    let musicControlZones: ControlZone[] = [];
     let feedCardWidth = 0;
     let feedStartRow = 0;
     let feedCardHeight = 0;
@@ -648,7 +654,7 @@ export function useTerrainAnimation(
       if (feedItemsKey !== lastFeedItemsKey) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
-        setupFeedCards(feedItems);
+        setupFeedCards(feedItems, musicUIRef?.current ? playerBoxRows() : 0);
         feedScrollTarget = 0;
         feedScrollOffset = 0;
         // Feed → detail: restart melt animation so terrain transitions to black
@@ -1237,6 +1243,20 @@ export function useTerrainAnimation(
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       }
 
+      // --- Music chrome: pinned search row + player box ---
+      const musicUI = musicUIRef?.current;
+      if (musicUI && feedCards.length > 0 && contentProgress > 0.6) {
+        musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
+        musicControlZones = drawMusicChrome(
+          ctx,
+          { cols, rows, charW, charH, fontSize, headerRows: Math.ceil(100 * canvasDpr / charH) },
+          musicUI,
+          `rgb(${clearBgR},${clearBgG},${clearBgB})`,
+        );
+      } else {
+        musicControlZones = [];
+      }
+
       // --- Cover canvas: copy from main canvas with scatter mask ---
       // Placed AFTER all main canvas rendering so drawImage captures everything:
       // terrain, W logo, + icon, feed cards, now-playing.
@@ -1327,6 +1347,10 @@ export function useTerrainAnimation(
         }
       }
 
+      for (const z of musicControlZones) {
+        if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `music:${z.action}`;
+      }
+
       return null;
     }
 
@@ -1357,6 +1381,8 @@ export function useTerrainAnimation(
             }
           }
         }
+      } else if (typeof hit === 'string' && hit.startsWith('music:')) {
+        onMusicControlRef.current?.(hit.slice(6) as 'prev' | 'toggle' | 'next' | 'search');
       }
     };
 
