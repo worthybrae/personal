@@ -5,6 +5,7 @@ import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
 import { ART_PIECES, getArtPiece } from '@/lib/art';
 import { useFetch } from '@/hooks/useAnalytics';
+import { useMusicPlayer } from '@/hooks/useMusicPlayer';
 import { api } from '@/lib/api';
 import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
@@ -117,6 +118,11 @@ export default function Home() {
   const [musicQuery, setMusicQuery] = useState('');
   void setMusicQuery;
   const { data: musicCatalog } = useFetch(() => api.getMusicCatalog());
+  const musicTracks = useMemo(
+    () => filterTracks(musicCatalog?.tracks ?? [], musicQuery),
+    [musicCatalog, musicQuery],
+  );
+  const player = useMusicPlayer(musicCatalog?.tracks ?? []);
 
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
 
@@ -124,7 +130,7 @@ export default function Home() {
     if (!showFeed) return [];
 
     if (page === 'music') {
-      const tracks = filterTracks(musicCatalog?.tracks ?? [], musicQuery);
+      const tracks = musicTracks;
       const radioCard = {
         text: '> RADIO',
         url: 'music:radio',
@@ -176,15 +182,24 @@ export default function Home() {
     const musicItem = { text: 'MUSIC', url: '/music', description: 'UNRELEASED LIBRARY', icon: '.))' };
 
     return [musicItem, artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
-  }, [showFeed, page, blogData, musicCatalog, musicQuery]);
+  }, [showFeed, page, blogData, musicCatalog, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
 
   const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
   const handleMenuClick = useCallback(() => navigate('/feed'), [navigate]);
   const handleItemClick = useCallback(
-    (url: string) => { navigate(url); },
-    [navigate],
+    (url: string) => {
+      if (url === 'music:radio') { player.playShuffled(); return; }
+      if (url.startsWith('music:')) {
+        const id = url.slice('music:'.length);
+        const catalogIdx = (musicCatalog?.tracks ?? []).findIndex((t) => t.id === id);
+        if (catalogIdx >= 0) player.playAt(catalogIdx);
+        return;
+      }
+      navigate(url);
+    },
+    [navigate, player, musicCatalog],
   );
 
   const config = useMemo(
