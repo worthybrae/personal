@@ -162,11 +162,19 @@ def main() -> int:
 
     catalog["generated_at"] = datetime.now(timezone.utc).isoformat()
     catalog["tracks"].sort(key=lambda t: t["title"].lower())
-    client.put_object(
-        Bucket=bucket, Key="catalog.json",
-        Body=json.dumps(catalog).encode(),
-        ContentType="application/json",
-    )
+    try:
+        client.put_object(
+            Bucket=bucket, Key="catalog.json",
+            Body=json.dumps(catalog).encode(),
+            ContentType="application/json",
+        )
+    except Exception as e:
+        backup = Path(__file__).parent / "catalog.local.json"
+        backup.write_text(json.dumps(catalog, indent=2))
+        print(f"! catalog.json upload failed ({e}); merged catalog saved to {backup}.\n"
+              f"! uploaded audio is safe in the bucket — fix connectivity and re-run "
+              f"(or upload the backup as catalog.json manually).", file=sys.stderr)
+        return 1
     print(f"done: {uploaded} uploaded, catalog now {len(catalog['tracks'])} tracks")
     return 0
 
