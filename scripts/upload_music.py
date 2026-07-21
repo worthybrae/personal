@@ -64,8 +64,10 @@ def read_metadata(path: Path) -> tuple[str, float]:
     try:
         import mutagen
         m = mutagen.File(path, easy=True)
-        title = title_from_tags(m.tags if m else None, path.stem)
-        duration = float(m.info.length) if m and m.info else 0.0
+        # mutagen File objects are dict-like: bool(m) is False when the file
+        # has no tags, so identity checks are required here
+        title = title_from_tags(m.tags if m is not None else None, path.stem)
+        duration = float(m.info.length) if m is not None and m.info is not None else 0.0
         return title, duration
     except Exception as e:
         print(f"  ! metadata failed for {path.name}: {e}", file=sys.stderr)
