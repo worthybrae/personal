@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { layoutPlayerBox, playerBoxRows } from '../musicView';
-import type { MusicChromeGeom } from '../musicView';
+import { layoutPlayerBox, playerBoxRows, drawMusicChrome } from '../musicView';
+import type { MusicChromeGeom, MusicChromeState } from '../musicView';
 
 const geom: MusicChromeGeom = { cols: 200, rows: 100, charW: 6, charH: 10, fontSize: 10, headerRows: 10 };
+
+function makeStubCtx() {
+  return {
+    fillRect: () => {},
+    fillText: () => {},
+    font: '',
+    textBaseline: 'top',
+    fillStyle: '#000',
+  } as unknown as CanvasRenderingContext2D;
+}
 
 describe('layoutPlayerBox', () => {
   it('sits at the bottom within the grid', () => {
@@ -31,5 +41,24 @@ describe('layoutPlayerBox', () => {
     const { left, right } = layoutPlayerBox(narrow, 60);
     expect(left).toBeGreaterThanOrEqual(0);
     expect(right).toBeLessThan(narrow.cols);
+  });
+});
+
+describe('drawMusicChrome', () => {
+  it('does not throw when progress is out of [0,1] range', () => {
+    const overState: MusicChromeState = {
+      query: '',
+      focused: false,
+      caretOn: true,
+      nowPlaying: { title: 'X', isPlaying: true, progress: 1.5 },
+    };
+    const underState: MusicChromeState = {
+      query: '',
+      focused: false,
+      caretOn: true,
+      nowPlaying: { title: 'X', isPlaying: true, progress: -0.2 },
+    };
+    expect(() => drawMusicChrome(makeStubCtx(), geom, overState, '#000')).not.toThrow();
+    expect(() => drawMusicChrome(makeStubCtx(), geom, underState, '#000')).not.toThrow();
   });
 });

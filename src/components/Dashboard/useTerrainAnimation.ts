@@ -1338,6 +1338,13 @@ export function useTerrainAnimation(
         if (px >= mb.x && px < mb.x + mb.w && py >= mb.y && py < mb.y + mb.h) return 'menu';
       }
 
+      // Music control zones — must win over sub-item card bounds since the player box
+      // draws opaquely OVER cards; checking sub-items first could resolve clicks on
+      // visible controls to the hidden card underneath.
+      for (const z of musicControlZones) {
+        if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `music:${z.action}`;
+      }
+
       // Sub-items — only when content title is revealed
       if (contentTitleVis > 0.3) {
         const sBounds = subItemBoundsRef.current;
@@ -1345,10 +1352,6 @@ export function useTerrainAnimation(
           const b = sBounds[i];
           if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `sub:${i}`;
         }
-      }
-
-      for (const z of musicControlZones) {
-        if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `music:${z.action}`;
       }
 
       return null;

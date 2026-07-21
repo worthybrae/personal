@@ -127,7 +127,7 @@ export function drawMusicChrome(
 
     const barLeft = contentLeft + 10;
     const barWidth = Math.max(4, innerWidth - 12);
-    const filled = Math.round(np.progress * barWidth);
+    const filled = Math.max(0, Math.min(barWidth, Math.round(np.progress * barWidth)));
     putText('█'.repeat(filled) + '░'.repeat(barWidth - filled), barLeft, controlsRow, 'rgba(255,255,255,0.4)');
 
     zones.push(...box.controls);

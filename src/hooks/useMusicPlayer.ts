@@ -26,7 +26,7 @@ export function useMusicPlayer(tracks: MusicTrack[]) {
 
       a.addEventListener('timeupdate', () => {
         if (uiRef.current && a.duration > 0) {
-          uiRef.current.progress = a.currentTime / a.duration;
+          uiRef.current.progress = Math.min(1, Math.max(0, a.currentTime / a.duration));
         }
       });
       a.addEventListener('play', () => { if (uiRef.current) uiRef.current.isPlaying = true; });
