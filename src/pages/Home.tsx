@@ -6,14 +6,16 @@ import { getProject } from '@/lib/projects';
 import { ART_PIECES, getArtPiece } from '@/lib/art';
 import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
+import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
 import { ExternalLink } from 'lucide-react';
 import type { SpotifyNowPlaying } from '@/types/analytics';
 
-type Page = 'home' | 'feed' | 'work-detail' | 'art-detail';
+type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
 function parseRoute(path: string): { page: Page; slug?: string } {
   if (path === '/feed') return { page: 'feed' };
+  if (path === '/music') return { page: 'music' };
   if (path.startsWith('/work/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/work/'.length)) };
   if (path.startsWith('/art/')) return { page: 'art-detail', slug: decodeURIComponent(path.slice('/art/'.length)) };
   return { page: 'home' };
@@ -64,13 +66,13 @@ export default function Home() {
 
     if (prev === page) return;
 
-    if (prev === 'feed' && page === 'home') {
+    if ((prev === 'feed' || prev === 'music') && page === 'home') {
       setFeedClosing(true);
     }
-    if (prev === 'feed' && (page === 'work-detail' || page === 'art-detail')) {
+    if ((prev === 'feed' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
       meltCompleteRef.current = false;
     }
-    if ((prev === 'work-detail' || prev === 'art-detail') && page === 'feed') {
+    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'music')) {
       detailToFeedRef.current = true;
       meltProgressRef.current = 0;
       setFadingDetail({ page: prev, slug: prevSlug ?? '' });
@@ -89,7 +91,8 @@ export default function Home() {
     }
   }, [feedClosing, isContent]);
 
-  const showFeed = page === 'feed' || feedClosing;
+  const isCardPage = page === 'feed' || page === 'music';
+  const showFeed = isCardPage || feedClosing;
 
   // Now-playing: fetch and expose via ref for terrain canvas
   const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
@@ -109,10 +112,33 @@ export default function Home() {
 
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
+  // setMusicQuery is wired up by a later task (search input); referenced here
+  // to keep the state scaffolded without tripping noUnusedLocals.
+  const [musicQuery, setMusicQuery] = useState('');
+  void setMusicQuery;
+  const { data: musicCatalog } = useFetch(() => api.getMusicCatalog());
+
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
 
   const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
+
+    if (page === 'music') {
+      const tracks = filterTracks(musicCatalog?.tracks ?? [], musicQuery);
+      const radioCard = {
+        text: '> RADIO',
+        url: 'music:radio',
+        description: `SHUFFLE ALL ${musicCatalog?.tracks.length ?? 0} TRACKS`,
+        icon: '((o',
+      };
+      const trackItems = tracks.map((t) => ({
+        text: t.title,
+        url: `music:${t.id}`,
+        description: formatDuration(t.duration_s),
+        icon: '.))',
+      }));
+      return [radioCard, ...trackItems];
+    }
 
     const projectIcons: Record<string, string> = {
       coderview: '[#]',
@@ -147,8 +173,10 @@ export default function Home() {
       icon: '>>>',
     }));
 
-    return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
-  }, [showFeed, blogData]);
+    const musicItem = { text: 'MUSIC', url: '/music', description: 'UNRELEASED LIBRARY', icon: '.))' };
+
+    return [musicItem, artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
+  }, [showFeed, page, blogData, musicCatalog, musicQuery]);
 
   contentSubItemsRef.current = feedSubItems;
 
