@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
+import { RAMP } from './ramp';
 
 const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
@@ -701,7 +702,7 @@ export function useTerrainAnimation(
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
         const col = colorFn(val, t);
-        const dim = 0.35 + val * 1.15;
+        const dim = 0.22 + val * 1.28;
         const rawR = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
         const rawG = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
         const rawB = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
@@ -811,7 +812,6 @@ export function useTerrainAnimation(
       gridSkip.fill(0);
       gridBg.fill(0);
 
-      const RAMP = ".,':;|!ilc/1{[?eoasd0OkxXdpbWM#@@";
       const rampLen = RAMP.length;
 
       // --- Smooth lerp feed scroll ---
