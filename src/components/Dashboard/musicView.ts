@@ -10,7 +10,11 @@ export interface MusicChromeState {
   query: string;
   focused: boolean;
   caretOn: boolean;
-  nowPlaying: { title: string; isPlaying: boolean; progress: number } | null;
+  // A ref (not a snapshot value) so the rAF draw loop always reads the live
+  // player state — startCurrent() replaces uiRef.current wholesale without
+  // triggering a React re-render, so capturing the object at render time
+  // would go stale.
+  nowPlayingRef: { current: { title: string; isPlaying: boolean; progress: number } | null };
 }
 export interface ControlZone {
   action: 'prev' | 'toggle' | 'next' | 'search';
@@ -91,7 +95,7 @@ export function drawMusicChrome(
   });
 
   // --- Player box (only when something has played) ---
-  const np = state.nowPlaying;
+  const np = state.nowPlayingRef.current;
   if (np) {
     const title = np.title.toUpperCase();
     const box = layoutPlayerBox(geom, title.length);

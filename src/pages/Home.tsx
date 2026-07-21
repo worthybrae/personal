@@ -115,7 +115,7 @@ export default function Home() {
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
   const [musicQuery, setMusicQuery] = useState('');
-  const { data: musicCatalog } = useFetch(() => api.getMusicCatalog());
+  const { data: musicCatalog, error: musicError } = useFetch(() => api.getMusicCatalog());
   const musicTracks = useMemo(
     () => filterTracks(musicCatalog?.tracks ?? [], musicQuery),
     [musicCatalog, musicQuery],
@@ -129,7 +129,7 @@ export default function Home() {
   // Keep the ref in sync every render (player UI flows through by reference so
   // canvas sees live progress).
   musicUIRef.current = page === 'music'
-    ? { query: musicQuery, focused: searchFocused, caretOn: true, nowPlaying: player.uiRef.current }
+    ? { query: musicQuery, focused: searchFocused, caretOn: true, nowPlayingRef: player.uiRef }
     : null;
 
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
@@ -138,6 +138,14 @@ export default function Home() {
     if (!showFeed) return [];
 
     if (page === 'music') {
+      if (musicError && !musicCatalog) {
+        return [{
+          text: 'CATALOG UNAVAILABLE',
+          url: 'music:none',
+          description: 'COULD NOT LOAD MUSIC LIBRARY',
+          icon: '!!!',
+        }];
+      }
       const tracks = musicTracks;
       const radioCard = {
         text: '> RADIO',
@@ -190,7 +198,7 @@ export default function Home() {
     const musicItem = { text: 'MUSIC', url: '/music', description: 'UNRELEASED LIBRARY', icon: '.))' };
 
     return [musicItem, artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
-  }, [showFeed, page, blogData, musicCatalog, musicTracks]);
+  }, [showFeed, page, blogData, musicCatalog, musicError, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
 
@@ -244,6 +252,30 @@ export default function Home() {
   useEffect(() => {
     if (page === 'music' && window.innerWidth >= 768) searchInputRef.current?.focus();
     if (page !== 'music') setMusicQuery('');
+  }, [page]);
+
+  // Global typing fallback: any canvas click blurs the hidden search input,
+  // after which typing would otherwise go nowhere. While on /music, route
+  // printable keys / Backspace / Escape into the query whenever the hidden
+  // input isn't the focused element.
+  useEffect(() => {
+    if (page !== 'music') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement === searchInputRef.current) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length === 1) {
+        setMusicQuery((q) => q + e.key);
+        e.preventDefault();
+      } else if (e.key === 'Backspace') {
+        setMusicQuery((q) => q.slice(0, -1));
+        e.preventDefault();
+      } else if (e.key === 'Escape') {
+        setMusicQuery('');
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [page]);
 
   // Detail page data (active or fading-out)

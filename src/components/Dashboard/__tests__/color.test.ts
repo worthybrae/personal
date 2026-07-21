@@ -6,7 +6,6 @@ import {
   saturate,
   getDuotoneColor,
   DUOTONES,
-  charForVal,
   scurve,
 } from '../color';
 
@@ -92,16 +91,6 @@ describe('getDuotoneColor', () => {
 describe('DUOTONES', () => {
   it('has 5 palettes', () => {
     expect(DUOTONES).toHaveLength(5);
-  });
-});
-
-describe('charForVal', () => {
-  it('returns first ramp char for val=0', () => {
-    expect(charForVal(0)).toBe('.');
-  });
-
-  it('returns last ramp char for val=1', () => {
-    expect(charForVal(0.999)).toBe('@');
   });
 });
 

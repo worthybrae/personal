@@ -93,13 +93,18 @@ def r2_client():
 
 
 def fetch_existing_catalog(client, bucket: str) -> dict:
+    """Fetch catalog.json from the bucket.
+
+    Only a missing object (first run, empty bucket) is treated as "no
+    catalog yet" and returns an empty one. Any other error (auth, network,
+    transient R2 failure, etc.) is re-raised — swallowing it here would let
+    a re-run finish by overwriting catalog.json with only this run's
+    tracks, silently dropping every previously uploaded one.
+    """
     try:
         obj = client.get_object(Bucket=bucket, Key="catalog.json")
         return json.loads(obj["Body"].read())
     except client.exceptions.NoSuchKey:
-        return {"generated_at": "", "tracks": []}
-    except Exception:
-        # Bucket may be empty on first run; anything else should surface
         return {"generated_at": "", "tracks": []}
 
 

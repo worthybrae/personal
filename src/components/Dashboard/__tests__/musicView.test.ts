@@ -50,13 +50,13 @@ describe('drawMusicChrome', () => {
       query: '',
       focused: false,
       caretOn: true,
-      nowPlaying: { title: 'X', isPlaying: true, progress: 1.5 },
+      nowPlayingRef: { current: { title: 'X', isPlaying: true, progress: 1.5 } },
     };
     const underState: MusicChromeState = {
       query: '',
       focused: false,
       caretOn: true,
-      nowPlaying: { title: 'X', isPlaying: true, progress: -0.2 },
+      nowPlayingRef: { current: { title: 'X', isPlaying: true, progress: -0.2 } },
     };
     expect(() => drawMusicChrome(makeStubCtx(), geom, overState, '#000')).not.toThrow();
     expect(() => drawMusicChrome(makeStubCtx(), geom, underState, '#000')).not.toThrow();
