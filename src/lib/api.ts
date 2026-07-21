@@ -9,6 +9,7 @@ import type {
   SpotifyTopTracks,
   LetterboxdRecent,
 } from '@/types/analytics';
+import type { MusicCatalog } from '@/types/music';
 
 const BASE = '/api';
 
@@ -28,4 +29,5 @@ export const api = {
   getSpotifyNowPlaying: () => fetchJSON<SpotifyNowPlaying>('/spotify/now-playing'),
   getSpotifyTopTracks: () => fetchJSON<SpotifyTopTracks>('/spotify/top-tracks'),
   getLetterboxdRecent: () => fetchJSON<LetterboxdRecent>('/letterboxd/recent'),
+  getMusicCatalog: () => fetchJSON<MusicCatalog>('/music/catalog'),
 };
