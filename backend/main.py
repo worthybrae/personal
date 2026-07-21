@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,6 +68,24 @@ async def blog_detail(slug: str):
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
+
+
+@app.get("/api/music/catalog")
+async def music_catalog():
+    from music import get_catalog
+    catalog = get_catalog()
+    if catalog is None:
+        raise HTTPException(status_code=503, detail="music catalog unavailable")
+    return catalog
+
+
+@app.get("/api/music/stream/{track_id}")
+async def music_stream(track_id: str):
+    from music import get_stream_url
+    url = get_stream_url(track_id)
+    if url is None:
+        raise HTTPException(status_code=404, detail="unknown track")
+    return RedirectResponse(url, status_code=302)
 
 
 @app.get("/api/spotify/now-playing")
