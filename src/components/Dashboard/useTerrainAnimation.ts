@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 import { RAMP } from './ramp';
-import { drawMusicChrome, type MusicChromeState, type ControlZone } from './musicView';
+import { drawMusicChrome, musicPanelLayout, type MusicChromeState, type MusicPanelLayout, type ControlZone } from './musicView';
 import {
   contactLayout,
   computeContactZones,
@@ -309,22 +309,39 @@ export function useTerrainAnimation(
     // is the small "+" icon in the header). menuOpenStart timestamps the most
     // recent open transition, driving the scatter-in animation.
     let menuOverlayGrid: Uint8Array = new Uint8Array(0);
-    let menuWasOpen = false;
-    let menuOpenStart = -1;
-    // Animated "close-to-landing" crossfade (W/+ clicked while menu open —
-    // see menuCloseToHomeRef). menuCloseAnimActive drives closeP 0->1 over
-    // ~900ms; cleared either on completion or if the menu is re-opened mid-anim.
-    let menuCloseAnimActive = false;
-    let menuCloseStart = -1;
-    // Canvas-native contact mode — same open/close/scatter/crossfade state
-    // machine as the menu overlay above, applied to the "CONTACT" heading cutout.
+    // Canvas-native contact mode — same terrain-cutout technique as the menu
+    // overlay above, applied to the "CONTACT" heading cutout.
     let contactHeadingGrid: Uint8Array = new Uint8Array(0);
     let contactHeadingBottomRow = 0;
-    let contactWasOpen = false;
-    let contactOpenStart = -1;
-    let contactCloseAnimActive = false;
-    let contactCloseStart = -1;
     let contactZones: ContactZone[] = [];
+
+    // --- Unified overlay crossfade state machine ---
+    // Exactly one of these three "layers" is ever frontmost: the landing
+    // name, the full-screen "+" menu, or canvas-native contact mode.
+    // Switching between any pair (name<->menu, menu<->contact, contact<->name)
+    // plays a single shared crossfade — the outgoing layer dissolves (reveal
+    // 1->0) while the incoming layer scatters in (reveal 0->1) over the same
+    // ~900ms window, each using its own per-cell hash pattern (see the
+    // name/menu/contact mask blocks in the main grid loop below). This
+    // generalizes the original W/+ close-to-landing crossfade to every
+    // overlay transition instead of duplicating it per pair.
+    type OverlayLayer = 'name' | 'menu' | 'contact';
+    const XFADE_MS = 900;
+    let currentLayer: OverlayLayer = 'name';
+    let xfadeFrom: OverlayLayer | null = null;
+    let xfadeTo: OverlayLayer | null = null;
+    let xfadeStart = -1;
+    // Snapshot of the name layer's actual visibility fraction at the moment
+    // a name-dissolve leg starts (see xfadeFromNameFrac usage in draw()) —
+    // 0 when the name wasn't shown at all (e.g. opening the menu from a
+    // content page), 1 when it was fully on screen (landing, at rest).
+    let xfadeFromNameFrac = 1;
+    // Click-gating for the incoming layer's interactive content (menu
+    // entries / contact fields — NOT the W/+ toggle, which stays clickable
+    // throughout so a transition can always be cancelled/reversed). Written
+    // once per frame near the top of draw(), read by hitTest() below.
+    let menuInteractive = false;
+    let contactInteractive = false;
     let contactLayoutCache: ContactLayout | null = null;
     let contactLayoutKey = '';
     let lastContentLabel: string | null = null;
@@ -374,14 +391,18 @@ export function useTerrainAnimation(
     }
     let feedCards: FeedCard[] = [];
     let musicControlZones: ControlZone[] = [];
-    // Music-page intro block ("UNRELEASED LIBRARY" title + blurb): scrolls with
-    // the tile grid, laid out between the pinned search row and the first tile
-    // row. Rebuilt in setupMusicTiles; row min/max are a fast reject for the
-    // per-cell suppression check.
-    type IntroLine = { str: string; row: number; left: number; scale: number; dim: boolean };
-    let musicIntroLines: IntroLine[] = [];
-    let musicIntroRowMin = 0;
-    let musicIntroRowMax = -1;
+    // Music-page pinned panel (title/blurb/search — musicView.ts) + fixed-slot
+    // grid: musicSlotRows is how many full tile rows fit in the viewport. The
+    // drawn scroll offset snaps to whole row-periods so tiles always land in
+    // the same screen positions (designated slots) and scrolling swaps the
+    // CONTENT of the slots rather than sliding the tiles.
+    let musicLayoutCache: MusicPanelLayout | null = null;
+    let musicLayoutKey = '';
+    let musicSlotRows = 1;
+    // Page heading for the generic feed (portfolio): scrolls with the cards,
+    // rendered above the first card row. Null in music mode (the pinned panel
+    // owns the title there) and in detail mode (title mask handles it).
+    let feedHeading: { str: string; row: number; left: number; scale: number } | null = null;
     let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 6-8 music desktop tiles)
     let feedColWidth = 0;     // grid-col width of a single card/tile, uniform across columns
     const feedColGap = 4;     // grid cols between columns — a deliberate terrain band, not a sliver
@@ -655,9 +676,7 @@ export function useTerrainAnimation(
     type FeedItem = { text: string; url: string; description?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean };
 
     function setupFeedCards(items: FeedItem[], extraBottomRows = 0) {
-      musicIntroLines = [];
-      musicIntroRowMin = 0;
-      musicIntroRowMax = -1;
+      feedHeading = null;
       if (items.length === 0) {
         feedCards = [];
         feedMaxScroll = 0;
@@ -706,9 +725,18 @@ export function useTerrainAnimation(
       feedCols = n;
       feedGridLeft = Math.floor((cols - (n * feedColWidth + (n - 1) * feedColGap)) / 2);
 
-      // Vertical layout: start below the 100px header
+      // Vertical layout: below the 100px header, a 3x "PORTFOLIO" heading
+      // that scrolls with the cards, then the card grid.
       const headerRows = Math.ceil(100 * canvasDpr / charH);
-      const startRow = headerRows + 2;
+      const headingScale = 3;
+      const headingStr = 'PORTFOLIO';
+      feedHeading = {
+        str: headingStr,
+        row: headerRows + 2,
+        left: Math.max(0, Math.floor((cols - headingStr.length * headingScale) / 2)),
+        scale: headingScale,
+      };
+      const startRow = headerRows + 2 + headingScale + 2;
       feedStartRow = startRow;
       feedCardHeight = cardHeight;
       feedCardGap = cardGap;
@@ -753,19 +781,34 @@ export function useTerrainAnimation(
       feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3 + extraBottomRows);
     }
 
+    // Shared panel/tile-region layout for the music page. Cached by geometry
+    // key because both setupMusicTiles and the per-frame chrome draw need it.
+    function getMusicLayout(): MusicPanelLayout {
+      const headerRows = Math.ceil(100 * canvasDpr / charH);
+      const key = `${cols}x${rows}x${headerRows}`;
+      if (!musicLayoutCache || musicLayoutKey !== key) {
+        musicLayoutCache = musicPanelLayout({ cols, rows, charW, charH, fontSize, headerRows }, isMobile);
+        musicLayoutKey = key;
+      }
+      return musicLayoutCache;
+    }
+
     // Album-art tile grid (music mode): square art region (T cols wide, ~T*0.602
-    // rows tall to read as visually square given the 0.602 char aspect ratio) plus
-    // 2 centered 2x text lines (title, artist — 2 grid rows each) beneath. T is
-    // picked so desktop settles on 6-8 tiles/row and mobile on 3-4/row; uniform
-    // tile height keeps the O(1) 2D column/row-block lookup (reused from the R2
-    // list-card layout) valid.
+    // rows tall to read as visually square given the 0.602 char aspect ratio),
+    // a 1-row pad, then 2 centered 2x text lines (title, artist). The grid fills
+    // the region beside/below the pinned intro panel (musicPanelLayout), and
+    // musicSlotRows full rows of tiles form the fixed slots — scrolling swaps
+    // slot content in whole row-blocks (see the snap logic in draw()) instead
+    // of sliding tiles, so feedMaxScroll is measured in whole periods.
     function setupMusicTiles(items: FeedItem[], extraBottomRows: number) {
+      const L = getMusicLayout();
       const tileGap = feedColGap; // reuse the same deliberate terrain-band gap, both axes
-      const marginCols = isMobile ? 6 : 10;
+      const regionLeft = L.tilesLeftCol;
+      const regionRight = cols - (isMobile ? 3 : 5);
+      const availCols = Math.max(10, regionRight - regionLeft + 1);
       const minT = isMobile ? 14 : 20;
-      const desiredN = isMobile ? 4 : 8;
-      const lowerBoundN = isMobile ? 3 : 6;
-      const availCols = cols - marginCols;
+      const desiredN = isMobile ? 4 : 7;
+      const lowerBoundN = isMobile ? 3 : 4;
 
       let n = desiredN;
       let T = Math.floor((availCols - (n - 1) * tileGap) / n);
@@ -777,66 +820,29 @@ export function useTerrainAnimation(
       n = Math.max(1, n);
 
       const artRows = Math.max(6, Math.round(T * 0.602));
-      const textScale = 2;                       // title/artist at 2x glyph size
-      const tileHeight = artRows + textScale * 2; // + title (2 rows) + artist (2 rows)
+      const textScale = 2;      // title/artist at 2x glyph size
+      const artTextPad = 1;     // breathing room between art bottom and title top
+      const tileHeight = artRows + artTextPad + textScale * 2;
       const cappedTileChars = Math.max(3, Math.floor((T - 2) / textScale));
 
       feedCols = n;
       feedColWidth = T;
-      feedGridLeft = Math.floor((cols - (n * T + (n - 1) * tileGap)) / 2);
+      feedGridLeft = regionLeft + Math.max(0, Math.floor((availCols - (n * T + (n - 1) * tileGap)) / 2));
 
-      // Vertical layout: pinned header + 2x search row, then the scrolling
-      // intro block (library title + collection blurb), then the tile grid.
-      const headerRows = Math.ceil(100 * canvasDpr / charH);
-      const introTop = headerRows + 4; // clear of the search strip (rows headerRows..+2)
-      musicIntroLines = [];
-      const titleStr = 'UNRELEASED LIBRARY';
-      musicIntroLines.push({
-        str: titleStr,
-        row: introTop,
-        left: Math.max(0, Math.floor((cols - titleStr.length * 2) / 2)),
-        scale: 2,
-        dim: false,
-      });
-      const blurb =
-        'I FELL IN LOVE WITH MUSIC WHEN I DISCOVERED MIXTAPES IN EARLY 2015. ' +
-        'ALONGSIDE THE TAPES I STARTED COLLECTING UNRELEASED AND LEAKED TRACKS, ' +
-        'FIRST HOSTED ON A BASIC WORDPRESS SITE. THAT COLLECTION IS REVIVED HERE — ' +
-        'AND IT IS STILL GROWING.';
-      const wrapWidth = Math.max(20, Math.min(cols - 12, 80));
-      let blurbRow = introTop + 3; // title spans 2 rows + 1 blank row
-      const pushBlurbLine = (s: string) => {
-        musicIntroLines.push({
-          str: s,
-          row: blurbRow,
-          left: Math.max(0, Math.floor((cols - s.length) / 2)),
-          scale: 1,
-          dim: true,
-        });
-        blurbRow += 1;
-      };
-      let line = '';
-      for (const word of blurb.split(' ')) {
-        const cand = line ? line + ' ' + word : word;
-        if (cand.length > wrapWidth && line) { pushBlurbLine(line); line = word; }
-        else { line = cand; }
-      }
-      if (line) pushBlurbLine(line);
-      musicIntroRowMin = introTop;
-      musicIntroRowMax = blurbRow - 1;
-
-      const startRow = blurbRow + 2;
+      const startRow = L.tilesTopRow;
       feedStartRow = startRow;
       feedCardHeight = tileHeight;
       feedCardGap = tileGap;
+
+      const period = tileHeight + tileGap;
+      musicSlotRows = Math.max(1, Math.floor((rows - extraBottomRows - startRow + tileGap) / period));
 
       feedCards = items.map((item, i) => {
         const colIdx = i % n;
         const rowBlock = Math.floor(i / n);
         const left = feedGridLeft + colIdx * (T + tileGap);
         const right = left + T - 1;
-        const baseTop = startRow + rowBlock * (tileHeight + tileGap);
-        const nameStr = item.text.toUpperCase();
+        const baseTop = startRow + rowBlock * period;
         const artistStr = (item.artist ?? '').toUpperCase();
         return {
           baseTop,
@@ -849,22 +855,23 @@ export function useTerrainAnimation(
           nameRow: baseTop,
           descRow: baseTop,
           catStr: '',
-          nameStr: nameStr.length > cappedTileChars ? nameStr.slice(0, cappedTileChars - 1) + '…' : nameStr,
+          // Full title, uncapped — the tile renderer marquees names longer
+          // than the tile width instead of truncating them.
+          nameStr: item.text.toUpperCase(),
           descStr: '',
           iconStr: '',
           url: item.url,
           textScale,
           artRows,
-          titleRow: baseTop + artRows,
-          artistRow: baseTop + artRows + textScale,
+          titleRow: baseTop + artRows + artTextPad,
+          artistRow: baseTop + artRows + artTextPad + textScale,
           tileArt: item.hasArt ?? false,
           artistStr: artistStr.length > cappedTileChars ? artistStr.slice(0, cappedTileChars - 1) + '…' : artistStr,
         };
       });
 
       const numRowBlocks = Math.ceil(items.length / n);
-      const totalHeight = startRow + numRowBlocks * (tileHeight + tileGap);
-      feedMaxScroll = Math.max(0, totalHeight - rows + 3 + extraBottomRows);
+      feedMaxScroll = Math.max(0, (numRowBlocks - musicSlotRows) * period);
     }
 
     const isMobile = window.innerWidth < 768;
@@ -949,81 +956,6 @@ export function useTerrainAnimation(
 
       const t = ts / speedDivisor;
 
-      // --- Full-screen "+" menu overlay: open/close transition tracking.
-      // Computed early because menuOpenNow gates rendering throughout the
-      // frame — while open, the frame renders as plain full-brightness
-      // landing terrain regardless of the page beneath (feed/tiles/np
-      // box/search row/content-title masks/full-black music mode are all
-      // suppressed below), with the menu words rendered as a terrain cutout
-      // silhouette — the same technique the WORTHY RAE name uses — instead
-      // of the old dim overlay. The W logo and + button are unaffected.
-      const menuOpenNow = !!menuOpenRef?.current;
-      if (menuOpenNow !== menuWasOpen) {
-        if (menuOpenNow) {
-          // (Re-)opening — cancel any in-flight close anim and open normally.
-          menuOpenStart = ts;
-          menuCloseAnimActive = false;
-          menuCloseStart = -1;
-        } else if (menuCloseToHomeRef?.current) {
-          // Closed via W/+ (animated) rather than Esc (instant restore).
-          menuCloseAnimActive = true;
-          menuCloseStart = ts;
-        }
-        menuWasOpen = menuOpenNow;
-      }
-      if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
-      const menuScatter = menuOpenNow ? Math.max(0, Math.min(1, (ts - menuOpenStart) / 700)) : 0;
-
-      // closeP: 0->1 over ~900ms while the close-to-landing crossfade plays.
-      // Once it completes, clear the anim state so normal landing rendering
-      // (nameFade/scroll machinery, menuVisual below) takes back over.
-      let closeP = 0;
-      if (menuCloseAnimActive) {
-        closeP = Math.max(0, Math.min(1, (ts - menuCloseStart) / 900));
-        if (closeP >= 1) {
-          menuCloseAnimActive = false;
-          menuCloseStart = -1;
-        }
-      }
-      // Combined "treat the frame as menu-open" flag: true both while the
-      // menu overlay is actually open AND during the close-to-landing
-      // crossfade that follows it, so the underlying page (feed/tiles/np
-      // box/search row/etc.) stays suppressed for the whole transition —
-      // the word-dissolve/name-reveal crossfade is the entire visible effect.
-      const menuVisual = menuOpenNow || menuCloseAnimActive;
-
-      // --- Canvas-native contact mode: same open/close/scatter/crossfade
-      // state machine as the menu overlay above, but menu always wins if
-      // both are somehow open (contact state is preserved underneath,
-      // just not rendered/hit-tested while the menu overlay is on top). ---
-      const contactOpenNow = !!contactOpenRef?.current;
-      if (contactOpenNow !== contactWasOpen) {
-        if (contactOpenNow) {
-          contactOpenStart = ts;
-          contactCloseAnimActive = false;
-          contactCloseStart = -1;
-        } else if (contactCloseToHomeRef?.current) {
-          contactCloseAnimActive = true;
-          contactCloseStart = ts;
-        }
-        contactWasOpen = contactOpenNow;
-      }
-      const contactScatter = contactOpenNow ? Math.max(0, Math.min(1, (ts - contactOpenStart) / 700)) : 0;
-      let contactCloseP = 0;
-      if (contactCloseAnimActive) {
-        contactCloseP = Math.max(0, Math.min(1, (ts - contactCloseStart) / 900));
-        if (contactCloseP >= 1) {
-          contactCloseAnimActive = false;
-          contactCloseStart = -1;
-        }
-      }
-      const contactVisual = (contactOpenNow || contactCloseAnimActive) && !menuVisual;
-      // Combined "something full-screen is covering the page" flag — gates
-      // every piece of underlying-page rendering (feed/tiles/np box/search
-      // row/content masks/full-black music mode/terrain melt) exactly like
-      // menuVisual used to alone, now shared with contact mode.
-      const overlayVisual = menuVisual || contactVisual;
-
       // --- Intro animation (terrain first, then name + logo scatter in) ---
       if (introStartRef.current < 0) introStartRef.current = skipIntro ? ts - 10000 : ts;
       const introElapsed = ts - introStartRef.current;
@@ -1032,7 +964,6 @@ export function useTerrainAnimation(
       logoMenuIntroProgressRef.current = logoMenuIntro;
 
       // Smooth lerp scroll toward route-driven target
-      // Smooth lerp scroll toward route-driven target
       const scrollTarget = scrollTargetRef?.current ?? 0;
       const scrollCurrent = scrollProgressRef.current ?? 0;
       const scrollDiff = scrollTarget - scrollCurrent;
@@ -1040,6 +971,104 @@ export function useTerrainAnimation(
         ? scrollTarget
         : scrollCurrent + scrollDiff * 0.045;
       const scroll = scrollProgressRef.current;
+
+      // --- Name dissolve (scroll 0→0.7) --- computed earlier than its old
+      // position (just before the per-cell loop) so the overlay crossfade
+      // below can read the name's actual current visibility the moment a
+      // "name" leg starts — see xfadeFromNameFrac.
+      const nameFade = Math.max(0, Math.min(1, scroll / 0.7));
+
+      // --- Full-screen "+" menu / canvas-native contact mode: raw open
+      // flags. These gate a few things that aren't part of the crossfade
+      // itself (hover detection, mask rebuilds, hit-test branch selection);
+      // the visible transition is driven by the layer state machine right
+      // below, which reacts to these same two booleans.
+      const menuOpenNow = !!menuOpenRef?.current;
+      const contactOpenNow = !!contactOpenRef?.current;
+      if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
+
+      // --- Overlay crossfade: detect a layer change and (re)start the
+      // shared crossfade. Menu wins over contact if both refs are somehow
+      // open at once (contact is preserved, unrendered, underneath until
+      // the menu closes — same convention as before). Reopening
+      // mid-transition (rapid +/+/+ toggling) restarts the crossfade fresh
+      // from whatever was frontmost a moment ago rather than blending two
+      // in-flight animations — the same hard cancel-and-restart the
+      // original close-to-landing anim used on a mid-close reopen, now
+      // shared by every pair of layers.
+      const requestedLayer: OverlayLayer = menuOpenNow ? 'menu' : contactOpenNow ? 'contact' : 'name';
+      if (requestedLayer !== currentLayer) {
+        if (requestedLayer === 'name') {
+          // Closing back to landing — animate only if Home set the
+          // "animated close" flag for the layer we're leaving (W/+ do;
+          // Esc doesn't, so Esc-closes stay an instant restore, unchanged).
+          const animate = currentLayer === 'menu' ? !!menuCloseToHomeRef?.current : !!contactCloseToHomeRef?.current;
+          if (animate) {
+            xfadeFrom = currentLayer;
+            xfadeTo = 'name';
+            xfadeStart = ts;
+          } else {
+            xfadeFrom = null;
+            xfadeTo = null;
+            xfadeStart = -1;
+          }
+        } else {
+          // Opening, or switching directly between menu and contact —
+          // always an animated crossfade.
+          xfadeFrom = currentLayer;
+          xfadeTo = requestedLayer;
+          xfadeStart = ts;
+        }
+        // Snapshot the name layer's actual current visibility fraction (0
+        // when e.g. we're opening the menu from a content page and the name
+        // isn't shown at all) so a name-dissolve leg starts from what's
+        // really on screen instead of always assuming it was fully visible.
+        if (xfadeFrom === 'name') xfadeFromNameFrac = Math.max(0, Math.min(1, introProgress - nameFade));
+        currentLayer = requestedLayer;
+      }
+
+      let xfadeP = 0;
+      if (xfadeFrom !== null) {
+        xfadeP = Math.max(0, Math.min(1, (ts - xfadeStart) / XFADE_MS));
+        if (xfadeP >= 1) {
+          xfadeFrom = null;
+          xfadeTo = null;
+          xfadeStart = -1;
+        }
+      }
+      // reveal: 0 (hidden) -> 1 (fully shown) for a given layer this frame —
+      // the incoming layer of an active crossfade rides xfadeP up, the
+      // outgoing layer rides it down (name's outgoing leg scales from its
+      // actual starting visibility instead of assuming 1 — see above),
+      // everyone else is simply fully on or fully off.
+      const revealOf = (layer: OverlayLayer): number => {
+        if (xfadeFrom !== null) {
+          if (layer === xfadeTo) return xfadeP;
+          if (layer === xfadeFrom) return layer === 'name' ? xfadeFromNameFrac * (1 - xfadeP) : 1 - xfadeP;
+        }
+        return layer === currentLayer ? 1 : 0;
+      };
+      const menuReveal = revealOf('menu');
+      const contactReveal = revealOf('contact');
+      // The name mask keeps its own resting-state rule (intro scatter-in /
+      // scroll dissolve, computed above) and only yields to the crossfade
+      // while 'name' is actually one leg of an active transition.
+      const nameXfadeActive = xfadeFrom === 'name' || xfadeTo === 'name';
+      const nameXfadeReveal = nameXfadeActive ? revealOf('name') : 0;
+
+      const menuVisible = menuReveal > 0;
+      const contactVisible = contactReveal > 0;
+      // Entries/fields only register clicks once their layer's crossfade is
+      // mostly (or fully) done — the W/+ toggle itself stays clickable
+      // throughout so a transition can always be cancelled/reversed.
+      menuInteractive = currentLayer === 'menu' && (xfadeFrom === null || xfadeP > 0.5);
+      contactInteractive = currentLayer === 'contact' && (xfadeFrom === null || xfadeP > 0.5);
+
+      // Combined "something full-screen is covering the page" flag — gates
+      // every piece of underlying-page rendering (feed/tiles/np box/search
+      // row/content masks/full-black music mode/terrain melt) for the whole
+      // transition, in either direction.
+      const overlayVisual = menuVisible || contactVisible;
 
       // --- Content open animation ---
       let contentProgress = contentProgressRef.current;
@@ -1126,8 +1155,9 @@ export function useTerrainAnimation(
       // contentProgress >= 1 so the melt animation in/out of /music still shows
       // terrain (prior behavior) while transitioning.
       const isMusicMode = !!musicUIRef?.current;
-      // Suppressed while the menu is open — the frame renders as plain
-      // full-brightness terrain regardless of the page beneath (menuOpenNow).
+      // Suppressed while the menu/contact overlay is showing — the frame
+      // renders as plain full-brightness terrain regardless of the page
+      // beneath (overlayVisual).
       const musicFullBlack = isMusicMode && contentProgress >= 1 && !overlayVisual;
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
       // and the intro block all scroll UNDER this boundary, never over it.
@@ -1172,9 +1202,6 @@ export function useTerrainAnimation(
       const clearBgB = musicFullBlack ? 0 : Math.round(bgB * brightnessScale);
       ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // --- Name dissolve (scroll 0→0.7) ---
-      const nameFade = Math.max(0, Math.min(1, scroll / 0.7));
 
       // Content titles scatter in (0.4→1.0)
       const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
@@ -1286,6 +1313,15 @@ export function useTerrainAnimation(
       const feedScrollDiff = feedScrollTarget - feedScrollOffset;
       feedScrollOffset = Math.abs(feedScrollDiff) < 0.01 ? feedScrollTarget : feedScrollOffset + feedScrollDiff * 0.08;
 
+      // Music mode: the DRAWN offset snaps to whole row-periods, so tiles
+      // always occupy the same screen slots and scrolling swaps which tracks
+      // fill them (row-block at a time) instead of sliding the tiles.
+      const musicPeriod = feedCardHeight + feedCardGap;
+      const musicSnapBlock = isMusicMode && musicPeriod > 0
+        ? Math.max(0, Math.round(feedScrollOffset / musicPeriod))
+        : 0;
+      const drawScroll = isMusicMode && musicPeriod > 0 ? musicSnapBlock * musicPeriod : feedScrollOffset;
+
       // --- Visible feedCards index range ---
       // Cards/tiles sit on a uniform row-block grid: row-block period is
       // feedCardHeight + feedCardGap, origin feedStartRow, feedCols cards per
@@ -1302,7 +1338,12 @@ export function useTerrainAnimation(
       let feedVisEnd = feedCards.length;
       if (feedCards.length > 0) {
         const rowPeriod = feedCardHeight + feedCardGap;
-        if (rowPeriod > 0 && feedCols > 0) {
+        if (isMusicMode && rowPeriod > 0 && feedCols > 0) {
+          // Fixed slots: exactly musicSlotRows row-blocks starting at the
+          // snapped scroll block are on screen — nothing partial.
+          feedVisStart = Math.max(0, Math.min(feedCards.length, musicSnapBlock * feedCols));
+          feedVisEnd = Math.max(feedVisStart, Math.min(feedCards.length, (musicSnapBlock + musicSlotRows) * feedCols));
+        } else if (rowPeriod > 0 && feedCols > 0) {
           const firstBlock = Math.floor((feedScrollOffset - feedStartRow - feedCardHeight + 1) / rowPeriod) - 1;
           const lastBlock = Math.ceil((feedScrollOffset - feedStartRow + rows) / rowPeriod) + 1;
           feedVisStart = Math.max(0, Math.min(feedCards.length, firstBlock * feedCols));
@@ -1319,8 +1360,8 @@ export function useTerrainAnimation(
         if (tileArtLoaded.length !== feedCards.length) tileArtLoaded = new Uint8Array(feedCards.length);
         for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
-          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
-          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+          const screenTop = Math.round(fc.baseTop - drawScroll);
+          const screenBottom = Math.round(fc.baseBottom - drawScroll);
           if (screenBottom < 0 || screenTop >= rows) continue; // off-screen: leave stale, unused this frame
           if (!fc.tileArt) { tileArtLoaded[fi] = 0; continue; }
           const trackId = fc.url.startsWith('music:') ? fc.url.slice(6) : '';
@@ -1378,38 +1419,36 @@ export function useTerrainAnimation(
             }
           }
 
-          // Name mask — scatter-reveal on intro, scatter-dissolve on scroll.
-          // Gated implicitly (not by touching nameFade/scroll state) — the
-          // name yields to the menu words while the menu is open, and during
-          // the close-to-landing crossfade it instead scatters back in as a
-          // direct function of closeP (same hash pattern, different driver).
-          // Also yields to the contact heading while contact mode is open —
-          // it's hidden there the same way it is under the menu.
+          // Name mask — scatter-reveal on intro, scatter-dissolve on scroll,
+          // at rest (currentLayer === 'name'). While 'name' is one leg of an
+          // active overlay crossfade (opening the menu from landing, or
+          // closing the menu/contact back to landing), it instead scatters
+          // via nameXfadeReveal — same hash pattern, different driver — so
+          // it dissolves out/reveals in lockstep with whichever layer it's
+          // trading places with instead of popping.
           if (nameMaskGrid[idx]) {
             let h = (c * 374761393 + r * 668265263) | 0;
             h = ((h ^ (h >>> 13)) * 1274126177) | 0;
             const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
-            if (menuCloseAnimActive) {
-              if (closeP > hash) gridSkip[idx] = 1;
-            } else if (!menuOpenNow && !contactVisual) {
+            if (nameXfadeActive) {
+              if (nameXfadeReveal > hash) gridSkip[idx] = 1;
+            } else if (currentLayer === 'name') {
               if (introProgress > hash && hash > nameFade) gridSkip[idx] = 1;
             }
           }
 
           // Full-screen menu overlay — cutout silhouette, same technique as
           // the name mask above: masked cells suppress terrain (negative
-          // space against the surrounding full-brightness field), scatter-
-          // revealed on open. Hover highlights the entry with a white cell bg.
-          // During the close-to-landing crossfade the words instead scatter-
-          // dissolve AWAY as a function of closeP (cells stay cut out only
-          // while hash > closeP), mirroring the name mask's reveal above.
-          if (menuVisual && menuOverlayGrid[idx]) {
+          // space against the surrounding full-brightness field). menuReveal
+          // already encodes direction (scattering in when menu is the
+          // crossfade's incoming layer, dissolving away when it's outgoing,
+          // full/zero at rest) so a single comparison covers every case.
+          // Hover highlights the entry with a white cell bg.
+          if (menuVisible && menuOverlayGrid[idx]) {
             let hm = ((c + 41) * 374761393 + (r + 59) * 668265263) | 0;
             hm = ((hm ^ (hm >>> 13)) * 1274126177) | 0;
             const hashM = ((hm ^ (hm >>> 16)) & 0x7fff) / 0x7fff;
-            if (menuCloseAnimActive) {
-              if (hashM > closeP) gridSkip[idx] = 1;
-            } else if (menuScatter > hashM) {
+            if (menuReveal > hashM) {
               gridSkip[idx] = 1;
               if (menuEntryHoverIdx >= 0) {
                 const hb = menuEntryBoundsList[menuEntryHoverIdx];
@@ -1422,19 +1461,16 @@ export function useTerrainAnimation(
           }
 
           // Canvas-native contact mode heading ("CONTACT") — same cutout
-          // technique as the menu overlay above, no hover (it's not
-          // clickable, just a title). Field rows/SEND are drawn as direct
-          // opaque strips after the terrain pass (see the contact chrome
-          // block below draw()'s main render), not as a mask cutout.
-          if (contactVisual && contactHeadingGrid[idx]) {
+          // technique as the menu overlay above (contactReveal likewise
+          // direction-aware), no hover (it's not clickable, just a title).
+          // Field rows/SEND are drawn as direct opaque strips after the
+          // terrain pass (see the contact chrome block below draw()'s main
+          // render), faded via globalAlpha there rather than as a mask cutout.
+          if (contactVisible && contactHeadingGrid[idx]) {
             let hc = ((c + 71) * 374761393 + (r + 97) * 668265263) | 0;
             hc = ((hc ^ (hc >>> 13)) * 1274126177) | 0;
             const hashC = ((hc ^ (hc >>> 16)) & 0x7fff) / 0x7fff;
-            if (contactCloseAnimActive) {
-              if (hashC > contactCloseP) gridSkip[idx] = 1;
-            } else if (contactScatter > hashC) {
-              gridSkip[idx] = 1;
-            }
+            if (contactReveal > hashC) gridSkip[idx] = 1;
           }
 
           // Feed card / music tile boxes: suppress terrain inside the footprint.
@@ -1443,7 +1479,7 @@ export function useTerrainAnimation(
           // pinnedHeaderRows are excluded so scrolled content never swallows
           // the W/+/header band.
           if (!overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= pinnedHeaderRows) {
-            const scrolledR = r + feedScrollOffset;
+            const scrolledR = r + drawScroll;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
             const rowBlock = Math.floor(rel / period);
@@ -1453,8 +1489,13 @@ export function useTerrainAnimation(
             // which the colIdx < 0 check below rejects.
             const colIdx = Math.floor(gc / colPeriod);
             const inColumn = colIdx >= 0 && colIdx < feedCols && gc - colIdx * colPeriod < feedColWidth;
+            // Music mode: only the musicSlotRows fixed slots exist on screen —
+            // row-blocks outside [snapBlock, snapBlock + slotRows) are not drawn,
+            // so a partially-scrolled next row never pokes in at the bottom.
+            const inSlotWindow = !isMusicMode ||
+              (rowBlock >= musicSnapBlock && rowBlock < musicSnapBlock + musicSlotRows);
             const fi = rowBlock * feedCols + colIdx;
-            const fc = inColumn && rowBlock >= 0 && fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
+            const fc = inColumn && inSlotWindow && rowBlock >= 0 && fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
             const relInCard = fc ? rel - rowBlock * period : -1;
             const inFooter = !!fc && relInCard >= 0 && relInCard <= feedCardHeight - 1 && c >= fc.left && c <= fc.right;
 
@@ -1494,19 +1535,20 @@ export function useTerrainAnimation(
               }
             }
 
-            // Music intro block (title + blurb): suppress terrain over the
-            // glyph cells, hash-gated like the tiles so it scatter-reveals
-            // with the rest of the page instead of popping in at the end.
-            if (isMusicMode && musicIntroRowMax >= musicIntroRowMin &&
-                scrolledR >= musicIntroRowMin && scrolledR <= musicIntroRowMax) {
-              for (const ln of musicIntroLines) {
-                if (scrolledR >= ln.row && scrolledR < ln.row + ln.scale &&
-                    c >= ln.left && c < ln.left + ln.str.length * ln.scale) {
-                  let hi = ((c + 23) * 374761393 + (r + 43) * 668265263) | 0;
-                  hi = ((hi ^ (hi >>> 13)) * 1274126177) | 0;
-                  const introHash = ((hi ^ (hi >>> 16)) & 0x7fff) / 0x7fff;
-                  if (contentTitleFade * maskOpacity >= introHash) gridSkip[idx] = 1;
-                  break;
+            // Feed heading ("PORTFOLIO"): suppress terrain over the glyph
+            // cells, hash-gated like the cards so it scatter-reveals with them
+            // and whites out on exit the same way.
+            if (feedHeading) {
+              const hr = Math.floor(scrolledR) - feedHeading.row;
+              if (hr >= 0 && hr < feedHeading.scale &&
+                  c >= feedHeading.left && c < feedHeading.left + feedHeading.str.length * feedHeading.scale) {
+                let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
+                hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
+                const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
+                if (contentTitleFade * maskOpacity >= headingHash) {
+                  const isClosing = contentTarget === 0;
+                  if (isClosing && !feedActive) gridColors[idx] = COLOR_LEVELS;
+                  else gridSkip[idx] = 1;
                 }
               }
             }
@@ -1699,31 +1741,10 @@ export function useTerrainAnimation(
           const playingTrackId = musicUIRef?.current?.playingTrackId ?? null;
           const playingIsPlaying = musicUIRef?.current?.playingIsPlaying ?? false;
 
-          // --- Intro block: UNRELEASED LIBRARY title + collection blurb,
-          // scrolling with the grid (2x title full-bright, 1x blurb dim) ---
-          ctx.textBaseline = 'top';
-          for (const ln of musicIntroLines) {
-            const screenRow = Math.round(ln.row - feedScrollOffset);
-            if (screenRow + ln.scale <= 0 || screenRow >= rows) continue;
-            ctx.font = `${fontSize * ln.scale}px 'JetBrains Mono','Courier New',monospace`;
-            for (let i = 0; i < ln.str.length; i++) {
-              const ch = ln.str[i];
-              if (ch === ' ') continue;
-              const c = ln.left + i * ln.scale;
-              if (!canDraw(screenRow, c)) continue;
-              const idx = screenRow * cols + c;
-              const colorIdx = ln.dim
-                ? Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.55) | 0))
-                : gridColors[idx];
-              ctx.fillStyle = colorLUT[colorIdx];
-              ctx.fillText(ch, c * charW, screenRow * charH);
-            }
-          }
-
           for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
             const fc = feedCards[fi];
-            const screenTop = Math.round(fc.baseTop - feedScrollOffset);
-            const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+            const screenTop = Math.round(fc.baseTop - drawScroll);
+            const screenBottom = Math.round(fc.baseBottom - drawScroll);
             if (screenBottom < 0 || screenTop >= rows) continue; // cull off-screen tiles
 
             const tileWidth = fc.right - fc.left + 1;
@@ -1745,20 +1766,33 @@ export function useTerrainAnimation(
             ctx.font = `${fontSize * ts3}px 'JetBrains Mono','Courier New',monospace`;
             ctx.textBaseline = 'top';
 
-            // --- Title (centered, full brightness) ---
-            const titleScreenRow = Math.round(fc.titleRow - feedScrollOffset);
-            const titleStartCol = fc.left + Math.max(0, Math.floor((tileWidth - fc.nameStr.length * ts3) / 2));
-            for (let i = 0; i < fc.nameStr.length; i++) {
+            // --- Title (full brightness). Names wider than the tile marquee:
+            // pause, crawl to the end, pause, snap back — driven by ts, and
+            // computed only for on-screen tiles so hidden tracks never animate. ---
+            const visChars = Math.max(3, Math.floor((tileWidth - 2) / ts3));
+            let title = fc.nameStr;
+            let titleStartCol: number;
+            if (title.length > visChars) {
+              const over = title.length - visChars;
+              const step = Math.floor(ts / 350) % (over + 8); // 3 steps pause at start, 5 at end
+              const shift = Math.max(0, Math.min(over, step - 3));
+              title = title.slice(shift, shift + visChars);
+              titleStartCol = fc.left + 1;
+            } else {
+              titleStartCol = fc.left + Math.max(0, Math.floor((tileWidth - title.length * ts3) / 2));
+            }
+            const titleScreenRow = Math.round(fc.titleRow - drawScroll);
+            for (let i = 0; i < title.length; i++) {
               const c = titleStartCol + i * ts3;
               if (!canDraw(titleScreenRow, c)) continue;
               const idx = titleScreenRow * cols + c;
               ctx.fillStyle = colorLUT[gridColors[idx]];
-              ctx.fillText(fc.nameStr[i], c * charW, titleScreenRow * charH);
+              ctx.fillText(title[i], c * charW, titleScreenRow * charH);
             }
 
             // --- Artist (centered, dim) ---
             if (fc.artistStr) {
-              const artistScreenRow = Math.round(fc.artistRow - feedScrollOffset);
+              const artistScreenRow = Math.round(fc.artistRow - drawScroll);
               const artistStartCol = fc.left + Math.max(0, Math.floor((tileWidth - fc.artistStr.length * ts3) / 2));
               for (let i = 0; i < fc.artistStr.length; i++) {
                 const c = artistStartCol + i * ts3;
@@ -1800,6 +1834,22 @@ export function useTerrainAnimation(
             }
           }
         } else {
+          // --- Page heading ("PORTFOLIO"): scrolls with the cards, full brightness ---
+          if (feedHeading) {
+            const headingScreenRow = Math.round(feedHeading.row - drawScroll);
+            if (headingScreenRow + feedHeading.scale > 0 && headingScreenRow < rows) {
+              ctx.font = `${fontSize * feedHeading.scale}px 'JetBrains Mono','Courier New',monospace`;
+              ctx.textBaseline = 'top';
+              for (let i = 0; i < feedHeading.str.length; i++) {
+                const c = feedHeading.left + i * feedHeading.scale;
+                if (!canDraw(headingScreenRow, c)) continue;
+                const idx = headingScreenRow * cols + c;
+                ctx.fillStyle = colorLUT[gridColors[idx]];
+                ctx.fillText(feedHeading.str[i], c * charW, headingScreenRow * charH);
+              }
+            }
+          }
+
           for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
             const fc = feedCards[fi];
             const ts2 = fc.textScale;
@@ -1862,8 +1912,8 @@ export function useTerrainAnimation(
         const clampTopPx = pinnedHeaderRows * charH; // cards under the pinned header aren't clickable there
         for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
-          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
-          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+          const screenTop = Math.round(fc.baseTop - drawScroll);
+          const screenBottom = Math.round(fc.baseBottom - drawScroll);
           if (screenBottom < 0 || screenTop >= rows) continue; // stays OFFSCREEN_BOUNDS
           const topPx = Math.max(screenTop * charH, clampTopPx);
           const bottomPx = (screenBottom + 1) * charH;
@@ -1981,14 +2031,15 @@ export function useTerrainAnimation(
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       }
 
-      // --- Music chrome: pinned search row (the now-playing box itself is
-      // drawn by the shared np pipeline above) ---
+      // --- Music chrome: pinned intro panel with title/blurb/search (the
+      // now-playing box itself is drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
       if (!overlayVisual && musicUI && feedCards.length > 0 && contentProgress > 0.6) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
         musicControlZones = drawMusicChrome(
           ctx,
           { cols, rows, charW, charH, fontSize, headerRows: Math.ceil(100 * canvasDpr / charH) },
+          getMusicLayout(),
           musicUI,
           `rgb(${clearBgR},${clearBgG},${clearBgB})`,
         );
@@ -2000,8 +2051,10 @@ export function useTerrainAnimation(
       // text + caret for NAME/EMAIL/MESSAGE, plus a SEND row. Drawn as
       // direct opaque strips (same technique as the /music search row)
       // rather than terrain cutouts, so typed text stays reliably legible
-      // regardless of scatter/reveal state — see contactView.ts. ---
-      if (contactVisual) {
+      // regardless of scatter/reveal state — see contactView.ts. Faded via
+      // globalAlpha=contactReveal so it fades in/out in step with the
+      // "CONTACT" heading cutout's scatter instead of popping.
+      if (contactVisible) {
         const contactGeom: ContactGeom = { cols, rows, charW, charH, fontSize, headingBottomRow: contactHeadingBottomRow };
         const contactKey = `${cols}x${rows}x${contactHeadingBottomRow}`;
         if (!contactLayoutCache || contactLayoutKey !== contactKey) {
@@ -2011,11 +2064,17 @@ export function useTerrainAnimation(
         contactZones = computeContactZones(contactLayoutCache, charW, charH);
         const contactState = contactUIRef?.current;
         if (contactState) {
+          // Hover highlight only once the crossfade has mostly settled —
+          // matches the click-gating in hitTest() (contactInteractive).
           let hoveredContactAction: ContactZone['action'] | null = null;
-          for (const z of contactZones) {
-            if (mx >= z.x && mx < z.x + z.w && my >= z.y && my < z.y + z.h) { hoveredContactAction = z.action; break; }
+          if (contactInteractive) {
+            for (const z of contactZones) {
+              if (mx >= z.x && mx < z.x + z.w && my >= z.y && my < z.y + z.h) { hoveredContactAction = z.action; break; }
+            }
           }
           const contactCaretOn = ((ts / 500) | 0) % 2 === 0;
+          ctx.save();
+          ctx.globalAlpha = contactReveal;
           drawContactChrome(
             ctx,
             contactGeom,
@@ -2025,6 +2084,7 @@ export function useTerrainAnimation(
             `rgb(${clearBgR},${clearBgG},${clearBgB})`,
             hoveredContactAction,
           );
+          ctx.restore();
         }
       } else {
         contactZones = [];
@@ -2034,8 +2094,9 @@ export function useTerrainAnimation(
       // inline in the main per-cell grid loop above (menuOverlayGrid block,
       // alongside the name mask) so it participates in the same single
       // terrain pass as everything else, at full brightness, with no dim
-      // layer. Open/close tracking and hover detection are computed early
-      // in draw() (menuOpenNow / menuScatter / menuEntryHoverIdx above).
+      // layer. Open/close tracking, the overlay crossfade, and hover
+      // detection are all computed early in draw() (menuOpenNow / menuReveal
+      // / menuEntryHoverIdx above).
 
       // --- Cover canvas: copy from main canvas with scatter mask ---
       // Placed AFTER all main canvas rendering so drawImage captures everything:
@@ -2121,10 +2182,15 @@ export function useTerrainAnimation(
         if (px >= mb2.x && px < mb2.x + mb2.w && py >= mb2.y && py < mb2.y + mb2.h) return 'menu';
         const wb2 = wLogoBoundsRef.current;
         if (px >= wb2.x && px < wb2.x + wb2.w && py >= wb2.y && py < wb2.y + wb2.h) return 'logo';
-        const mEntries = menuEntryBoundsRef.current;
-        for (let i = 0; i < mEntries.length; i++) {
-          const b = mEntries[i];
-          if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `menuitem:${i}`;
+        // Entries only register once the scatter-in crossfade is mostly (or
+        // fully) revealed (menuInteractive) — clicking through half-formed
+        // letters mid-transition shouldn't register a hit.
+        if (menuInteractive) {
+          const mEntries = menuEntryBoundsRef.current;
+          for (let i = 0; i < mEntries.length; i++) {
+            const b = mEntries[i];
+            if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `menuitem:${i}`;
+          }
         }
         return null;
       }
@@ -2141,8 +2207,12 @@ export function useTerrainAnimation(
           const mb2 = menuBoundsRef.current;
           if (px >= mb2.x && px < mb2.x + mb2.w && py >= mb2.y && py < mb2.y + mb2.h) return 'menu';
         }
-        for (const z of contactZones) {
-          if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `contact:${z.action}`;
+        // Fields/SEND only register once mostly (or fully) revealed —
+        // mirrors menuInteractive above.
+        if (contactInteractive) {
+          for (const z of contactZones) {
+            if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `contact:${z.action}`;
+          }
         }
         return null;
       }
@@ -2234,8 +2304,12 @@ export function useTerrainAnimation(
       const items = contentSubItemsRef?.current;
       if (!items || items.length === 0) return;
 
+      // Music slots page by whole rows (the drawn offset snaps to row-periods),
+      // so wheel input converts to rows ~1:1 — at the list-feed 0.3 factor a
+      // slot swap would take several full wheel notches and feel stuck.
       const deltaRows = e.deltaY / (charH / canvasDpr);
-      feedScrollTarget = Math.max(0, Math.min(feedMaxScroll, feedScrollTarget + deltaRows * 0.3));
+      const wheelFactor = musicUIRef?.current ? 0.9 : 0.3;
+      feedScrollTarget = Math.max(0, Math.min(feedMaxScroll, feedScrollTarget + deltaRows * wheelFactor));
       e.preventDefault();
     };
 
