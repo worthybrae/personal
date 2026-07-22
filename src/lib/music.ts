@@ -7,10 +7,16 @@ export function formatDuration(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+// Unified search over title + artist: every whitespace-separated token must
+// appear somewhere in "title artist", so "travis 3 wayz" matches a track
+// whose words span both fields.
 export function filterTracks(tracks: MusicTrack[], query: string): MusicTrack[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return tracks;
-  return tracks.filter((t) => t.title.toLowerCase().includes(q));
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return tracks;
+  return tracks.filter((t) => {
+    const haystack = `${t.title} ${t.artist}`.toLowerCase();
+    return tokens.every((tok) => haystack.includes(tok));
+  });
 }
 
 // Fisher-Yates permutation of [0, n)

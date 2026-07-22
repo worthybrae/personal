@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { formatDuration, filterTracks, shuffledQueue } from '../music';
 import type { MusicTrack } from '@/types/music';
 
-const t = (id: string, title: string): MusicTrack =>
-  ({ id, title, duration_s: 100, size_bytes: 1, ext: 'mp3', artist: '', album: '', has_art: false });
+const t = (id: string, title: string, artist = ''): MusicTrack =>
+  ({ id, title, duration_s: 100, size_bytes: 1, ext: 'mp3', artist, album: '', has_art: false });
 
 describe('formatDuration', () => {
   it('formats m:ss', () => {
@@ -18,16 +18,29 @@ describe('formatDuration', () => {
 });
 
 describe('filterTracks', () => {
-  const tracks = [t('a', 'Midnight Drums'), t('b', 'drums at dawn'), t('c', 'Sunset')];
+  const tracks = [
+    t('a', 'Midnight Drums', 'Travis Scott'),
+    t('b', 'drums at dawn', 'Mick Jenkins'),
+    t('c', 'Sunset', 'Drake'),
+  ];
   it('returns all tracks for empty/whitespace query', () => {
     expect(filterTracks(tracks, '')).toEqual(tracks);
     expect(filterTracks(tracks, '   ')).toEqual(tracks);
   });
-  it('matches case-insensitive substrings', () => {
+  it('matches case-insensitive substrings in the title', () => {
     expect(filterTracks(tracks, 'DRUMS').map(x => x.id)).toEqual(['a', 'b']);
+  });
+  it('matches by artist', () => {
+    expect(filterTracks(tracks, 'drake').map(x => x.id)).toEqual(['c']);
+    expect(filterTracks(tracks, 'MICK').map(x => x.id)).toEqual(['b']);
+  });
+  it('matches tokens spanning title and artist', () => {
+    expect(filterTracks(tracks, 'travis drums').map(x => x.id)).toEqual(['a']);
+    expect(filterTracks(tracks, 'drums travis').map(x => x.id)).toEqual(['a']);
   });
   it('returns empty for no match', () => {
     expect(filterTracks(tracks, 'zzz')).toEqual([]);
+    expect(filterTracks(tracks, 'drums drake')).toEqual([]);
   });
 });
 

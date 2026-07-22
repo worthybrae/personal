@@ -26,6 +26,10 @@ export interface ControlZone {
 
 const MONO = "'JetBrains Mono','Courier New',monospace";
 
+// Search text renders at 2x the terrain glyph size: each char spans 2 grid
+// cols and the row spans 2 grid rows (same convention as feed-card text).
+const SEARCH_SCALE = 2;
+
 export function searchRowLayout(geom: MusicChromeGeom) {
   return { row: geom.headerRows, left: Math.floor(geom.cols * 0.5) - 20 };
 }
@@ -37,29 +41,30 @@ export function drawMusicChrome(
   bgFill: string,
 ): ControlZone[] {
   const { charW, charH, fontSize } = geom;
-  ctx.font = `${fontSize}px ${MONO}`;
+  ctx.font = `${fontSize * SEARCH_SCALE}px ${MONO}`;
   ctx.textBaseline = 'top';
   const zones: ControlZone[] = [];
 
   const putText = (str: string, col: number, row: number, fill: string) => {
     ctx.fillStyle = fill;
-    for (let i = 0; i < str.length; i++) ctx.fillText(str[i], (col + i) * charW, row * charH);
+    for (let i = 0; i < str.length; i++) ctx.fillText(str[i], (col + i * SEARCH_SCALE) * charW, row * charH);
   };
 
-  // --- Search row (pinned; opaque bg strip) ---
+  // --- Search row (pinned; opaque bg strip; spans 2 grid rows at 2x) ---
   const sr = searchRowLayout(geom);
   const label = 'SEARCH: ';
   const display = state.query.toUpperCase() + (state.focused && state.caretOn ? '_' : ' ');
   const searchText = label + display;
-  const sLeft = Math.max(2, Math.floor((geom.cols - searchText.length) / 2));
+  const textCols = searchText.length * SEARCH_SCALE;
+  const sLeft = Math.max(2, Math.floor((geom.cols - textCols) / 2));
   ctx.fillStyle = bgFill;
-  ctx.fillRect((sLeft - 2) * charW, (sr.row - 0.5) * charH, (searchText.length + 4) * charW, charH * 2);
+  ctx.fillRect((sLeft - 2) * charW, (sr.row - 0.5) * charH, (textCols + 4) * charW, charH * 3);
   putText(label, sLeft, sr.row, 'rgba(255,255,255,0.35)');
-  putText(display, sLeft + label.length, sr.row, 'rgba(255,255,255,0.85)');
+  putText(display, sLeft + label.length * SEARCH_SCALE, sr.row, 'rgba(255,255,255,0.85)');
   zones.push({
     action: 'search',
     x: (sLeft - 2) * charW, y: (sr.row - 0.5) * charH,
-    w: (searchText.length + 4) * charW, h: charH * 2,
+    w: (textCols + 4) * charW, h: charH * 3,
   });
 
   return zones;
