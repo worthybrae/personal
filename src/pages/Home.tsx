@@ -365,6 +365,7 @@ export default function Home() {
   }, [menuOpen, navigate]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
+    contactCloseToHomeRef.current = false;
     setMenuOpen(false);
     if (entry === 'portfolio') { setContactOpen(false); navigate('/feed'); }
     else if (entry === 'music') { setContactOpen(false); navigate('/music'); }
@@ -435,6 +436,7 @@ export default function Home() {
     if (page !== 'music') return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (menuOpen) return; // menu-close Esc (below) wins while the menu is open
+      if (contactOpen) return; // contact mode takes priority; no music transport while typing
       if (document.activeElement === searchInputRef.current) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === ' ' && player.uiRef.current !== null) {
@@ -465,7 +467,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [page, player, menuOpen]);
+  }, [page, player, menuOpen, contactOpen]);
 
   // Esc closes the full-screen menu. Capture phase + stopPropagation so it
   // wins over the /music search Esc handler above (both listen on window;
