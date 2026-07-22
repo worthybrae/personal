@@ -3,7 +3,7 @@ import { formatDuration, filterTracks, shuffledQueue } from '../music';
 import type { MusicTrack } from '@/types/music';
 
 const t = (id: string, title: string): MusicTrack =>
-  ({ id, title, duration_s: 100, size_bytes: 1, ext: 'mp3' });
+  ({ id, title, duration_s: 100, size_bytes: 1, ext: 'mp3', artist: '', album: '', has_art: false });
 
 describe('formatDuration', () => {
   it('formats m:ss', () => {
