@@ -1376,6 +1376,19 @@ export function useTerrainAnimation(
         if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `music:${z.action}`;
       }
 
+      // Now-playing box dead zone — consume clicks to prevent fall-through to cards below.
+      // On the music feed, the np box draws opaquely over scrolling cards, so we must
+      // intercept clicks in its rect to prevent resolving them to hidden cards beneath.
+      if (musicUIRef?.current && npBoxTop < rows) {
+        const npBoxLeftPx = npBoxLeft * charW;
+        const npBoxTopPx = npBoxTop * charH;
+        const npBoxRightPx = (npBoxRight + 1) * charW;
+        const npBoxBottomPx = (npBoxBottom + 1) * charH;
+        if (px >= npBoxLeftPx && px < npBoxRightPx && py >= npBoxTopPx && py < npBoxBottomPx) {
+          return 'np-box';
+        }
+      }
+
       // Sub-items — only when content title is revealed
       if (contentTitleVis > 0.3) {
         const sBounds = subItemBoundsRef.current;
@@ -1390,7 +1403,8 @@ export function useTerrainAnimation(
 
     const onMouseMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX * canvasDpr, y: e.clientY * canvasDpr };
-      document.body.style.cursor = hitTest(e.clientX, e.clientY) !== null ? 'pointer' : '';
+      const hit = hitTest(e.clientX, e.clientY);
+      document.body.style.cursor = hit !== null && hit !== 'np-box' ? 'pointer' : '';
     };
 
     const onClick = (e: MouseEvent) => {
