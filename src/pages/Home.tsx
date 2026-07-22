@@ -162,7 +162,7 @@ export default function Home() {
       }
     : null;
 
-  const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
+  const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean }[]>([]);
 
   const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
@@ -188,6 +188,11 @@ export default function Home() {
         url: `music:${t.id}`,
         description: formatDuration(t.duration_s),
         icon: '.))',
+        // Catalog fields may be missing until the M1 refresh op has run against
+        // the live library — treat undefined as "no artist" / "no art" rather
+        // than crashing or showing "undefined".
+        artist: t.artist ?? '',
+        hasArt: t.has_art ?? false,
       }));
       return [radioCard, ...trackItems];
     }

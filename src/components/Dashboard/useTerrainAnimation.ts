@@ -5,6 +5,7 @@ import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 import { RAMP } from './ramp';
 import { drawMusicChrome, type MusicChromeState, type ControlZone } from './musicView';
+import { getArt } from './artCache';
 
 const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
@@ -22,7 +23,7 @@ export interface TerrainConfig {
   contentOpenRef?: React.RefObject<boolean>;
   activeLabelRef?: React.RefObject<string | null>;
   scrollTargetRef?: React.RefObject<number>;
-  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>;
+  contentSubItemsRef?: React.RefObject<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean }[]>;
   detailRef?: React.MutableRefObject<{ name: string; mau: string; url: string } | null>;
   meltCompleteRef?: React.MutableRefObject<boolean>;
   meltProgressRef?: React.MutableRefObject<number>;
@@ -293,27 +294,36 @@ export function useTerrainAnimation(
       baseBottom: number;
       left: number;       // grid col of left edge
       right: number;
-      iconCol: number;    // col where icon starts
-      textCol: number;    // col where text (category/name/desc) starts
-      catRow: number;     // row offsets from baseTop
-      nameRow: number;
-      descRow: number;
+      iconCol: number;    // col where icon starts (list mode only)
+      textCol: number;    // col where text (category/name/desc) starts (list mode only)
+      catRow: number;     // row offsets from baseTop (list mode only)
+      nameRow: number;    // list mode only
+      descRow: number;    // list mode only
       catStr: string;
-      nameStr: string;
-      descStr: string;
-      iconStr: string;
+      nameStr: string;    // list mode: item name; tile mode: title (centered)
+      descStr: string;    // list mode only
+      iconStr: string;    // list mode only
       url: string;
-      textScale: number;  // font multiplier (2 = each char spans 2 grid cols/rows)
+      textScale: number;  // font multiplier (2 = each char spans 2 grid cols/rows; tiles use 1)
+      // --- Music tile mode only (isMusicMode) ---
+      artRows: number;    // rows spanned by the square art region
+      titleRow: number;   // row for the centered title (below the art square)
+      artistRow: number;  // row for the centered artist (below the title)
+      tileArt: boolean;   // catalog has_art — gates whether we even attempt to load art
+      artistStr: string;  // centered, dim, ellipsis-capped artist text
     }
     let feedCards: FeedCard[] = [];
     let musicControlZones: ControlZone[] = [];
-    let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 3 music desktop)
-    let feedColWidth = 0;     // grid-col width of a single card, sized to content (uniform across columns)
+    let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 5-6 music desktop tiles)
+    let feedColWidth = 0;     // grid-col width of a single card/tile, uniform across columns
     const feedColGap = 4;     // grid cols between columns — a deliberate terrain band, not a sliver
     let feedGridLeft = 0;     // grid col where the centered grid begins
     let feedStartRow = 0;
     let feedCardHeight = 0;
     let feedCardGap = 0;
+    // Per-tile "is a loaded image ready to draw" flag (music mode), refreshed each
+    // frame for on-screen tiles only — O(visible tiles), never O(catalog).
+    let tileArtLoaded: Uint8Array = new Uint8Array(0);
     let feedScrollOffset = 0;
     let feedScrollTarget = 0;
     let feedMaxScroll = 0;
@@ -465,10 +475,17 @@ export function useTerrainAnimation(
       npTextRow = npBoxTop + 3; // spans rows +3 and +4 (2x)
     }
 
-    function setupFeedCards(items: { text: string; url: string; description?: string; category?: string; icon?: string }[], extraBottomRows = 0) {
+    type FeedItem = { text: string; url: string; description?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean };
+
+    function setupFeedCards(items: FeedItem[], extraBottomRows = 0) {
       if (items.length === 0) {
         feedCards = [];
         feedMaxScroll = 0;
+        return;
+      }
+
+      if (musicUIRef?.current) {
+        setupMusicTiles(items, extraBottomRows);
         return;
       }
 
@@ -485,7 +502,7 @@ export function useTerrainAnimation(
 
       // --- Card width: content-sized (same measurement as the original single-column
       // layout) — every card gets the width its longest title/desc actually needs,
-      // capped so a stray long music track title can't blow out the box. ---
+      // capped so a stray long track title can't blow out the box. ---
       let maxTextChars = 0;
       for (const item of items) {
         const nameLen = item.text.toUpperCase().length;
@@ -501,9 +518,8 @@ export function useTerrainAnimation(
       feedColWidth = 1 + padH + cappedContentCols + padH + 1;
 
       // --- Column count: how many content-width cards fit side by side, clamped to
-      // the mode's max (3 desktop music, 2 other feeds; mobile always 1). ---
-      const isMusicMode = !!musicUIRef?.current;
-      const maxCols = isMusicMode ? 3 : 2;
+      // 2 columns (mobile always 1). ---
+      const maxCols = 2;
       const nFit = Math.floor((cols - 4 + feedColGap) / (feedColWidth + feedColGap));
       const n = isMobile ? 1 : Math.max(1, Math.min(nFit, maxCols));
 
@@ -544,12 +560,91 @@ export function useTerrainAnimation(
           iconStr: item.icon ?? '',
           url: item.url,
           textScale,
+          artRows: 0,
+          titleRow: 0,
+          artistRow: 0,
+          tileArt: false,
+          artistStr: '',
         };
       });
 
       const numRowBlocks = Math.ceil(items.length / n);
       const totalFeedHeight = startRow + numRowBlocks * (cardHeight + cardGap);
       feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3 + extraBottomRows);
+    }
+
+    // Album-art tile grid (music mode): square art region (T cols wide, ~T*0.602
+    // rows tall to read as visually square given the 0.602 char aspect ratio) plus
+    // 2 centered text rows (title, artist) beneath. T is picked so desktop settles
+    // on 5-6 tiles/row and mobile on 2-3/row; uniform tile height keeps the O(1)
+    // 2D column/row-block lookup (reused from the R2 list-card layout) valid.
+    function setupMusicTiles(items: FeedItem[], extraBottomRows: number) {
+      const tileGap = feedColGap; // reuse the same deliberate terrain-band gap, both axes
+      const marginCols = isMobile ? 6 : 10;
+      const minT = isMobile ? 20 : 30;
+      const desiredN = isMobile ? 3 : 6;
+      const lowerBoundN = isMobile ? 2 : 5;
+      const availCols = cols - marginCols;
+
+      let n = desiredN;
+      let T = Math.floor((availCols - (n - 1) * tileGap) / n);
+      while (T < minT && n > lowerBoundN) {
+        n -= 1;
+        T = Math.floor((availCols - (n - 1) * tileGap) / n);
+      }
+      T = Math.max(minT, T);
+      n = Math.max(1, n);
+
+      const artRows = Math.max(6, Math.round(T * 0.602));
+      const tileHeight = artRows + 2; // + title row + artist row
+      const cappedTileChars = Math.max(3, T - 2);
+
+      feedCols = n;
+      feedColWidth = T;
+      feedGridLeft = Math.floor((cols - (n * T + (n - 1) * tileGap)) / 2);
+
+      // Vertical layout: start below the header + pinned search row.
+      const headerRows = Math.ceil(100 * canvasDpr / charH);
+      const startRow = headerRows + 3;
+      feedStartRow = startRow;
+      feedCardHeight = tileHeight;
+      feedCardGap = tileGap;
+
+      feedCards = items.map((item, i) => {
+        const colIdx = i % n;
+        const rowBlock = Math.floor(i / n);
+        const left = feedGridLeft + colIdx * (T + tileGap);
+        const right = left + T - 1;
+        const baseTop = startRow + rowBlock * (tileHeight + tileGap);
+        const nameStr = item.text.toUpperCase();
+        const artistStr = (item.artist ?? '').toUpperCase();
+        return {
+          baseTop,
+          baseBottom: baseTop + tileHeight - 1,
+          left,
+          right,
+          iconCol: 0,
+          textCol: 0,
+          catRow: 0,
+          nameRow: baseTop,
+          descRow: baseTop,
+          catStr: '',
+          nameStr: nameStr.length > cappedTileChars ? nameStr.slice(0, cappedTileChars - 1) + '…' : nameStr,
+          descStr: '',
+          iconStr: '',
+          url: item.url,
+          textScale: 1,
+          artRows,
+          titleRow: baseTop + artRows,
+          artistRow: baseTop + artRows + 1,
+          tileArt: item.hasArt ?? false,
+          artistStr: artistStr.length > cappedTileChars ? artistStr.slice(0, cappedTileChars - 1) + '…' : artistStr,
+        };
+      });
+
+      const numRowBlocks = Math.ceil(items.length / n);
+      const totalHeight = startRow + numRowBlocks * (tileHeight + tileGap);
+      feedMaxScroll = Math.max(0, totalHeight - rows + 3 + extraBottomRows);
     }
 
     const isMobile = window.innerWidth < 768;
@@ -728,6 +823,13 @@ export function useTerrainAnimation(
         if (detailToFeedBrightness > 0.999) detailToFeedBrightness = -1;
       }
 
+      // Music mode + fully open (post-melt) → the whole viewport goes black except
+      // the W/+ logo, no-art placeholder tiles, and the search/np chrome. Gated on
+      // contentProgress >= 1 so the melt animation in/out of /music still shows
+      // terrain (prior behavior) while transitioning.
+      const isMusicMode = !!musicUIRef?.current;
+      const musicFullBlack = isMusicMode && contentProgress >= 1;
+
       // --- Color LUT (reuse array, just overwrite values) ---
       const colorFn = getDuotoneColor;
       const bgSample = colorFn(0, t);
@@ -760,9 +862,9 @@ export function useTerrainAnimation(
       colorLUT[COLOR_LEVELS] = '#fff'; // white override for hover
 
       // --- Clear ---
-      const clearBgR = Math.round(bgR * brightnessScale);
-      const clearBgG = Math.round(bgG * brightnessScale);
-      const clearBgB = Math.round(bgB * brightnessScale);
+      const clearBgR = musicFullBlack ? 0 : Math.round(bgR * brightnessScale);
+      const clearBgG = musicFullBlack ? 0 : Math.round(bgG * brightnessScale);
+      const clearBgB = musicFullBlack ? 0 : Math.round(bgB * brightnessScale);
       ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -802,7 +904,6 @@ export function useTerrainAnimation(
       }
 
       // --- Now-playing mask: rebuild on track change, playing state change, or mode change ---
-      const isMusicMode = !!musicUIRef?.current;
       const np = nowPlayingRef?.current;
       const npTrack = np?.track ?? '';
       const npKey = `${npTrack}|${np?.isPlaying}|${isMusicMode}`;
@@ -868,6 +969,24 @@ export function useTerrainAnimation(
       const feedScrollDiff = feedScrollTarget - feedScrollOffset;
       feedScrollOffset = Math.abs(feedScrollDiff) < 0.01 ? feedScrollTarget : feedScrollOffset + feedScrollDiff * 0.08;
 
+      // --- Music tile art: refresh the "loaded image ready" flag for on-screen
+      // tiles only (O(visible tiles), never O(catalog)). getArt() is a cache
+      // lookup that also kicks off a lazy load on miss; tiles with has_art=false
+      // never call it, so a not-yet-refreshed catalog (has_art missing → false)
+      // never spams the art endpoint. ---
+      if (isMusicMode && feedCards.length > 0) {
+        if (tileArtLoaded.length !== feedCards.length) tileArtLoaded = new Uint8Array(feedCards.length);
+        for (let fi = 0; fi < feedCards.length; fi++) {
+          const fc = feedCards[fi];
+          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
+          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+          if (screenBottom < 0 || screenTop >= rows) continue; // off-screen: leave stale, unused this frame
+          if (!fc.tileArt) { tileArtLoaded[fi] = 0; continue; }
+          const trackId = fc.url.startsWith('music:') ? fc.url.slice(6) : '';
+          tileArtLoaded[fi] = trackId && getArt(trackId) ? 1 : 0;
+        }
+      }
+
       for (let r = 0; r < rows; r++) {
         const py = r * charH;
         const rowOffset = r * cols;
@@ -884,7 +1003,15 @@ export function useTerrainAnimation(
           gridChars[idx] = Math.max(0, Math.min(rampLen - 1, (val * (rampLen - 1)) | 0));
           gridColors[idx] = Math.min(COLOR_LEVELS - 1, (val * COLOR_LEVELS) | 0);
 
-          // W logo — scatter-reveal on intro, highlight on hover
+          // Full-black music mode: start every cell suppressed; W/+ and tile
+          // placeholder squares punch holes back through below.
+          if (musicFullBlack) gridSkip[idx] = 1;
+
+          // W logo — scatter-reveal on intro, highlight on hover. In full-black
+          // music mode the contrast trick inverts: normally the letter is a flat
+          // cutout against textured terrain, but with no terrain elsewhere to
+          // contrast against, the letter instead punches terrain THROUGH the
+          // black (same "reveal via terrain" trick as the detail-page melt).
           if (wLogoMaskGrid[idx]) {
             let h3 = (c * 123456789 + r * 987654321) | 0;
             h3 = ((h3 ^ (h3 >>> 13)) * 1274126177) | 0;
@@ -893,11 +1020,11 @@ export function useTerrainAnimation(
               if (wHovered) {
                 gridBg[idx] = 1;
               }
-              gridSkip[idx] = 1;
+              gridSkip[idx] = musicFullBlack ? 0 : 1;
             }
           }
 
-          // Menu (+) icon — scatter-reveal on intro, highlight on hover
+          // Menu (+) icon — same scatter-reveal / hover / full-black inversion as the W logo.
           if (menuMaskGrid[idx]) {
             let h4 = (c * 987654321 + r * 123456789) | 0;
             h4 = ((h4 ^ (h4 >>> 13)) * 1274126177) | 0;
@@ -906,7 +1033,7 @@ export function useTerrainAnimation(
               if (menuHovered) {
                 gridBg[idx] = 1;
               }
-              gridSkip[idx] = 1;
+              gridSkip[idx] = musicFullBlack ? 0 : 1;
             }
           }
 
@@ -920,8 +1047,8 @@ export function useTerrainAnimation(
             }
           }
 
-          // Feed card boxes: suppress terrain inside card bounds.
-          // Cards sit on a uniform row-block/column grid, so the card index is
+          // Feed card / music tile boxes: suppress terrain inside the footprint.
+          // Cards/tiles sit on a uniform row-block/column grid, so the index is
           // arithmetic — O(1) per cell (2D: row-block × column).
           if (contentTitleFade > 0 && feedCards.length > 0) {
             const scrolledR = r + feedScrollOffset;
@@ -936,19 +1063,41 @@ export function useTerrainAnimation(
             const inColumn = colIdx >= 0 && colIdx < feedCols && gc - colIdx * colPeriod < feedColWidth;
             const fi = rowBlock * feedCols + colIdx;
             const fc = inColumn && rowBlock >= 0 && fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
-            if (fc && rel - rowBlock * period <= feedCardHeight - 1 && c >= fc.left && c <= fc.right) {
+            const relInCard = fc ? rel - rowBlock * period : -1;
+            const inFooter = !!fc && relInCard >= 0 && relInCard <= feedCardHeight - 1 && c >= fc.left && c <= fc.right;
+
+            if (inFooter && fc) {
               let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
               hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
               const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
               if (contentTitleFade * maskOpacity >= feedHash) {
-                const isClosing = contentTarget === 0;
-                if (isClosing && !feedActive) {
-                  gridColors[idx] = COLOR_LEVELS;
-                } else if (hoveredSubItem === fi) {
-                  gridBg[idx] = 1;
-                  gridSkip[idx] = 1;
+                if (isMusicMode) {
+                  // Art square (top artRows) vs the 2 text rows beneath. A square
+                  // with no loaded image (missing has_art, still loading, or a
+                  // text tile like RADIO) is the "living placeholder": terrain
+                  // stays visible/animated instead of being suppressed. A square
+                  // with a loaded image is suppressed so drawImage paints cleanly
+                  // over it; text rows are always suppressed for clean glyphs.
+                  const inArtSquare = relInCard < fc.artRows;
+                  const isPlaceholder = !fc.tileArt || !tileArtLoaded[fi];
+                  if (inArtSquare && isPlaceholder) {
+                    // Punch back through the full-black baseline so terrain animates live.
+                    gridSkip[idx] = 0;
+                    if (hoveredSubItem === fi) gridBg[idx] = 1;
+                  } else {
+                    gridSkip[idx] = 1;
+                    if (hoveredSubItem === fi && !inArtSquare) gridBg[idx] = 1;
+                  }
                 } else {
-                  gridSkip[idx] = 1;
+                  const isClosing = contentTarget === 0;
+                  if (isClosing && !feedActive) {
+                    gridColors[idx] = COLOR_LEVELS;
+                  } else if (hoveredSubItem === fi) {
+                    gridBg[idx] = 1;
+                    gridSkip[idx] = 1;
+                  } else {
+                    gridSkip[idx] = 1;
+                  }
                 }
               }
             }
@@ -1119,7 +1268,7 @@ export function useTerrainAnimation(
         }
       }
 
-      // --- Feed card content ---
+      // --- Feed card / music tile content ---
       if (contentTitleFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
@@ -1127,48 +1276,104 @@ export function useTerrainAnimation(
           return gridSkip[r * cols + c] === 1;
         };
 
-        for (let fi = 0; fi < feedCards.length; fi++) {
-          const fc = feedCards[fi];
-          const ts2 = fc.textScale;
-          // Convert virtual card rows to screen rows via scroll offset
-          const screenTop = Math.round(fc.baseTop - feedScrollOffset);
-          const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
-
-          // Cull cards entirely off-screen
-          if (screenBottom < 0 || screenTop >= rows) continue;
-
-          const nameScreenRow = Math.round(fc.nameRow - feedScrollOffset);
-          const descScreenRow = Math.round(fc.descRow - feedScrollOffset);
-
-          // Use scaled font for feed card text
-          ctx.font = `${fontSize * ts2}px 'JetBrains Mono','Courier New',monospace`;
-          ctx.textBaseline = 'top';
-
-          // --- Icon (on name row, full brightness) ---
-          // Playing track's card gets an animated equalizer in place of its
-          // static icon. playingTrackId is a getter (see Home.tsx) so this
-          // always reflects the live player, not a stale render-time snapshot.
+        if (isMusicMode) {
+          // playingTrackId/playingIsPlaying are getters (Home.tsx) so this always
+          // reflects the live player, never a stale render-time snapshot.
           const playingTrackId = musicUIRef?.current?.playingTrackId ?? null;
-          const isPlayingCard = playingTrackId != null && fc.url === 'music:' + playingTrackId;
-          if (isPlayingCard) {
-            const isPlayingNow = musicUIRef?.current?.playingIsPlaying ?? false;
-            const barChars = '░▒▓█';
-            for (let i = 0; i < fc.iconStr.length; i++) {
-              const c = fc.iconCol + i * ts2;
-              if (!canDraw(nameScreenRow, c)) continue;
-              const idx = nameScreenRow * cols + c;
-              let charIdx = 0;
-              if (isPlayingNow) {
-                const p1 = Math.sin(ts * 0.005 + i * 1.7);
-                const p2 = Math.sin(ts * 0.0083 + i * 2.9 + 0.5);
-                const p3 = Math.sin(ts * 0.013 + i * 0.7 + nameScreenRow * 3.1);
-                const wave = Math.max(0, Math.min(1, (p1 + p2 * 0.6 + p3 * 0.3 + 1.2) / 2.8));
-                charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
+          const playingIsPlaying = musicUIRef?.current?.playingIsPlaying ?? false;
+
+          for (let fi = 0; fi < feedCards.length; fi++) {
+            const fc = feedCards[fi];
+            const screenTop = Math.round(fc.baseTop - feedScrollOffset);
+            const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+            if (screenBottom < 0 || screenTop >= rows) continue; // cull off-screen tiles
+
+            const tileWidth = fc.right - fc.left + 1;
+            const trackId = fc.url.startsWith('music:') ? fc.url.slice(6) : '';
+
+            // --- Art image: drawn AFTER the char pass, covering the terrain
+            // underneath (that terrain was already suppressed above whenever
+            // tileArtLoaded said an image was ready for this tile). ---
+            if (fc.tileArt) {
+              const img = getArt(trackId);
+              if (img) {
+                ctx.drawImage(img, fc.left * charW, screenTop * charH, tileWidth * charW, fc.artRows * charH);
               }
-              ctx.fillStyle = colorLUT[gridColors[idx]];
-              ctx.fillText(barChars[charIdx], c * charW, nameScreenRow * charH);
             }
-          } else {
+
+            ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
+            ctx.textBaseline = 'top';
+
+            // --- Title (centered, full brightness) ---
+            const titleScreenRow = Math.round(fc.titleRow - feedScrollOffset);
+            const titleStartCol = fc.left + Math.max(0, Math.floor((tileWidth - fc.nameStr.length) / 2));
+            for (let i = 0; i < fc.nameStr.length; i++) {
+              const c = titleStartCol + i;
+              if (!canDraw(titleScreenRow, c)) continue;
+              const idx = titleScreenRow * cols + c;
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(fc.nameStr[i], c * charW, titleScreenRow * charH);
+            }
+
+            // --- Artist (centered, dim) ---
+            if (fc.artistStr) {
+              const artistScreenRow = Math.round(fc.artistRow - feedScrollOffset);
+              const artistStartCol = fc.left + Math.max(0, Math.floor((tileWidth - fc.artistStr.length) / 2));
+              for (let i = 0; i < fc.artistStr.length; i++) {
+                const c = artistStartCol + i;
+                if (!canDraw(artistScreenRow, c)) continue;
+                const idx = artistScreenRow * cols + c;
+                const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+                ctx.fillStyle = colorLUT[colorIdx];
+                ctx.fillText(fc.artistStr[i], c * charW, artistScreenRow * charH);
+              }
+            }
+
+            // --- Playing marker: 3 equalizer bars over the art square's
+            // bottom-left corner (replaces the old list-card icon override —
+            // tiles have no icon row). Drawn in white for contrast against
+            // both album art and the terrain placeholder. ---
+            const isPlayingTile = !!trackId && playingTrackId != null && trackId === playingTrackId;
+            if (isPlayingTile) {
+              const barChars = '░▒▓█';
+              const barRow = screenTop + fc.artRows - 1;
+              if (barRow >= 0 && barRow < rows) {
+                for (let b = 0; b < 3; b++) {
+                  const c = fc.left + b;
+                  if (c > fc.right) break;
+                  let charIdx = 0;
+                  if (playingIsPlaying) {
+                    const p1 = Math.sin(ts * 0.005 + b * 1.7);
+                    const p2 = Math.sin(ts * 0.0083 + b * 2.9 + 0.5);
+                    const p3 = Math.sin(ts * 0.013 + b * 0.7 + barRow * 3.1);
+                    const wave = Math.max(0, Math.min(1, (p1 + p2 * 0.6 + p3 * 0.3 + 1.2) / 2.8));
+                    charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
+                  }
+                  ctx.fillStyle = '#fff';
+                  ctx.fillText(barChars[charIdx], c * charW, barRow * charH);
+                }
+              }
+            }
+          }
+        } else {
+          for (let fi = 0; fi < feedCards.length; fi++) {
+            const fc = feedCards[fi];
+            const ts2 = fc.textScale;
+            // Convert virtual card rows to screen rows via scroll offset
+            const screenTop = Math.round(fc.baseTop - feedScrollOffset);
+            const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
+
+            // Cull cards entirely off-screen
+            if (screenBottom < 0 || screenTop >= rows) continue;
+
+            const nameScreenRow = Math.round(fc.nameRow - feedScrollOffset);
+            const descScreenRow = Math.round(fc.descRow - feedScrollOffset);
+
+            // Use scaled font for feed card text
+            ctx.font = `${fontSize * ts2}px 'JetBrains Mono','Courier New',monospace`;
+            ctx.textBaseline = 'top';
+
+            // --- Icon (on name row, full brightness) ---
             for (let i = 0; i < fc.iconStr.length; i++) {
               const c = fc.iconCol + i * ts2;
               if (!canDraw(nameScreenRow, c)) continue;
@@ -1176,25 +1381,25 @@ export function useTerrainAnimation(
               ctx.fillStyle = colorLUT[gridColors[idx]];
               ctx.fillText(fc.iconStr[i], c * charW, nameScreenRow * charH);
             }
-          }
 
-          // --- Name (full brightness) ---
-          for (let i = 0; i < fc.nameStr.length; i++) {
-            const c = fc.textCol + i * ts2;
-            if (!canDraw(nameScreenRow, c)) continue;
-            const idx = nameScreenRow * cols + c;
-            ctx.fillStyle = colorLUT[gridColors[idx]];
-            ctx.fillText(fc.nameStr[i], c * charW, nameScreenRow * charH);
-          }
+            // --- Name (full brightness) ---
+            for (let i = 0; i < fc.nameStr.length; i++) {
+              const c = fc.textCol + i * ts2;
+              if (!canDraw(nameScreenRow, c)) continue;
+              const idx = nameScreenRow * cols + c;
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(fc.nameStr[i], c * charW, nameScreenRow * charH);
+            }
 
-          // --- Description (dim, ~40% brightness) ---
-          for (let i = 0; i < fc.descStr.length; i++) {
-            const c = fc.textCol + i * ts2;
-            if (!canDraw(descScreenRow, c)) continue;
-            const idx = descScreenRow * cols + c;
-            const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
-            ctx.fillStyle = colorLUT[colorIdx];
-            ctx.fillText(fc.descStr[i], c * charW, descScreenRow * charH);
+            // --- Description (dim, ~40% brightness) ---
+            for (let i = 0; i < fc.descStr.length; i++) {
+              const c = fc.textCol + i * ts2;
+              if (!canDraw(descScreenRow, c)) continue;
+              const idx = descScreenRow * cols + c;
+              const colorIdx = Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * 0.4) | 0));
+              ctx.fillStyle = colorLUT[colorIdx];
+              ctx.fillText(fc.descStr[i], c * charW, descScreenRow * charH);
+            }
           }
         }
 
