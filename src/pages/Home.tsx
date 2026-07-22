@@ -270,6 +270,7 @@ export default function Home() {
     }
   }, [menuOpen, navigate]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
+    menuCloseToHomeRef.current = false;
     setMenuOpen(false);
     if (entry === 'portfolio') navigate('/feed');
     else if (entry === 'music') navigate('/music');
