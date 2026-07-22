@@ -9,9 +9,11 @@ import { useMusicPlayer } from '@/hooks/useMusicPlayer';
 import { api } from '@/lib/api';
 import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
+import ContactForm from '@/components/global/ContactForm';
 import type { SpotifyNowPlaying } from '@/types/analytics';
 import type { MusicChromeState } from '@/components/Dashboard/musicView';
+import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -51,6 +53,16 @@ export default function Home() {
 
   // Track feed closing animation
   const [feedClosing, setFeedClosing] = useState(false);
+
+  // Full-screen "+" menu overlay. React state drives the button's toggle and
+  // the Esc handler; menuOpenRef mirrors it for the canvas draw loop (rAF
+  // reads .current every frame — a plain boolean ref sync in render is fine
+  // here, unlike the getter-refs elsewhere that guard against stale closures
+  // over objects replaced wholesale outside React's render cycle).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpenRef = useRef(false);
+  menuOpenRef.current = menuOpen;
+  const [contactOpen, setContactOpen] = useState(false);
 
   // Track detail→feed fade-out: keep old detail overlay mounted during transition
   const prevPageRef = useRef(page);
@@ -230,15 +242,22 @@ export default function Home() {
       icon: '>>>',
     }));
 
-    const musicItem = { text: 'MUSIC', url: '/music', description: 'UNRELEASED LIBRARY', icon: '.))' };
-
-    return [musicItem, artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
+    // MUSIC card removed from the feed — the full-screen "+" menu covers
+    // navigation to /music now (see MENU_ENTRIES in useTerrainAnimation.ts).
+    return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
   }, [showFeed, page, blogData, musicCatalog, musicError, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
 
   const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
-  const handleMenuClick = useCallback(() => navigate('/feed'), [navigate]);
+  const handleMenuClick = useCallback(() => setMenuOpen((v) => !v), []);
+  const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
+    setMenuOpen(false);
+    if (entry === 'portfolio') navigate('/feed');
+    else if (entry === 'music') navigate('/music');
+    else if (entry === 'resume') window.open('/resume.pdf', '_blank');
+    else if (entry === 'contact') setContactOpen(true);
+  }, [navigate]);
   const handleItemClick = useCallback(
     (url: string) => {
       if (url === 'music:radio') { player.playShuffled(); return; }
@@ -262,6 +281,8 @@ export default function Home() {
       onLogoClick: handleLogoClick,
       onMenuClick: handleMenuClick,
       onSubItemClick: handleItemClick,
+      menuOpenRef,
+      onMenuSelect: handleMenuSelect,
       contentOpenRef,
       activeLabelRef,
       scrollTargetRef,
@@ -274,7 +295,7 @@ export default function Home() {
       musicUIRef,
       onMusicControl: handleMusicControl,
     }),
-    [handleLogoClick, handleMenuClick, handleItemClick, handleMusicControl, nowPlayingRef],
+    [handleLogoClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
@@ -295,6 +316,7 @@ export default function Home() {
   useEffect(() => {
     if (page !== 'music') return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return; // menu-close Esc (below) wins while the menu is open
       if (document.activeElement === searchInputRef.current) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === ' ' && player.uiRef.current !== null) {
@@ -325,7 +347,23 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [page, player]);
+  }, [page, player, menuOpen]);
+
+  // Esc closes the full-screen menu. Capture phase + stopPropagation so it
+  // wins over the /music search Esc handler above (both listen on window;
+  // capture fires first and stops the bubble-phase listener from also running).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [menuOpen]);
 
   // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
@@ -342,7 +380,10 @@ export default function Home() {
 
   return (
     <div>
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
+      {/* z-25 while the menu is open: it draws on this canvas and must sit above
+          DetailOverlay (z-10) and the melt cover canvas (z-20) so it's visible
+          over detail pages too, but still below the contact-form overlay (z-30). */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: menuOpen ? 25 : 0 }} />
 
       {page === 'music' && (
         <input
@@ -459,6 +500,30 @@ export default function Home() {
       )}
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
+
+      {contactOpen && (
+        // stopPropagation: the canvas's own click handler listens on `window`
+        // (so it still sees clicks after they bubble past this DOM overlay).
+        // The close button sits near the same screen position as the "+" menu
+        // icon, so an unguarded click here would bubble to window and get
+        // hit-tested against the canvas, accidentally re-opening the menu.
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto px-6 py-16"
+          style={{ backgroundColor: '#000' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setContactOpen(false)}
+            aria-label="Close contact form"
+            className="fixed top-6 right-6 text-white/50 hover:text-white/90 transition-colors"
+          >
+            <X size={22} />
+          </button>
+          <div className="w-full max-w-md">
+            <ContactForm embedded onClose={() => setContactOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

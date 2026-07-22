@@ -6,9 +6,16 @@ import { Mail } from 'lucide-react';
 
 interface ContactFormProps {
   compact?: boolean;
+  /** Render just the form (no Dialog/trigger chrome) — the caller owns the
+   * overlay (fixed positioning, backdrop, close button). Used by the
+   * full-screen "+" menu's CONTACT entry, which mounts this inside its own
+   * DetailOverlay-style overlay. */
+  embedded?: boolean;
+  /** Called after a successful embedded submit, so the caller can close its overlay. */
+  onClose?: () => void;
 }
 
-const ContactForm = ({ compact = false }: ContactFormProps) => {
+const ContactForm = ({ compact = false, embedded = false, onClose }: ContactFormProps) => {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
@@ -35,6 +42,7 @@ const ContactForm = ({ compact = false }: ContactFormProps) => {
       form.reset();
       setOpen(false);
       alert('Thanks for your message!');
+      onClose?.();
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to send message. Please try again.');
@@ -42,6 +50,61 @@ const ContactForm = ({ compact = false }: ContactFormProps) => {
       setLoading(false);
     }
   };
+
+  const formEl = (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="firstName" className="text-muted font-mono text-xs">
+            First name
+          </label>
+          <Input id="firstName" name="firstName" placeholder="First name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="lastName" className="text-muted font-mono text-xs">
+            Last name
+          </label>
+          <Input id="lastName" name="lastName" placeholder="Last name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="email" className="text-muted font-mono text-xs">
+          Email
+        </label>
+        <Input id="email" name="email" type="email" placeholder="you@example.com" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="message" className="text-muted font-mono text-xs">
+          Message
+        </label>
+        <Textarea
+          id="message"
+          name="message"
+          placeholder="Your message here..."
+          required
+          className="min-h-[100px] bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted"
+        />
+      </div>
+      <button
+        type="submit"
+        className="bg-cyber-cyan text-black font-mono hover:bg-cyber-cyan/80 w-full px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+        disabled={loading}
+      >
+        {loading ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
+  );
+
+  if (embedded) {
+    return (
+      <div className="w-full">
+        <div className="text-xs tracking-[0.3em] uppercase text-white/40 mb-6 font-mono">
+          Contact Me
+        </div>
+        {formEl}
+      </div>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -63,47 +126,7 @@ const ContactForm = ({ compact = false }: ContactFormProps) => {
         <DialogHeader>
           <DialogTitle>Contact Me</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="firstName" className="text-muted font-mono text-xs">
-                First name
-              </label>
-              <Input id="firstName" name="firstName" placeholder="First name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="lastName" className="text-muted font-mono text-xs">
-                Last name
-              </label>
-              <Input id="lastName" name="lastName" placeholder="Last name" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-muted font-mono text-xs">
-              Email
-            </label>
-            <Input id="email" name="email" type="email" placeholder="you@example.com" required className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted" />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="message" className="text-muted font-mono text-xs">
-              Message
-            </label>
-            <Textarea
-              id="message"
-              name="message"
-              placeholder="Your message here..."
-              required
-              className="min-h-[100px] bg-white/[0.05] border-white/[0.1] text-white placeholder:text-muted"
-            />
-          </div>
-          <button
-            type="submit"
-            className="bg-cyber-cyan text-black font-mono hover:bg-cyber-cyan/80 w-full px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-            disabled={loading}
-          >
-            {loading ? 'Sending...' : 'Send Message'}
-          </button>
-        </form>
+        {formEl}
       </DialogContent>
     </Dialog>
   );

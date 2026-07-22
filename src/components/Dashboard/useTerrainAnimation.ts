@@ -13,6 +13,14 @@ const COLOR_LEVELS = 64;
 // now-playing box (box height 7 + bottom offset 3 — see setupNowPlaying).
 const NP_BOTTOM_RESERVE = 10;
 
+export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'contact';
+const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
+  { key: 'portfolio', label: 'PORTFOLIO' },
+  { key: 'music', label: 'MUSIC' },
+  { key: 'resume', label: 'RESUME' },
+  { key: 'contact', label: 'CONTACT' },
+];
+
 export interface TerrainConfig {
   speedDivisor?: number;
   showNameMask?: boolean;
@@ -20,6 +28,8 @@ export interface TerrainConfig {
   onLogoClick?: () => void;
   onMenuClick?: () => void;
   onSubItemClick?: (url: string) => void;
+  menuOpenRef?: React.RefObject<boolean>;
+  onMenuSelect?: (entry: MenuEntryKey) => void;
   contentOpenRef?: React.RefObject<boolean>;
   activeLabelRef?: React.RefObject<string | null>;
   scrollTargetRef?: React.RefObject<number>;
@@ -40,7 +50,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -53,6 +63,8 @@ export function useTerrainAnimation(
   onSubItemClickRef.current = onSubItemClick;
   const onMusicControlRef = useRef(onMusicControl);
   onMusicControlRef.current = onMusicControl;
+  const onMenuSelectRef = useRef(onMenuSelect);
+  onMenuSelectRef.current = onMenuSelect;
 
   const rafRef = useRef(0);
   const introStartRef = useRef(-1);
@@ -82,6 +94,9 @@ export function useTerrainAnimation(
   const menuBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const mouseRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
   const subItemBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
+  // Full-screen "+" menu overlay: pixel-space hit/hover bounds for the 4
+  // stacked entries, index-aligned with the module-level MENU_ENTRIES array.
+  const menuEntryBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
 
   const menuMaskRef = useRef<{
     data: Uint8ClampedArray;
@@ -267,6 +282,13 @@ export function useTerrainAnimation(
     let wLogoMaskGrid: Uint8Array = new Uint8Array(0);
     let menuMaskGrid: Uint8Array = new Uint8Array(0);
     let contentTitleGrid: Uint8Array = new Uint8Array(0);
+    // Full-screen "+" menu overlay: grid-baked mask for the 4 stacked entries
+    // (built by buildMenuOverlayMask, distinct from menuMaskGrid above which
+    // is the small "+" icon in the header). menuOpenStart timestamps the most
+    // recent open transition, driving the scatter-in animation.
+    let menuOverlayGrid: Uint8Array = new Uint8Array(0);
+    let menuWasOpen = false;
+    let menuOpenStart = -1;
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
     let lastDetailKey = '';
@@ -425,6 +447,61 @@ export function useTerrainAnimation(
           if (px < mask.width && py < mask.height) {
             const offset = (py * mask.width + px) * 4;
             contentTitleGrid[idx] = mask.data[offset] > 128 ? 1 : 0;
+          }
+        }
+      }
+    }
+
+    // Full-screen "+" menu overlay mask — same offscreen-canvas / Arial Black /
+    // getImageData-bake-to-grid technique as the WORTHY RAE name mask and
+    // buildContentTitleMask above, applied to 4 stacked entries. Static text,
+    // so it's rebuilt on every resize (cheap) rather than lazily on open.
+    function buildMenuOverlayMask() {
+      if (!canvas) return;
+      const off = document.createElement('canvas');
+      off.width = canvas.width;
+      off.height = canvas.height;
+      const o = off.getContext('2d')!;
+      o.fillStyle = '#000';
+      o.fillRect(0, 0, off.width, off.height);
+
+      o.fillStyle = '#fff';
+      o.textAlign = 'center';
+      o.textBaseline = 'middle';
+
+      const n = MENU_ENTRIES.length;
+      const isPortrait = canvas.height > canvas.width;
+      const lineH = isPortrait ? canvas.width * 0.13 : canvas.height * 0.1;
+      const gap = lineH * 0.4;
+      const totalH = n * lineH + (n - 1) * gap;
+      const startCY = canvas.height / 2 - totalH / 2 + lineH / 2;
+      const maxW = canvas.width * 0.85;
+
+      o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+
+      const newBounds: { x: number; y: number; w: number; h: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const cy = startCY + i * (lineH + gap);
+        o.fillText(MENU_ENTRIES[i].label, canvas.width / 2, cy, maxW);
+        const tw = Math.min(o.measureText(MENU_ENTRIES[i].label).width, maxW);
+        newBounds.push({
+          x: canvas.width / 2 - tw / 2,
+          y: cy - lineH * 0.6,
+          w: tw,
+          h: lineH * 1.2,
+        });
+      }
+      menuEntryBoundsRef.current = newBounds;
+
+      const maskData = o.getImageData(0, 0, off.width, off.height).data;
+      menuOverlayGrid = new Uint8Array(cols * rows);
+      for (let r = 0; r < rows; r++) {
+        const py = Math.floor(r * charH);
+        for (let c = 0; c < cols; c++) {
+          const px = Math.floor(c * charW);
+          const idx = r * cols + c;
+          if (px < off.width && py < off.height) {
+            menuOverlayGrid[idx] = maskData[(py * off.width + px) * 4] > 128 ? 1 : 0;
           }
         }
       }
@@ -708,6 +785,8 @@ export function useTerrainAnimation(
           }
         }
       }
+
+      buildMenuOverlayMask();
 
       lastContentLabel = null;
     }
@@ -1579,6 +1658,63 @@ export function useTerrainAnimation(
         musicControlZones = [];
       }
 
+      // --- Full-screen "+" menu overlay: drawn last so it sits over literally
+      // everything (terrain, feed/tiles, now-playing, music chrome) regardless
+      // of which page is active underneath. Dims the background, then reveals
+      // the 4 stacked entries via the same hash-scatter technique as the
+      // W/+ header icons — with no terrain elsewhere to contrast against here,
+      // the glyphs punch terrain through the dimmed black (same inversion the
+      // W/+ icons use in full-black music mode). Hover = solid white cell,
+      // matching the existing sub-item/logo hover convention.
+      const menuOpenNow = !!menuOpenRef?.current;
+      if (menuOpenNow !== menuWasOpen) {
+        if (menuOpenNow) menuOpenStart = ts;
+        menuWasOpen = menuOpenNow;
+      }
+      if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
+      if (menuOpenNow) {
+        const menuScatter = Math.max(0, Math.min(1, (ts - menuOpenStart) / 700));
+
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const menuBoundsList = menuEntryBoundsRef.current;
+        let menuHoverIdx = -1;
+        for (let i = 0; i < menuBoundsList.length; i++) {
+          const b = menuBoundsList[i];
+          if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) { menuHoverIdx = i; break; }
+        }
+
+        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
+        ctx.textBaseline = 'top';
+        for (let r = 0; r < rows; r++) {
+          const py = r * charH;
+          const rowOffset = r * cols;
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOffset + c;
+            if (!menuOverlayGrid[idx]) continue;
+            let hm = ((c + 41) * 374761393 + (r + 59) * 668265263) | 0;
+            hm = ((hm ^ (hm >>> 13)) * 1274126177) | 0;
+            const hashM = ((hm ^ (hm >>> 16)) & 0x7fff) / 0x7fff;
+            if (menuScatter < hashM) continue;
+
+            const px2 = c * charW;
+            let hovered = false;
+            if (menuHoverIdx >= 0) {
+              const b = menuBoundsList[menuHoverIdx];
+              hovered = px2 >= b.x && px2 < b.x + b.w && py >= b.y && py < b.y + b.h;
+            }
+            if (hovered) {
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(px2, py, charW, charH);
+            } else {
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(RAMP[gridChars[idx]], px2, py);
+            }
+          }
+        }
+      }
+
       // --- Cover canvas: copy from main canvas with scatter mask ---
       // Placed AFTER all main canvas rendering so drawImage captures everything:
       // terrain, W logo, + icon, feed cards, now-playing.
@@ -1652,6 +1788,20 @@ export function useTerrainAnimation(
 
       const contentTitleVis = Math.max(0, Math.min(1, (contentProgressRef.current - 0.6) / 0.4));
 
+      // Full-screen menu open: it takes over the entire hit-test chain. Only
+      // the "+" (to close) and the 4 entries resolve to a hit; everything
+      // beneath (logo, music zones, np box, sub-items) is suppressed while open.
+      if (menuOpenRef?.current) {
+        const mb2 = menuBoundsRef.current;
+        if (px >= mb2.x && px < mb2.x + mb2.w && py >= mb2.y && py < mb2.y + mb2.h) return 'menu';
+        const mEntries = menuEntryBoundsRef.current;
+        for (let i = 0; i < mEntries.length; i++) {
+          const b = mEntries[i];
+          if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return `menuitem:${i}`;
+        }
+        return null;
+      }
+
       // W logo & menu — always clickable after intro
       if (logoMenuIntroProgressRef.current > 0.3) {
         const wb = wLogoBoundsRef.current;
@@ -1704,6 +1854,10 @@ export function useTerrainAnimation(
         onLogoClickRef.current?.();
       } else if (hit === 'menu') {
         onMenuClickRef.current?.();
+      } else if (typeof hit === 'string' && hit.startsWith('menuitem:')) {
+        const idx = parseInt(hit.slice('menuitem:'.length));
+        const entry = MENU_ENTRIES[idx]?.key;
+        if (entry) onMenuSelectRef.current?.(entry);
       } else if (typeof hit === 'string' && hit.startsWith('sub:')) {
         const idx = parseInt(hit.slice(4));
         const detail = config.detailRef?.current;
@@ -1726,6 +1880,8 @@ export function useTerrainAnimation(
     };
 
     const onWheel = (e: WheelEvent) => {
+      // Menu open: suppress the page beneath (don't scroll cards behind it).
+      if (menuOpenRef?.current) return;
       // Only scroll when feed is open
       if (contentProgressRef.current < 0.5) return;
       const items = contentSubItemsRef?.current;
@@ -1739,11 +1895,13 @@ export function useTerrainAnimation(
     let touchLastY = 0;
 
     const onTouchStart = (e: TouchEvent) => {
+      if (menuOpenRef?.current) return;
       if (contentProgressRef.current < 0.5) return;
       touchLastY = e.touches[0].clientY;
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (menuOpenRef?.current) return;
       if (contentProgressRef.current < 0.5) return;
       const items = contentSubItemsRef?.current;
       if (!items || items.length === 0) return;
@@ -1777,5 +1935,5 @@ export function useTerrainAnimation(
       document.body.style.cursor = '';
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks are accessed via stable refs (onLogoClickRef etc.)
-  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef]);
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef, menuOpenRef]);
 }
