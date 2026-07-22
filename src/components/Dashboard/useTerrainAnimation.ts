@@ -324,6 +324,15 @@ export function useTerrainAnimation(
     // Per-tile "is a loaded image ready to draw" flag (music mode), refreshed each
     // frame for on-screen tiles only — O(visible tiles), never O(catalog).
     let tileArtLoaded: Uint8Array = new Uint8Array(0);
+    // Shared "off-screen" placeholder for subItemBoundsRef entries outside the
+    // visible row-block range. hitTest() and the hover-detection loop only ever
+    // read x/y/w/h off these entries and never mutate them, so one shared
+    // instance is safe and avoids allocating ~1350 throwaway objects a frame.
+    const OFFSCREEN_BOUNDS = { x: -1, y: -1, w: 0, h: 0 };
+    // Per-card hit-test bounds — same length and index alignment as feedCards.
+    // Refreshed each frame for on-screen cards only; off-screen indices point
+    // at the shared OFFSCREEN_BOUNDS instead of a fresh object.
+    let feedBoundsArr: { x: number; y: number; w: number; h: number }[] = [];
     let feedScrollOffset = 0;
     let feedScrollTarget = 0;
     let feedMaxScroll = 0;
@@ -969,14 +978,38 @@ export function useTerrainAnimation(
       const feedScrollDiff = feedScrollTarget - feedScrollOffset;
       feedScrollOffset = Math.abs(feedScrollDiff) < 0.01 ? feedScrollTarget : feedScrollOffset + feedScrollDiff * 0.08;
 
+      // --- Visible feedCards index range ---
+      // Cards/tiles sit on a uniform row-block grid: row-block period is
+      // feedCardHeight + feedCardGap, origin feedStartRow, feedCols cards per
+      // row-block (fi = rowBlock * feedCols + colIdx — see setupFeedCards /
+      // setupMusicTiles). That makes "which cards are on-screen" arithmetic
+      // instead of a per-card scan: screenTop(rowBlock) = feedStartRow +
+      // rowBlock*period - feedScrollOffset, visible when screenBottom >= 0 &&
+      // screenTop < rows. Solve for the rowBlock bounds and widen by one
+      // row-block on each side as slack for the per-card Math.round() used
+      // downstream. The three per-frame loops over feedCards (art pre-pass,
+      // card/tile render, hit-bounds) below all iterate only
+      // [feedVisStart, feedVisEnd) instead of the full catalog-sized array.
+      let feedVisStart = 0;
+      let feedVisEnd = feedCards.length;
+      if (feedCards.length > 0) {
+        const rowPeriod = feedCardHeight + feedCardGap;
+        if (rowPeriod > 0 && feedCols > 0) {
+          const firstBlock = Math.floor((feedScrollOffset - feedStartRow - feedCardHeight + 1) / rowPeriod) - 1;
+          const lastBlock = Math.ceil((feedScrollOffset - feedStartRow + rows) / rowPeriod) + 1;
+          feedVisStart = Math.max(0, Math.min(feedCards.length, firstBlock * feedCols));
+          feedVisEnd = Math.max(feedVisStart, Math.min(feedCards.length, (lastBlock + 1) * feedCols));
+        }
+      }
+
       // --- Music tile art: refresh the "loaded image ready" flag for on-screen
-      // tiles only (O(visible tiles), never O(catalog)). getArt() is a cache
-      // lookup that also kicks off a lazy load on miss; tiles with has_art=false
-      // never call it, so a not-yet-refreshed catalog (has_art missing → false)
-      // never spams the art endpoint. ---
+      // tiles only, bounded to [feedVisStart, feedVisEnd) derived above — never
+      // O(catalog). getArt() is a cache lookup that also kicks off a lazy load
+      // on miss; tiles with has_art=false never call it, so a not-yet-refreshed
+      // catalog (has_art missing → false) never spams the art endpoint. ---
       if (isMusicMode && feedCards.length > 0) {
         if (tileArtLoaded.length !== feedCards.length) tileArtLoaded = new Uint8Array(feedCards.length);
-        for (let fi = 0; fi < feedCards.length; fi++) {
+        for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
           const screenTop = Math.round(fc.baseTop - feedScrollOffset);
           const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
@@ -1282,7 +1315,7 @@ export function useTerrainAnimation(
           const playingTrackId = musicUIRef?.current?.playingTrackId ?? null;
           const playingIsPlaying = musicUIRef?.current?.playingIsPlaying ?? false;
 
-          for (let fi = 0; fi < feedCards.length; fi++) {
+          for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
             const fc = feedCards[fi];
             const screenTop = Math.round(fc.baseTop - feedScrollOffset);
             const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
@@ -1356,7 +1389,7 @@ export function useTerrainAnimation(
             }
           }
         } else {
-          for (let fi = 0; fi < feedCards.length; fi++) {
+          for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
             const fc = feedCards[fi];
             const ts2 = fc.textScale;
             // Convert virtual card rows to screen rows via scroll offset
@@ -1403,24 +1436,29 @@ export function useTerrainAnimation(
           }
         }
 
-        // Update hit detection bounds (after the feedCards rendering loop, before closing the if block)
-        const newFeedBounds: { x: number; y: number; w: number; h: number }[] = [];
-        for (let fi = 0; fi < feedCards.length; fi++) {
+        // Update hit detection bounds (after the feedCards rendering loop, before closing the if block).
+        // Index alignment with feedCards must be preserved (sub:N click/hover handlers use the raw
+        // index), so this stays a full-length array — but only indices in [feedVisStart, feedVisEnd)
+        // are recomputed; everything else is pointed at the shared OFFSCREEN_BOUNDS (no allocation)
+        // rather than allocating ~1350 throwaway off-screen placeholder objects every frame.
+        if (feedBoundsArr.length !== feedCards.length) {
+          feedBoundsArr = new Array(feedCards.length).fill(OFFSCREEN_BOUNDS);
+        } else {
+          feedBoundsArr.fill(OFFSCREEN_BOUNDS);
+        }
+        for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
           const screenTop = Math.round(fc.baseTop - feedScrollOffset);
           const screenBottom = Math.round(fc.baseBottom - feedScrollOffset);
-          if (screenBottom < 0 || screenTop >= rows) {
-            newFeedBounds.push({ x: -1, y: -1, w: 0, h: 0 }); // off-screen placeholder
-          } else {
-            newFeedBounds.push({
-              x: fc.left * charW,
-              y: screenTop * charH,
-              w: (fc.right - fc.left + 1) * charW,
-              h: (screenBottom - screenTop + 1) * charH,
-            });
-          }
+          if (screenBottom < 0 || screenTop >= rows) continue; // stays OFFSCREEN_BOUNDS
+          feedBoundsArr[fi] = {
+            x: fc.left * charW,
+            y: screenTop * charH,
+            w: (fc.right - fc.left + 1) * charW,
+            h: (screenBottom - screenTop + 1) * charH,
+          };
         }
-        subItemBoundsRef.current = newFeedBounds;
+        subItemBoundsRef.current = feedBoundsArr;
       }
 
       // --- Now-playing box: border, equalizer bars, text ---
