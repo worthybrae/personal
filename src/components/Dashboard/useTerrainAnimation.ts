@@ -471,11 +471,13 @@ export function useTerrainAnimation(
 
       const n = MENU_ENTRIES.length;
       const isPortrait = canvas.height > canvas.width;
-      const lineH = isPortrait ? canvas.width * 0.13 : canvas.height * 0.1;
-      const gap = lineH * 0.4;
+      // Sized to read as 4 big stacked words filling the viewport, matching
+      // the scale of the landing WORTHY RAE name treatment it replaces.
+      const lineH = isPortrait ? canvas.width * 0.16 : canvas.height * 0.125;
+      const gap = lineH * 0.35;
       const totalH = n * lineH + (n - 1) * gap;
       const startCY = canvas.height / 2 - totalH / 2 + lineH / 2;
-      const maxW = canvas.width * 0.85;
+      const maxW = canvas.width * 0.9;
 
       o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
 
@@ -814,6 +816,22 @@ export function useTerrainAnimation(
 
       const t = ts / speedDivisor;
 
+      // --- Full-screen "+" menu overlay: open/close transition tracking.
+      // Computed early because menuOpenNow gates rendering throughout the
+      // frame — while open, the frame renders as plain full-brightness
+      // landing terrain regardless of the page beneath (feed/tiles/np
+      // box/search row/content-title masks/full-black music mode are all
+      // suppressed below), with the menu words rendered as a terrain cutout
+      // silhouette — the same technique the WORTHY RAE name uses — instead
+      // of the old dim overlay. The W logo and + button are unaffected.
+      const menuOpenNow = !!menuOpenRef?.current;
+      if (menuOpenNow !== menuWasOpen) {
+        if (menuOpenNow) menuOpenStart = ts;
+        menuWasOpen = menuOpenNow;
+      }
+      if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
+      const menuScatter = menuOpenNow ? Math.max(0, Math.min(1, (ts - menuOpenStart) / 700)) : 0;
+
       // --- Intro animation (terrain first, then name + logo scatter in) ---
       if (introStartRef.current < 0) introStartRef.current = skipIntro ? ts - 10000 : ts;
       const introElapsed = ts - introStartRef.current;
@@ -916,7 +934,9 @@ export function useTerrainAnimation(
       // contentProgress >= 1 so the melt animation in/out of /music still shows
       // terrain (prior behavior) while transitioning.
       const isMusicMode = !!musicUIRef?.current;
-      const musicFullBlack = isMusicMode && contentProgress >= 1;
+      // Suppressed while the menu is open — the frame renders as plain
+      // full-brightness terrain regardless of the page beneath (menuOpenNow).
+      const musicFullBlack = isMusicMode && contentProgress >= 1 && !menuOpenNow;
 
       // --- Color LUT (reuse array, just overwrite values) ---
       const colorFn = getDuotoneColor;
@@ -930,10 +950,12 @@ export function useTerrainAnimation(
       const isClosing = contentTarget === 0 && contentProgress > 0;
       // During reverse melt: main canvas at FULL brightness — it's hidden behind the
       // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
-      const brightnessScale = detailToFeedMelt
+      const brightnessScale = menuOpenNow
         ? 1
-        : (detailToFeedBrightness >= 0 ? detailToFeedBrightness : 1);
-      const colorScale = (isClosing && !feedActive) ? (1 - contentProgress) : brightnessScale;
+        : detailToFeedMelt
+          ? 1
+          : (detailToFeedBrightness >= 0 ? detailToFeedBrightness : 1);
+      const colorScale = menuOpenNow ? 1 : ((isClosing && !feedActive) ? (1 - contentProgress) : brightnessScale);
 
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
@@ -1006,9 +1028,9 @@ export function useTerrainAnimation(
       // On the home page: fades out as contentProgress increases, hidden during any
       // transition or feed. On the music feed: pinned fully visible while cards are up
       // (isMusicMode wins over feedCards.length === 0 since cards ARE the feed there).
-      const npVisible = np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
+      const npVisible = menuOpenNow ? 0 : (np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
         ? (isMusicMode ? 1 : Math.max(0, 1 - contentProgress * 3))
-        : 0;
+        : 0);
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
       // Re-entry scatter: when now-playing becomes visible again after initial intro, animate scatter-in
@@ -1035,6 +1057,18 @@ export function useTerrainAnimation(
       const wHovered = !isMobile && mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
       const mb = menuBoundsRef.current;
       const menuHovered = !isMobile && mx >= mb.x && mx < mb.x + mb.w && my >= mb.y && my < mb.y + mb.h;
+
+      // --- Full-screen menu entry hover detection (word cutouts). Hover
+      // highlights the entry's cells with a white bg, same convention as
+      // sub-item / logo hover elsewhere. ---
+      const menuEntryBoundsList = menuEntryBoundsRef.current;
+      let menuEntryHoverIdx = -1;
+      if (menuOpenNow) {
+        for (let i = 0; i < menuEntryBoundsList.length; i++) {
+          const b = menuEntryBoundsList[i];
+          if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) { menuEntryHoverIdx = i; break; }
+        }
+      }
 
       // --- Sub-item hover detection ---
       let hoveredSubItem = -1;
@@ -1149,8 +1183,10 @@ export function useTerrainAnimation(
             }
           }
 
-          // Name mask — scatter-reveal on intro, scatter-dissolve on scroll
-          if (nameMaskGrid[idx]) {
+          // Name mask — scatter-reveal on intro, scatter-dissolve on scroll.
+          // Gated on !menuOpenNow (not by touching nameFade/scroll state) —
+          // the name yields to the menu words while the menu is open.
+          if (!menuOpenNow && nameMaskGrid[idx]) {
             let h = (c * 374761393 + r * 668265263) | 0;
             h = ((h ^ (h >>> 13)) * 1274126177) | 0;
             const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
@@ -1159,10 +1195,30 @@ export function useTerrainAnimation(
             }
           }
 
+          // Full-screen menu overlay — cutout silhouette, same technique as
+          // the name mask above: masked cells suppress terrain (negative
+          // space against the surrounding full-brightness field), scatter-
+          // revealed on open. Hover highlights the entry with a white cell bg.
+          if (menuOpenNow && menuOverlayGrid[idx]) {
+            let hm = ((c + 41) * 374761393 + (r + 59) * 668265263) | 0;
+            hm = ((hm ^ (hm >>> 13)) * 1274126177) | 0;
+            const hashM = ((hm ^ (hm >>> 16)) & 0x7fff) / 0x7fff;
+            if (menuScatter > hashM) {
+              gridSkip[idx] = 1;
+              if (menuEntryHoverIdx >= 0) {
+                const hb = menuEntryBoundsList[menuEntryHoverIdx];
+                const cellPx = c * charW;
+                if (cellPx >= hb.x && cellPx < hb.x + hb.w && py >= hb.y && py < hb.y + hb.h) {
+                  gridBg[idx] = 1;
+                }
+              }
+            }
+          }
+
           // Feed card / music tile boxes: suppress terrain inside the footprint.
           // Cards/tiles sit on a uniform row-block/column grid, so the index is
           // arithmetic — O(1) per cell (2D: row-block × column).
-          if (contentTitleFade > 0 && feedCards.length > 0) {
+          if (!menuOpenNow && contentTitleFade > 0 && feedCards.length > 0) {
             const scrolledR = r + feedScrollOffset;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -1229,7 +1285,7 @@ export function useTerrainAnimation(
           }
 
           // Content: scatter-reveal in, scatter-dissolve out (white on exit)
-          if (contentTitleFade > 0 && contentTitleGrid[idx]) {
+          if (!menuOpenNow && contentTitleFade > 0 && contentTitleGrid[idx]) {
             let h2 = ((c + 17) * 374761393 + (r + 31) * 668265263) | 0;
             h2 = ((h2 ^ (h2 >>> 13)) * 1274126177) | 0;
             const hash2 = ((h2 ^ (h2 >>> 16)) & 0x7fff) / 0x7fff;
@@ -1259,7 +1315,7 @@ export function useTerrainAnimation(
       const isFeedMode = feedCards.length > 0;
       if (isFeedMode) wasFeedMode = true;
       if (contentProgress < 0.01 || contentTarget === 1) wasFeedMode = false;
-      if (contentProgress > 0 && !isFeedMode && !wasFeedMode) {
+      if (!menuOpenNow && contentProgress > 0 && !isFeedMode && !wasFeedMode) {
         // Fade background to black
         const inv = contentProgress;
         const invBgR = Math.round(bgR * (1 - inv));
@@ -1306,7 +1362,7 @@ export function useTerrainAnimation(
       }
 
       // --- Reverse terrain melt: terrain reforms from dark (detail→feed) ---
-      if (detailToFeedMelt && d2fMeltProgress > 0) {
+      if (!menuOpenNow && detailToFeedMelt && d2fMeltProgress > 0) {
         const totalCells = rows * cols;
         for (let i = 0; i < totalCells; i++) {
           // W/+ cells keep their normal mask state
@@ -1381,7 +1437,7 @@ export function useTerrainAnimation(
       }
 
       // --- Feed card / music tile content ---
-      if (contentTitleFade > 0 && feedCards.length > 0) {
+      if (!menuOpenNow && contentTitleFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -1646,7 +1702,7 @@ export function useTerrainAnimation(
       // --- Music chrome: pinned search row (the now-playing box itself is
       // drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
-      if (musicUI && feedCards.length > 0 && contentProgress > 0.6) {
+      if (!menuOpenNow && musicUI && feedCards.length > 0 && contentProgress > 0.6) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
         musicControlZones = drawMusicChrome(
           ctx,
@@ -1658,62 +1714,12 @@ export function useTerrainAnimation(
         musicControlZones = [];
       }
 
-      // --- Full-screen "+" menu overlay: drawn last so it sits over literally
-      // everything (terrain, feed/tiles, now-playing, music chrome) regardless
-      // of which page is active underneath. Dims the background, then reveals
-      // the 4 stacked entries via the same hash-scatter technique as the
-      // W/+ header icons — with no terrain elsewhere to contrast against here,
-      // the glyphs punch terrain through the dimmed black (same inversion the
-      // W/+ icons use in full-black music mode). Hover = solid white cell,
-      // matching the existing sub-item/logo hover convention.
-      const menuOpenNow = !!menuOpenRef?.current;
-      if (menuOpenNow !== menuWasOpen) {
-        if (menuOpenNow) menuOpenStart = ts;
-        menuWasOpen = menuOpenNow;
-      }
-      if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
-      if (menuOpenNow) {
-        const menuScatter = Math.max(0, Math.min(1, (ts - menuOpenStart) / 700));
-
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const menuBoundsList = menuEntryBoundsRef.current;
-        let menuHoverIdx = -1;
-        for (let i = 0; i < menuBoundsList.length; i++) {
-          const b = menuBoundsList[i];
-          if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) { menuHoverIdx = i; break; }
-        }
-
-        ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
-        ctx.textBaseline = 'top';
-        for (let r = 0; r < rows; r++) {
-          const py = r * charH;
-          const rowOffset = r * cols;
-          for (let c = 0; c < cols; c++) {
-            const idx = rowOffset + c;
-            if (!menuOverlayGrid[idx]) continue;
-            let hm = ((c + 41) * 374761393 + (r + 59) * 668265263) | 0;
-            hm = ((hm ^ (hm >>> 13)) * 1274126177) | 0;
-            const hashM = ((hm ^ (hm >>> 16)) & 0x7fff) / 0x7fff;
-            if (menuScatter < hashM) continue;
-
-            const px2 = c * charW;
-            let hovered = false;
-            if (menuHoverIdx >= 0) {
-              const b = menuBoundsList[menuHoverIdx];
-              hovered = px2 >= b.x && px2 < b.x + b.w && py >= b.y && py < b.y + b.h;
-            }
-            if (hovered) {
-              ctx.fillStyle = '#fff';
-              ctx.fillRect(px2, py, charW, charH);
-            } else {
-              ctx.fillStyle = colorLUT[gridColors[idx]];
-              ctx.fillText(RAMP[gridChars[idx]], px2, py);
-            }
-          }
-        }
-      }
+      // Full-screen "+" menu overlay: the terrain-native cutout is rendered
+      // inline in the main per-cell grid loop above (menuOverlayGrid block,
+      // alongside the name mask) so it participates in the same single
+      // terrain pass as everything else, at full brightness, with no dim
+      // layer. Open/close tracking and hover detection are computed early
+      // in draw() (menuOpenNow / menuScatter / menuEntryHoverIdx above).
 
       // --- Cover canvas: copy from main canvas with scatter mask ---
       // Placed AFTER all main canvas rendering so drawImage captures everything:
