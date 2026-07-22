@@ -62,6 +62,10 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuOpenRef = useRef(false);
   menuOpenRef.current = menuOpen;
+  // Set right before closing the menu: true for W/+ (animated close-to-landing
+  // crossfade), false for Esc (instant restore, unchanged). Read once by the
+  // canvas draw loop on the open->closed edge.
+  const menuCloseToHomeRef = useRef(false);
   const [contactOpen, setContactOpen] = useState(false);
 
   // Track detail→feed fade-out: keep old detail overlay mounted during transition
@@ -249,8 +253,22 @@ export default function Home() {
 
   contentSubItemsRef.current = feedSubItems;
 
-  const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
-  const handleMenuClick = useCallback(() => setMenuOpen((v) => !v), []);
+  const handleLogoClick = useCallback(() => {
+    if (menuOpen) {
+      menuCloseToHomeRef.current = true;
+      setMenuOpen(false);
+    }
+    navigate('/');
+  }, [navigate, menuOpen]);
+  const handleMenuClick = useCallback(() => {
+    if (menuOpen) {
+      menuCloseToHomeRef.current = true;
+      setMenuOpen(false);
+      navigate('/');
+    } else {
+      setMenuOpen(true);
+    }
+  }, [menuOpen, navigate]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     setMenuOpen(false);
     if (entry === 'portfolio') navigate('/feed');
@@ -282,6 +300,7 @@ export default function Home() {
       onMenuClick: handleMenuClick,
       onSubItemClick: handleItemClick,
       menuOpenRef,
+      menuCloseToHomeRef,
       onMenuSelect: handleMenuSelect,
       contentOpenRef,
       activeLabelRef,
@@ -358,6 +377,7 @@ export default function Home() {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
+        menuCloseToHomeRef.current = false;
         setMenuOpen(false);
       }
     };

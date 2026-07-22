@@ -29,6 +29,10 @@ export interface TerrainConfig {
   onMenuClick?: () => void;
   onSubItemClick?: (url: string) => void;
   menuOpenRef?: React.RefObject<boolean>;
+  // Set true by Home right before closing the menu via W/logo or + (animated
+  // close-to-landing crossfade); set false right before an Esc-close (instant
+  // restore, unchanged). Read once on the open->closed edge inside draw().
+  menuCloseToHomeRef?: React.MutableRefObject<boolean>;
   onMenuSelect?: (entry: MenuEntryKey) => void;
   contentOpenRef?: React.RefObject<boolean>;
   activeLabelRef?: React.RefObject<string | null>;
@@ -50,7 +54,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -289,6 +293,11 @@ export function useTerrainAnimation(
     let menuOverlayGrid: Uint8Array = new Uint8Array(0);
     let menuWasOpen = false;
     let menuOpenStart = -1;
+    // Animated "close-to-landing" crossfade (W/+ clicked while menu open —
+    // see menuCloseToHomeRef). menuCloseAnimActive drives closeP 0->1 over
+    // ~900ms; cleared either on completion or if the menu is re-opened mid-anim.
+    let menuCloseAnimActive = false;
+    let menuCloseStart = -1;
     let lastContentLabel: string | null = null;
     let lastSubItemsKey = '';
     let lastDetailKey = '';
@@ -826,11 +835,38 @@ export function useTerrainAnimation(
       // of the old dim overlay. The W logo and + button are unaffected.
       const menuOpenNow = !!menuOpenRef?.current;
       if (menuOpenNow !== menuWasOpen) {
-        if (menuOpenNow) menuOpenStart = ts;
+        if (menuOpenNow) {
+          // (Re-)opening — cancel any in-flight close anim and open normally.
+          menuOpenStart = ts;
+          menuCloseAnimActive = false;
+          menuCloseStart = -1;
+        } else if (menuCloseToHomeRef?.current) {
+          // Closed via W/+ (animated) rather than Esc (instant restore).
+          menuCloseAnimActive = true;
+          menuCloseStart = ts;
+        }
         menuWasOpen = menuOpenNow;
       }
       if (menuOpenNow && menuOverlayGrid.length !== cols * rows) buildMenuOverlayMask();
       const menuScatter = menuOpenNow ? Math.max(0, Math.min(1, (ts - menuOpenStart) / 700)) : 0;
+
+      // closeP: 0->1 over ~900ms while the close-to-landing crossfade plays.
+      // Once it completes, clear the anim state so normal landing rendering
+      // (nameFade/scroll machinery, menuVisual below) takes back over.
+      let closeP = 0;
+      if (menuCloseAnimActive) {
+        closeP = Math.max(0, Math.min(1, (ts - menuCloseStart) / 900));
+        if (closeP >= 1) {
+          menuCloseAnimActive = false;
+          menuCloseStart = -1;
+        }
+      }
+      // Combined "treat the frame as menu-open" flag: true both while the
+      // menu overlay is actually open AND during the close-to-landing
+      // crossfade that follows it, so the underlying page (feed/tiles/np
+      // box/search row/etc.) stays suppressed for the whole transition —
+      // the word-dissolve/name-reveal crossfade is the entire visible effect.
+      const menuVisual = menuOpenNow || menuCloseAnimActive;
 
       // --- Intro animation (terrain first, then name + logo scatter in) ---
       if (introStartRef.current < 0) introStartRef.current = skipIntro ? ts - 10000 : ts;
@@ -936,7 +972,7 @@ export function useTerrainAnimation(
       const isMusicMode = !!musicUIRef?.current;
       // Suppressed while the menu is open — the frame renders as plain
       // full-brightness terrain regardless of the page beneath (menuOpenNow).
-      const musicFullBlack = isMusicMode && contentProgress >= 1 && !menuOpenNow;
+      const musicFullBlack = isMusicMode && contentProgress >= 1 && !menuVisual;
 
       // --- Color LUT (reuse array, just overwrite values) ---
       const colorFn = getDuotoneColor;
@@ -950,12 +986,12 @@ export function useTerrainAnimation(
       const isClosing = contentTarget === 0 && contentProgress > 0;
       // During reverse melt: main canvas at FULL brightness — it's hidden behind the
       // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
-      const brightnessScale = menuOpenNow
+      const brightnessScale = menuVisual
         ? 1
         : detailToFeedMelt
           ? 1
           : (detailToFeedBrightness >= 0 ? detailToFeedBrightness : 1);
-      const colorScale = menuOpenNow ? 1 : ((isClosing && !feedActive) ? (1 - contentProgress) : brightnessScale);
+      const colorScale = menuVisual ? 1 : ((isClosing && !feedActive) ? (1 - contentProgress) : brightnessScale);
 
       for (let i = 0; i < COLOR_LEVELS; i++) {
         const val = i / (COLOR_LEVELS - 1);
@@ -1028,7 +1064,7 @@ export function useTerrainAnimation(
       // On the home page: fades out as contentProgress increases, hidden during any
       // transition or feed. On the music feed: pinned fully visible while cards are up
       // (isMusicMode wins over feedCards.length === 0 since cards ARE the feed there).
-      const npVisible = menuOpenNow ? 0 : (np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
+      const npVisible = menuVisual ? 0 : (np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
         ? (isMusicMode ? 1 : Math.max(0, 1 - contentProgress * 3))
         : 0);
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
@@ -1120,7 +1156,7 @@ export function useTerrainAnimation(
       // O(catalog). getArt() is a cache lookup that also kicks off a lazy load
       // on miss; tiles with has_art=false never call it, so a not-yet-refreshed
       // catalog (has_art missing → false) never spams the art endpoint. ---
-      if (isMusicMode && feedCards.length > 0) {
+      if (!menuOpenNow && isMusicMode && feedCards.length > 0) {
         if (tileArtLoaded.length !== feedCards.length) tileArtLoaded = new Uint8Array(feedCards.length);
         for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
@@ -1184,14 +1220,18 @@ export function useTerrainAnimation(
           }
 
           // Name mask — scatter-reveal on intro, scatter-dissolve on scroll.
-          // Gated on !menuOpenNow (not by touching nameFade/scroll state) —
-          // the name yields to the menu words while the menu is open.
-          if (!menuOpenNow && nameMaskGrid[idx]) {
+          // Gated implicitly (not by touching nameFade/scroll state) — the
+          // name yields to the menu words while the menu is open, and during
+          // the close-to-landing crossfade it instead scatters back in as a
+          // direct function of closeP (same hash pattern, different driver).
+          if (nameMaskGrid[idx]) {
             let h = (c * 374761393 + r * 668265263) | 0;
             h = ((h ^ (h >>> 13)) * 1274126177) | 0;
             const hash = ((h ^ (h >>> 16)) & 0x7fff) / 0x7fff;
-            if (introProgress > hash && hash > nameFade) {
-              gridSkip[idx] = 1;
+            if (menuCloseAnimActive) {
+              if (closeP > hash) gridSkip[idx] = 1;
+            } else if (!menuOpenNow) {
+              if (introProgress > hash && hash > nameFade) gridSkip[idx] = 1;
             }
           }
 
@@ -1199,11 +1239,16 @@ export function useTerrainAnimation(
           // the name mask above: masked cells suppress terrain (negative
           // space against the surrounding full-brightness field), scatter-
           // revealed on open. Hover highlights the entry with a white cell bg.
-          if (menuOpenNow && menuOverlayGrid[idx]) {
+          // During the close-to-landing crossfade the words instead scatter-
+          // dissolve AWAY as a function of closeP (cells stay cut out only
+          // while hash > closeP), mirroring the name mask's reveal above.
+          if (menuVisual && menuOverlayGrid[idx]) {
             let hm = ((c + 41) * 374761393 + (r + 59) * 668265263) | 0;
             hm = ((hm ^ (hm >>> 13)) * 1274126177) | 0;
             const hashM = ((hm ^ (hm >>> 16)) & 0x7fff) / 0x7fff;
-            if (menuScatter > hashM) {
+            if (menuCloseAnimActive) {
+              if (hashM > closeP) gridSkip[idx] = 1;
+            } else if (menuScatter > hashM) {
               gridSkip[idx] = 1;
               if (menuEntryHoverIdx >= 0) {
                 const hb = menuEntryBoundsList[menuEntryHoverIdx];
@@ -1218,7 +1263,7 @@ export function useTerrainAnimation(
           // Feed card / music tile boxes: suppress terrain inside the footprint.
           // Cards/tiles sit on a uniform row-block/column grid, so the index is
           // arithmetic — O(1) per cell (2D: row-block × column).
-          if (!menuOpenNow && contentTitleFade > 0 && feedCards.length > 0) {
+          if (!menuVisual && contentTitleFade > 0 && feedCards.length > 0) {
             const scrolledR = r + feedScrollOffset;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -1285,7 +1330,7 @@ export function useTerrainAnimation(
           }
 
           // Content: scatter-reveal in, scatter-dissolve out (white on exit)
-          if (!menuOpenNow && contentTitleFade > 0 && contentTitleGrid[idx]) {
+          if (!menuVisual && contentTitleFade > 0 && contentTitleGrid[idx]) {
             let h2 = ((c + 17) * 374761393 + (r + 31) * 668265263) | 0;
             h2 = ((h2 ^ (h2 >>> 13)) * 1274126177) | 0;
             const hash2 = ((h2 ^ (h2 >>> 16)) & 0x7fff) / 0x7fff;
@@ -1315,7 +1360,7 @@ export function useTerrainAnimation(
       const isFeedMode = feedCards.length > 0;
       if (isFeedMode) wasFeedMode = true;
       if (contentProgress < 0.01 || contentTarget === 1) wasFeedMode = false;
-      if (!menuOpenNow && contentProgress > 0 && !isFeedMode && !wasFeedMode) {
+      if (!menuVisual && contentProgress > 0 && !isFeedMode && !wasFeedMode) {
         // Fade background to black
         const inv = contentProgress;
         const invBgR = Math.round(bgR * (1 - inv));
@@ -1362,7 +1407,7 @@ export function useTerrainAnimation(
       }
 
       // --- Reverse terrain melt: terrain reforms from dark (detail→feed) ---
-      if (!menuOpenNow && detailToFeedMelt && d2fMeltProgress > 0) {
+      if (!menuVisual && detailToFeedMelt && d2fMeltProgress > 0) {
         const totalCells = rows * cols;
         for (let i = 0; i < totalCells; i++) {
           // W/+ cells keep their normal mask state
@@ -1437,7 +1482,7 @@ export function useTerrainAnimation(
       }
 
       // --- Feed card / music tile content ---
-      if (!menuOpenNow && contentTitleFade > 0 && feedCards.length > 0) {
+      if (!menuVisual && contentTitleFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -1702,7 +1747,7 @@ export function useTerrainAnimation(
       // --- Music chrome: pinned search row (the now-playing box itself is
       // drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
-      if (!menuOpenNow && musicUI && feedCards.length > 0 && contentProgress > 0.6) {
+      if (!menuVisual && musicUI && feedCards.length > 0 && contentProgress > 0.6) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
         musicControlZones = drawMusicChrome(
           ctx,
@@ -1795,11 +1840,16 @@ export function useTerrainAnimation(
       const contentTitleVis = Math.max(0, Math.min(1, (contentProgressRef.current - 0.6) / 0.4));
 
       // Full-screen menu open: it takes over the entire hit-test chain. Only
-      // the "+" (to close) and the 4 entries resolve to a hit; everything
-      // beneath (logo, music zones, np box, sub-items) is suppressed while open.
+      // the W logo, the "+" (to close), and the 4 entries resolve to a hit;
+      // everything else beneath (music zones, np box, sub-items) is
+      // suppressed while open. W resolves to 'logo' same as the normal
+      // path — Home's onLogoClick handles the menu-aware close-to-landing
+      // transition itself.
       if (menuOpenRef?.current) {
         const mb2 = menuBoundsRef.current;
         if (px >= mb2.x && px < mb2.x + mb2.w && py >= mb2.y && py < mb2.y + mb2.h) return 'menu';
+        const wb2 = wLogoBoundsRef.current;
+        if (px >= wb2.x && px < wb2.x + wb2.w && py >= wb2.y && py < wb2.y + wb2.h) return 'logo';
         const mEntries = menuEntryBoundsRef.current;
         for (let i = 0; i < mEntries.length; i++) {
           const b = mEntries[i];
@@ -1941,5 +1991,5 @@ export function useTerrainAnimation(
       document.body.style.cursor = '';
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks are accessed via stable refs (onLogoClickRef etc.)
-  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef, menuOpenRef]);
+  }, [canvasRef, scrollProgressRef, buildMasks, speedDivisor, contrast, contentOpenRef, activeLabelRef, contentSubItemsRef, meltCompleteRef, menuOpenRef, menuCloseToHomeRef]);
 }
