@@ -22,6 +22,10 @@ export interface MusicChromeState {
   // callers/tests that only exercise the search chrome need not supply them.
   playingTrackId?: string | null;
   playingIsPlaying?: boolean;
+  // Library plays in the past 30 days (getter-backed in Home.tsx, fetched
+  // from /api/music/plays/stats). Null/undefined until loaded — the stat
+  // line simply doesn't render yet.
+  plays30d?: number | null;
 }
 export interface ControlZone {
   action: 'search';
@@ -38,6 +42,7 @@ export interface MusicPanelLayout {
   searchRow: number;         // top grid row of the search input line
   searchScale: number;
   searchAvailChars: number;  // visible query chars before the display tail-scrolls
+  statRow: number;           // top grid row of the plays-stat line (below the search underline)
   tilesLeftCol: number;      // first grid col available to the tile grid
   tilesTopRow: number;       // first grid row available to the tile grid
 }
@@ -86,11 +91,13 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
     }
 
     const searchRow = row + 2;
+    const statRow = searchRow + 4; // input (2 rows) + underline + 1 gap
     return {
-      panelLeft, panelWidth, panelTop: top, panelBottom: searchRow + 3,
+      panelLeft, panelWidth, panelTop: top, panelBottom: statRow + 4,
       lines,
       searchRow, searchScale: 2,
       searchAvailChars: Math.max(6, Math.floor(panelWidth / 2) - SEARCH_LABEL.length),
+      statRow,
       tilesLeftCol: panelLeft + panelWidth + 6,
       tilesTopRow: geom.headerRows + 2,
     };
@@ -109,13 +116,15 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
   }
 
   const searchRow = row + 1;
+  const statRow = searchRow + 4; // input (2 rows) + underline + 1 gap
   return {
-    panelLeft, panelWidth, panelTop: top, panelBottom: searchRow + 3,
+    panelLeft, panelWidth, panelTop: top, panelBottom: statRow + 4,
     lines,
     searchRow, searchScale: 2,
     searchAvailChars: Math.max(6, Math.floor(panelWidth / 2) - SEARCH_LABEL.length),
+    statRow,
     tilesLeftCol: panelLeft,
-    tilesTopRow: searchRow + 5,
+    tilesTopRow: statRow + 5,
   };
 }
 
@@ -182,6 +191,13 @@ export function drawMusicChrome(
   }
   // Underline marks the input extent
   putText('─'.repeat(L.panelWidth), L.panelLeft, L.searchRow + sc, 1, 'rgba(255,255,255,0.25)');
+
+  // --- Plays stat: big 30-day count, small caption beneath ---
+  if (state.plays30d != null) {
+    const numStr = `${state.plays30d.toLocaleString('en-US')} ${state.plays30d === 1 ? 'PLAY' : 'PLAYS'}`;
+    putText(numStr, L.panelLeft, L.statRow, 2, 'rgba(255,255,255,0.9)');
+    putText('IN THE PAST 30 DAYS', L.panelLeft, L.statRow + 2, 1, 'rgba(255,255,255,0.4)');
+  }
 
   zones.push({
     action: 'search',

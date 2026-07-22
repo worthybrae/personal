@@ -1093,12 +1093,15 @@ export function useTerrainAnimation(
           xfadeFrom = currentLayer;
           xfadeTo = requestedLayer;
           xfadeStart = ts;
-          // Opening the menu over a live content page (portfolio/feed):
+          // Opening the menu over the live feed page (canvas-drawn cards):
           // render the scattering words over the page while it dissolves
-          // out beneath them (mirror of the close-to-content leg). Music is
-          // excluded — its full-black background gives the cutout words
-          // nothing to read against, so it keeps the instant takeover.
-          if (requestedLayer === 'menu' && !!contentOpenRef?.current && !musicUIRef?.current) {
+          // out beneath them (mirror of the close-to-content leg). Only the
+          // feed qualifies — music's full-black background and the melted-
+          // black canvas under DOM detail pages both give the cutout words
+          // nothing to read against, so those keep the instant takeover
+          // (bright menu terrain from frame one) instead of a black gap.
+          if (requestedLayer === 'menu' && !!contentOpenRef?.current && !musicUIRef?.current &&
+              feedCards.length > 0) {
             xfadeMenuOverContent = true;
           }
         }

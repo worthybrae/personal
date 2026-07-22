@@ -5,11 +5,13 @@ import { shuffledQueue } from '@/lib/music';
 export interface MusicPlayerUI {
   trackId: string;
   title: string;
+  artist: string;
   isPlaying: boolean;
   progress: number; // 0..1
+  startedAt: number; // epoch ms when this track began — recency vs Spotify played_at
 }
 
-export function useMusicPlayer(tracks: MusicTrack[]) {
+export function useMusicPlayer(tracks: MusicTrack[], onTrackPlay?: (trackId: string) => void) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const queueRef = useRef<number[]>([]);
   const qPosRef = useRef(0);
@@ -18,6 +20,12 @@ export function useMusicPlayer(tracks: MusicTrack[]) {
   const uiRef = useRef<MusicPlayerUI | null>(null);
   // Set when recovering from an expired presigned URL mid-play
   const resumeAtRef = useRef<number | null>(null);
+  const onTrackPlayRef = useRef(onTrackPlay);
+  onTrackPlayRef.current = onTrackPlay;
+  // The uiRef object counted last — startCurrent replaces the object per
+  // track start, so identity comparison fires the play callback exactly once
+  // per start (resume-from-pause reuses the object and is not re-counted).
+  const countedUIRef = useRef<MusicPlayerUI | null>(null);
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
@@ -30,7 +38,15 @@ export function useMusicPlayer(tracks: MusicTrack[]) {
           uiRef.current.progress = Math.min(1, Math.max(0, a.currentTime / a.duration));
         }
       });
-      a.addEventListener('play', () => { if (uiRef.current) uiRef.current.isPlaying = true; });
+      a.addEventListener('play', () => {
+        const ui = uiRef.current;
+        if (!ui) return;
+        ui.isPlaying = true;
+        if (countedUIRef.current !== ui) {
+          countedUIRef.current = ui;
+          onTrackPlayRef.current?.(ui.trackId);
+        }
+      });
       a.addEventListener('pause', () => { if (uiRef.current) uiRef.current.isPlaying = false; });
       a.addEventListener('ended', () => nextRef.current());
       a.addEventListener('loadedmetadata', () => {
@@ -58,7 +74,7 @@ export function useMusicPlayer(tracks: MusicTrack[]) {
     if (!track) return;
     const a = getAudio();
     resumeAtRef.current = null;
-    uiRef.current = { trackId: track.id, title: track.title, isPlaying: false, progress: 0 };
+    uiRef.current = { trackId: track.id, title: track.title, artist: track.artist ?? '', isPlaying: false, progress: 0, startedAt: Date.now() };
     a.src = `/api/music/stream/${track.id}`;
     a.play().catch(() => {});
   }, [getAudio]);

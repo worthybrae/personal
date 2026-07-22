@@ -13,3 +13,7 @@ export interface MusicCatalog {
   generated_at: string;
   tracks: MusicTrack[];
 }
+
+export interface MusicPlayStats {
+  plays_30d: number;
+}

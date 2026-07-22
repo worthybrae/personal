@@ -235,7 +235,21 @@ export default function Home() {
     () => filterTracks(musicCatalog?.tracks ?? [], musicQuery),
     [musicCatalog, musicQuery],
   );
-  const player = useMusicPlayer(musicCatalog?.tracks ?? []);
+  // Library play tracking: every track start records a play server-side; the
+  // 30-day total renders as a stat in the /music intro panel. Ref-backed (not
+  // state) because only the rAF canvas draw reads it.
+  const plays30dRef = useRef<number | null>(null);
+  useEffect(() => {
+    api.getMusicPlayStats()
+      .then((s) => { plays30dRef.current = s.plays_30d; })
+      .catch(() => {});
+  }, []);
+  const handleTrackPlay = useCallback((trackId: string) => {
+    api.recordMusicPlay(trackId)
+      .then((s) => { plays30dRef.current = s.plays_30d; })
+      .catch(() => {});
+  }, []);
+  const player = useMusicPlayer(musicCatalog?.tracks ?? [], handleTrackPlay);
 
   // Local playback owns the landing-style now-playing box on /music; Spotify
   // owns it elsewhere. This is a getter-style ref (not a snapshot object) so
@@ -244,15 +258,31 @@ export default function Home() {
   // startCurrent() replaces player.uiRef.current wholesale without triggering
   // a React re-render.
   const localPlayerRef = player.uiRef;
-  const pageRef = useRef(page);
-  pageRef.current = page;
+  // One global now-playing source, page-independent (the canvas decides where
+  // the box shows). Priority: whichever source is actively playing (library
+  // wins a tie — it's this site's own player), else whichever played more
+  // recently, so a library track outranks stale Spotify history as the
+  // "last listened to" entry.
   const nowPlayingRef = useMemo(() => ({
     get current() {
-      if (pageRef.current === 'music') {
-        const ui = localPlayerRef.current;
-        return ui ? { track: ui.title, artist: '', isPlaying: ui.isPlaying } : null;
+      const local = localPlayerRef.current;
+      const spot = spotifyNPRef.current;
+      const localEntry = local
+        ? {
+            track: local.title,
+            artist: local.artist,
+            isPlaying: local.isPlaying,
+            playedAt: new Date(local.startedAt).toISOString(),
+          }
+        : null;
+      if (localEntry?.isPlaying) return localEntry;
+      if (spot?.isPlaying) return spot;
+      if (localEntry && spot) {
+        const localTime = Date.parse(localEntry.playedAt);
+        const spotTime = spot.playedAt ? Date.parse(spot.playedAt) : 0;
+        return localTime >= spotTime ? localEntry : spot;
       }
-      return spotifyNPRef.current;
+      return localEntry ?? spot;
     },
   }), [localPlayerRef]) as React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
 
@@ -273,6 +303,7 @@ export default function Home() {
         caretOn: true,
         get playingTrackId() { return player.uiRef.current?.trackId ?? null; },
         get playingIsPlaying() { return player.uiRef.current?.isPlaying ?? false; },
+        get plays30d() { return plays30dRef.current; },
       }
     : null;
 

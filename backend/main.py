@@ -88,6 +88,21 @@ async def music_stream(track_id: str):
     return RedirectResponse(url, status_code=302)
 
 
+@app.post("/api/music/plays/{track_id}")
+async def music_record_play(track_id: str):
+    from music import record_play, get_play_stats
+    if not record_play(track_id):
+        raise HTTPException(status_code=404, detail="unknown track")
+    # Return the fresh stat so the client can update its display immediately.
+    return get_play_stats()
+
+
+@app.get("/api/music/plays/stats")
+async def music_play_stats():
+    from music import get_play_stats
+    return get_play_stats()
+
+
 @app.get("/api/music/art/{track_id}")
 async def music_art(track_id: str):
     from music import get_catalog, get_art
