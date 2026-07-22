@@ -96,13 +96,14 @@ export default function Home() {
   const isCardPage = page === 'feed' || page === 'music';
   const showFeed = isCardPage || feedClosing;
 
-  // Now-playing: fetch and expose via ref for terrain canvas
-  const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
+  // Now-playing: fetch Spotify state and expose via ref for terrain canvas.
+  // Local playback (below) owns the landing-style box on /music instead.
+  const spotifyNPRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
   useEffect(() => {
     const fetchNP = () => {
       if (document.visibilityState === 'hidden') return;
       api.getSpotifyNowPlaying().then((d: SpotifyNowPlaying) => {
-        nowPlayingRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing, playedAt: d.played_at } : null;
+        spotifyNPRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing, playedAt: d.played_at } : null;
       }).catch(() => {});
     };
     fetchNP();
@@ -122,6 +123,25 @@ export default function Home() {
   );
   const player = useMusicPlayer(musicCatalog?.tracks ?? []);
 
+  // Local playback owns the landing-style now-playing box on /music; Spotify
+  // owns it elsewhere. This is a getter-style ref (not a snapshot object) so
+  // the rAF draw loop always reads whichever source is live at access time —
+  // a plain object captured at render time would go stale the moment
+  // startCurrent() replaces player.uiRef.current wholesale without triggering
+  // a React re-render.
+  const localPlayerRef = player.uiRef;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const nowPlayingRef = useMemo(() => ({
+    get current() {
+      if (pageRef.current === 'music') {
+        const ui = localPlayerRef.current;
+        return ui ? { track: ui.title, artist: '', isPlaying: ui.isPlaying } : null;
+      }
+      return spotifyNPRef.current;
+    },
+  }), [localPlayerRef]) as React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const musicUIRef = useRef<MusicChromeState | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -129,7 +149,7 @@ export default function Home() {
   // Keep the ref in sync every render (player UI flows through by reference so
   // canvas sees live progress).
   musicUIRef.current = page === 'music'
-    ? { query: musicQuery, focused: searchFocused, caretOn: true, nowPlayingRef: player.uiRef }
+    ? { query: musicQuery, focused: searchFocused, caretOn: true }
     : null;
 
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
@@ -218,12 +238,9 @@ export default function Home() {
     [navigate, player, musicCatalog],
   );
 
-  const handleMusicControl = useCallback((action: 'prev' | 'toggle' | 'next' | 'search') => {
-    if (action === 'prev') player.prev();
-    else if (action === 'toggle') player.toggle();
-    else if (action === 'next') player.next();
-    else if (action === 'search') searchInputRef.current?.focus();
-  }, [player]);
+  const handleMusicControl = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
 
   const config = useMemo(
     () => ({
@@ -242,27 +259,44 @@ export default function Home() {
       musicUIRef,
       onMusicControl: handleMusicControl,
     }),
-    [handleLogoClick, handleMenuClick, handleItemClick, handleMusicControl],
+    [handleLogoClick, handleMenuClick, handleItemClick, handleMusicControl, nowPlayingRef],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
 
-  // Auto-focus search on entering /music (desktop only — mobile summons the
-  // keyboard on tap instead), and clear the query when leaving.
+  // Clear the query when leaving /music. No desktop auto-focus of the hidden
+  // input — typing reaches search via the global keydown handler below; the
+  // hidden input stays mounted purely to summon the mobile keyboard when the
+  // search row is tapped.
   useEffect(() => {
-    if (page === 'music' && window.innerWidth >= 768) searchInputRef.current?.focus();
     if (page !== 'music') setMusicQuery('');
   }, [page]);
 
-  // Global typing fallback: any canvas click blurs the hidden search input,
-  // after which typing would otherwise go nowhere. While on /music, route
-  // printable keys / Backspace / Escape into the query whenever the hidden
+  // Global keyboard transport + typing fallback: any canvas click blurs the
+  // hidden search input, after which typing would otherwise go nowhere.
+  // While on /music, space/arrow keys drive playback and printable
+  // keys / Backspace / Escape route into the query, whenever the hidden
   // input isn't the focused element.
   useEffect(() => {
     if (page !== 'music') return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement === searchInputRef.current) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === ' ' && player.uiRef.current !== null) {
+        player.toggle();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        player.prev();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        player.next();
+        e.preventDefault();
+        return;
+      }
       if (e.key.length === 1) {
         setMusicQuery((q) => q + e.key);
         e.preventDefault();
@@ -276,7 +310,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [page]);
+  }, [page, player]);
 
   // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;

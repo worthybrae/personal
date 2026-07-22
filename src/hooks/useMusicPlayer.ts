@@ -3,6 +3,7 @@ import type { MusicTrack } from '@/types/music';
 import { shuffledQueue } from '@/lib/music';
 
 export interface MusicPlayerUI {
+  trackId: string;
   title: string;
   isPlaying: boolean;
   progress: number; // 0..1
@@ -57,7 +58,7 @@ export function useMusicPlayer(tracks: MusicTrack[]) {
     if (!track) return;
     const a = getAudio();
     resumeAtRef.current = null;
-    uiRef.current = { title: track.title, isPlaying: false, progress: 0 };
+    uiRef.current = { trackId: track.id, title: track.title, isPlaying: false, progress: 0 };
     a.src = `/api/music/stream/${track.id}`;
     a.play().catch(() => {});
   }, [getAudio]);

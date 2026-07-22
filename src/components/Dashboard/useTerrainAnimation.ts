@@ -4,10 +4,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { warpedTerrain } from './noise';
 import { getDuotoneColor, scurve } from './color';
 import { RAMP } from './ramp';
-import { drawMusicChrome, playerBoxRows, type MusicChromeState, type ControlZone } from './musicView';
+import { drawMusicChrome, type MusicChromeState, type ControlZone } from './musicView';
 
 const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
+// Reserved rows below the feed cards so the last card can scroll clear of the
+// now-playing box (box height 7 + bottom offset 3 — see setupNowPlaying).
+const NP_BOTTOM_RESERVE = 10;
 
 export interface TerrainConfig {
   speedDivisor?: number;
@@ -28,7 +31,7 @@ export interface TerrainConfig {
   coverCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   skipIntro?: boolean;
   musicUIRef?: React.RefObject<MusicChromeState | null>;
-  onMusicControl?: (action: 'prev' | 'toggle' | 'next' | 'search') => void;
+  onMusicControl?: (action: 'search') => void;
 }
 
 export function useTerrainAnimation(
@@ -405,10 +408,16 @@ export function useTerrainAnimation(
       }
     }
 
-    function setupNowPlaying(track: string, artist: string, isPlaying: boolean, _playedAt?: string) {
+    function setupNowPlaying(
+      track: string,
+      artist: string,
+      isPlaying: boolean,
+      _playedAt?: string,
+      labels: [string, string] = ['LISTENING TO', 'LAST LISTENED TO'],
+    ) {
       npIsPlaying = isPlaying;
-      npLabelStr = isPlaying ? 'LISTENING TO' : 'LAST LISTENED TO';
-      npFullTextStr = `${track} — ${artist}`.toUpperCase();
+      npLabelStr = isPlaying ? labels[0] : labels[1];
+      npFullTextStr = (artist ? `${track} — ${artist}` : track).toUpperCase();
 
       // Bars only shown when playing
       const barsWidth = isPlaying ? 5 : 0;
@@ -654,7 +663,7 @@ export function useTerrainAnimation(
       if (feedItemsKey !== lastFeedItemsKey) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
-        setupFeedCards(feedItems, musicUIRef?.current ? playerBoxRows() : 0);
+        setupFeedCards(feedItems, musicUIRef?.current ? NP_BOTTOM_RESERVE : 0);
         feedScrollTarget = 0;
         feedScrollOffset = 0;
         // Feed → detail: restart melt animation so terrain transitions to black
@@ -777,20 +786,25 @@ export function useTerrainAnimation(
         pendingMaskRebuild = false;
       }
 
-      // --- Now-playing mask: rebuild on track change or playing state change ---
+      // --- Now-playing mask: rebuild on track change, playing state change, or mode change ---
+      const isMusicMode = !!musicUIRef?.current;
       const np = nowPlayingRef?.current;
       const npTrack = np?.track ?? '';
-      const npKey = `${npTrack}|${np?.isPlaying}`;
+      const npKey = `${npTrack}|${np?.isPlaying}|${isMusicMode}`;
       if (npKey !== lastNowPlayingTrack) {
         lastNowPlayingTrack = npKey;
         if (np && np.track) {
-          setupNowPlaying(np.track, np.artist, np.isPlaying, np.playedAt);
+          setupNowPlaying(np.track, np.artist, np.isPlaying, np.playedAt, isMusicMode ? ['NOW PLAYING', 'PAUSED'] : undefined);
         } else {
           npBoxTop = Infinity;
         }
       }
-      // Visible only on home page — fades out as contentProgress increases, hidden during any transition or feed
-      const npVisible = np?.track && feedCards.length === 0 && !feedToDetailMelt && !detailToFeedMelt ? Math.max(0, 1 - contentProgress * 3) : 0;
+      // On the home page: fades out as contentProgress increases, hidden during any
+      // transition or feed. On the music feed: pinned fully visible while cards are up
+      // (isMusicMode wins over feedCards.length === 0 since cards ARE the feed there).
+      const npVisible = np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
+        ? (isMusicMode ? 1 : Math.max(0, 1 - contentProgress * 3))
+        : 0;
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
       // Re-entry scatter: when now-playing becomes visible again after initial intro, animate scatter-in
@@ -891,16 +905,6 @@ export function useTerrainAnimation(
             }
           }
 
-          // Now-playing box: suppress terrain inside the box area
-          if (npVisible > 0 && r >= npBoxTop && r <= npBoxBottom && c >= npBoxLeft && c <= npBoxRight) {
-            let h5 = (c * 518230729 + r * 392041631) | 0;
-            h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
-            const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
-            if (npScatter > npHash) {
-              gridSkip[idx] = 1;
-            }
-          }
-
           // Feed card boxes: suppress terrain inside card bounds.
           // Cards are uniform height/gap, so the card index is arithmetic — O(1) per cell.
           if (contentTitleFade > 0 && feedCards.length > 0) {
@@ -924,6 +928,19 @@ export function useTerrainAnimation(
                   gridSkip[idx] = 1;
                 }
               }
+            }
+          }
+
+          // Now-playing box: suppress terrain inside the box area. Runs AFTER the
+          // feed-card block so on the music feed the np cutout wins over card
+          // cells beneath it (the render-side np text/bg also draws after cards).
+          if (npVisible > 0 && r >= npBoxTop && r <= npBoxBottom && c >= npBoxLeft && c <= npBoxRight) {
+            let h5 = (c * 518230729 + r * 392041631) | 0;
+            h5 = ((h5 ^ (h5 >>> 13)) * 1274126177) | 0;
+            const npHash = ((h5 ^ (h5 >>> 16)) & 0x7fff) / 0x7fff;
+            if (npScatter > npHash) {
+              gridSkip[idx] = 1;
+              gridBg[idx] = 0;
             }
           }
 
@@ -1158,6 +1175,19 @@ export function useTerrainAnimation(
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
         ctx.textBaseline = 'top';
 
+        // On the music feed, cards scroll beneath the box — paint an opaque
+        // background over its footprint first (same technique as the search-row
+        // strip in musicView.ts) so scrolled card text never bleeds through.
+        if (isMusicMode) {
+          ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
+          ctx.fillRect(
+            npBoxLeft * charW,
+            npBoxTop * charH,
+            (npBoxRight - npBoxLeft + 1) * charW,
+            (npBoxBottom - npBoxTop + 1) * charH,
+          );
+        }
+
         // Helper: only draw if cell was scatter-revealed
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -1243,7 +1273,8 @@ export function useTerrainAnimation(
         ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       }
 
-      // --- Music chrome: pinned search row + player box ---
+      // --- Music chrome: pinned search row (the now-playing box itself is
+      // drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
       if (musicUI && feedCards.length > 0 && contentProgress > 0.6) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
@@ -1338,9 +1369,9 @@ export function useTerrainAnimation(
         if (px >= mb.x && px < mb.x + mb.w && py >= mb.y && py < mb.y + mb.h) return 'menu';
       }
 
-      // Music control zones — must win over sub-item card bounds since the player box
-      // draws opaquely OVER cards; checking sub-items first could resolve clicks on
-      // visible controls to the hidden card underneath.
+      // Music control zones — must win over sub-item card bounds since the search
+      // row draws opaquely OVER cards; checking sub-items first could resolve clicks
+      // on the visible search row to a hidden card underneath.
       for (const z of musicControlZones) {
         if (px >= z.x && px < z.x + z.w && py >= z.y && py < z.y + z.h) return `music:${z.action}`;
       }
@@ -1385,7 +1416,7 @@ export function useTerrainAnimation(
           }
         }
       } else if (typeof hit === 'string' && hit.startsWith('music:')) {
-        onMusicControlRef.current?.(hit.slice(6) as 'prev' | 'toggle' | 'next' | 'search');
+        onMusicControlRef.current?.(hit.slice(6) as 'search');
       }
     };
 
