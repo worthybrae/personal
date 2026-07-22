@@ -42,6 +42,11 @@ export interface TerrainConfig {
   // close-to-landing crossfade); set false right before an Esc-close (instant
   // restore, unchanged). Read once on the open->closed edge inside draw().
   menuCloseToHomeRef?: React.MutableRefObject<boolean>;
+  // Set true by Home right before a menu entry navigates to a content page
+  // (portfolio/music): the menu words scatter-dissolve OVER the incoming page
+  // instead of covering it (no landing crossfade, no name reveal). Consumed
+  // (reset to false) by draw() on the open->closed edge.
+  menuCloseToContentRef?: React.MutableRefObject<boolean>;
   onMenuSelect?: (entry: MenuEntryKey) => void;
   // Canvas-native contact mode — same open/close/crossfade conventions as
   // the full-screen "+" menu above, but rendering a "CONTACT" heading cutout
@@ -70,7 +75,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -336,6 +341,15 @@ export function useTerrainAnimation(
     // 0 when the name wasn't shown at all (e.g. opening the menu from a
     // content page), 1 when it was fully on screen (landing, at rest).
     let xfadeFromNameFrac = 1;
+    // Mirror snapshot for a name leg on the INCOMING side: the name's target
+    // resting visibility when the crossfade will land on 'name'. 0 when the
+    // close navigates to a content page (scroll already snapped to 1), so
+    // the name never rides in just to pop back out when the leg ends.
+    let xfadeToNameFrac = 1;
+    // True while the active crossfade is a menu→content close: the menu
+    // words dissolve OVER the revealing page, so the outgoing menu leg must
+    // not count as a page-covering overlay (overlayVisual below).
+    let xfadeMenuOverContent = false;
     // Click-gating for the incoming layer's interactive content (menu
     // entries / contact fields — NOT the W/+ toggle, which stays clickable
     // throughout so a transition can always be cancelled/reversed). Written
@@ -399,10 +413,14 @@ export function useTerrainAnimation(
     let musicLayoutCache: MusicPanelLayout | null = null;
     let musicLayoutKey = '';
     let musicSlotRows = 1;
-    // Page heading for the generic feed (portfolio): scrolls with the cards,
-    // rendered above the first card row. Null in music mode (the pinned panel
-    // owns the title there) and in detail mode (title mask handles it).
-    let feedHeading: { str: string; row: number; left: number; scale: number } | null = null;
+    // Page heading for the generic feed (portfolio): a pinned "PORTFOLIO"
+    // cutout in the exact style/position of the contact page's "CONTACT"
+    // heading (buildFeedHeadingMask mirrors buildContactHeadingMask). Cards
+    // start below feedHeadingBottomRow and scroll under it. Unused in music
+    // mode (the pinned panel owns the title there) and detail mode (title
+    // mask handles it).
+    let feedHeadingGrid: Uint8Array = new Uint8Array(0);
+    let feedHeadingBottomRow = 0;
     let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 6-8 music desktop tiles)
     let feedColWidth = 0;     // grid-col width of a single card/tile, uniform across columns
     const feedColGap = 4;     // grid cols between columns — a deliberate terrain band, not a sliver
@@ -619,6 +637,46 @@ export function useTerrainAnimation(
       contactHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
     }
 
+    // "PORTFOLIO" heading for the generic feed — identical metrics, font, and
+    // position to buildContactHeadingMask above so the two pages' titles look
+    // exactly the same; only the string differs.
+    function buildFeedHeadingMask() {
+      if (!canvas) return;
+      const off = document.createElement('canvas');
+      off.width = canvas.width;
+      off.height = canvas.height;
+      const o = off.getContext('2d')!;
+      o.fillStyle = '#000';
+      o.fillRect(0, 0, off.width, off.height);
+
+      o.fillStyle = '#fff';
+      o.textAlign = 'center';
+      o.textBaseline = 'middle';
+
+      const isPortrait = canvas.height > canvas.width;
+      const lineH = isPortrait ? canvas.width * 0.16 : canvas.height * 0.13;
+      const headerBandPx = 100 * canvasDpr;
+      const cy = headerBandPx + lineH * 1.1;
+      const maxW = canvas.width * 0.9;
+
+      o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      o.fillText('PORTFOLIO', canvas.width / 2, cy, maxW);
+
+      const maskData = o.getImageData(0, 0, off.width, off.height).data;
+      feedHeadingGrid = new Uint8Array(cols * rows);
+      for (let r = 0; r < rows; r++) {
+        const py = Math.floor(r * charH);
+        for (let c = 0; c < cols; c++) {
+          const px = Math.floor(c * charW);
+          const idx = r * cols + c;
+          if (px < off.width && py < off.height) {
+            feedHeadingGrid[idx] = maskData[(py * off.width + px) * 4] > 128 ? 1 : 0;
+          }
+        }
+      }
+      feedHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
+    }
+
     function setupNowPlaying(
       track: string,
       artist: string,
@@ -676,7 +734,6 @@ export function useTerrainAnimation(
     type FeedItem = { text: string; url: string; description?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean };
 
     function setupFeedCards(items: FeedItem[], extraBottomRows = 0) {
-      feedHeading = null;
       if (items.length === 0) {
         feedCards = [];
         feedMaxScroll = 0;
@@ -716,27 +773,21 @@ export function useTerrainAnimation(
       const cappedTextChars = Math.floor(cappedTextCols / textScale);
       feedColWidth = 1 + padH + cappedContentCols + padH + 1;
 
-      // --- Column count: how many content-width cards fit side by side, clamped to
-      // 2 columns (mobile always 1). ---
+      // --- Column count: how many content-width cards fit side by side, clamped
+      // to 2 columns. Mobile is always a single column — checked live (not the
+      // mount-time isMobile) so shrinking the window also collapses to 1. ---
       const maxCols = 2;
       const nFit = Math.floor((cols - 4 + feedColGap) / (feedColWidth + feedColGap));
-      const n = isMobile ? 1 : Math.max(1, Math.min(nFit, maxCols));
+      const n = window.innerWidth < 768 ? 1 : Math.max(1, Math.min(nFit, maxCols));
 
       feedCols = n;
       feedGridLeft = Math.floor((cols - (n * feedColWidth + (n - 1) * feedColGap)) / 2);
 
-      // Vertical layout: below the 100px header, a 3x "PORTFOLIO" heading
-      // that scrolls with the cards, then the card grid.
+      // Vertical layout: cards start below the pinned "PORTFOLIO" heading
+      // cutout (buildFeedHeadingMask — same placement as the contact page's
+      // CONTACT heading) and scroll under it.
       const headerRows = Math.ceil(100 * canvasDpr / charH);
-      const headingScale = 3;
-      const headingStr = 'PORTFOLIO';
-      feedHeading = {
-        str: headingStr,
-        row: headerRows + 2,
-        left: Math.max(0, Math.floor((cols - headingStr.length * headingScale) / 2)),
-        scale: headingScale,
-      };
-      const startRow = headerRows + 2 + headingScale + 2;
+      const startRow = Math.max(headerRows + 2, feedHeadingBottomRow);
       feedStartRow = startRow;
       feedCardHeight = cardHeight;
       feedCardGap = cardGap;
@@ -806,9 +857,11 @@ export function useTerrainAnimation(
       const regionLeft = L.tilesLeftCol;
       const regionRight = cols - (isMobile ? 3 : 5);
       const availCols = Math.max(10, regionRight - regionLeft + 1);
-      const minT = isMobile ? 14 : 20;
-      const desiredN = isMobile ? 4 : 7;
-      const lowerBoundN = isMobile ? 3 : 4;
+      // Mobile: 2 columns of large tiles (readable 2x captions, thumbable
+      // targets) instead of a cramped 3-4 column grid.
+      const minT = isMobile ? 22 : 20;
+      const desiredN = isMobile ? 2 : 7;
+      const lowerBoundN = isMobile ? 2 : 4;
 
       let n = desiredN;
       let T = Math.floor((availCols - (n - 1) * tileGap) / n);
@@ -829,13 +882,18 @@ export function useTerrainAnimation(
       feedColWidth = T;
       feedGridLeft = regionLeft + Math.max(0, Math.floor((availCols - (n * T + (n - 1) * tileGap)) / 2));
 
-      const startRow = L.tilesTopRow;
+      const period = tileHeight + tileGap;
+      const availRows = rows - extraBottomRows - L.tilesTopRow + tileGap;
+      musicSlotRows = Math.max(1, Math.floor(availRows / period));
+      // Center the fixed slot grid in the available band instead of hugging
+      // the top — otherwise the floor() above leaves a dead band at the
+      // bottom (worst on mobile, where one slot row is a large fraction of
+      // the viewport).
+      const leftoverRows = Math.max(0, availRows - musicSlotRows * period);
+      const startRow = L.tilesTopRow + Math.floor(leftoverRows / 2);
       feedStartRow = startRow;
       feedCardHeight = tileHeight;
       feedCardGap = tileGap;
-
-      const period = tileHeight + tileGap;
-      musicSlotRows = Math.max(1, Math.floor((rows - extraBottomRows - startRow + tileGap) / period));
 
       feedCards = items.map((item, i) => {
         const colIdx = i % n;
@@ -929,7 +987,11 @@ export function useTerrainAnimation(
 
       buildMenuOverlayMask();
       buildContactHeadingMask();
+      buildFeedHeadingMask();
 
+      // Force card/tile layouts to rebuild against the new geometry (column
+      // count, tile region, heading rows are all width-dependent).
+      lastFeedItemsKey = '';
       lastContentLabel = null;
     }
 
@@ -998,15 +1060,23 @@ export function useTerrainAnimation(
       // shared by every pair of layers.
       const requestedLayer: OverlayLayer = menuOpenNow ? 'menu' : contactOpenNow ? 'contact' : 'name';
       if (requestedLayer !== currentLayer) {
+        xfadeMenuOverContent = false;
         if (requestedLayer === 'name') {
           // Closing back to landing — animate only if Home set the
           // "animated close" flag for the layer we're leaving (W/+ do;
           // Esc doesn't, so Esc-closes stay an instant restore, unchanged).
+          // A menu entry that navigates to a content page (portfolio/music)
+          // instead sets menuCloseToContentRef: same dissolve animation, but
+          // flagged so the words fade over the incoming page rather than
+          // covering it (consumed once here).
           const animate = currentLayer === 'menu' ? !!menuCloseToHomeRef?.current : !!contactCloseToHomeRef?.current;
-          if (animate) {
+          const toContent = currentLayer === 'menu' && !!menuCloseToContentRef?.current;
+          if (menuCloseToContentRef?.current) menuCloseToContentRef.current = false;
+          if (animate || toContent) {
             xfadeFrom = currentLayer;
             xfadeTo = 'name';
             xfadeStart = ts;
+            xfadeMenuOverContent = toContent;
           } else {
             xfadeFrom = null;
             xfadeTo = null;
@@ -1018,12 +1088,24 @@ export function useTerrainAnimation(
           xfadeFrom = currentLayer;
           xfadeTo = requestedLayer;
           xfadeStart = ts;
+          // Opening the menu over a live content page (portfolio/feed):
+          // render the scattering words over the page while it dissolves
+          // out beneath them (mirror of the close-to-content leg). Music is
+          // excluded — its full-black background gives the cutout words
+          // nothing to read against, so it keeps the instant takeover.
+          if (requestedLayer === 'menu' && !!contentOpenRef?.current && !musicUIRef?.current) {
+            xfadeMenuOverContent = true;
+          }
         }
         // Snapshot the name layer's actual current visibility fraction (0
         // when e.g. we're opening the menu from a content page and the name
         // isn't shown at all) so a name-dissolve leg starts from what's
         // really on screen instead of always assuming it was fully visible.
         if (xfadeFrom === 'name') xfadeFromNameFrac = Math.max(0, Math.min(1, introProgress - nameFade));
+        // Same snapshot for the incoming side: a leg landing on 'name' rides
+        // in toward the name's actual resting visibility (0 on content pages,
+        // where scroll keeps the name dissolved) instead of always toward 1.
+        if (xfadeTo === 'name') xfadeToNameFrac = Math.max(0, Math.min(1, introProgress - nameFade));
         currentLayer = requestedLayer;
       }
 
@@ -1043,7 +1125,7 @@ export function useTerrainAnimation(
       // everyone else is simply fully on or fully off.
       const revealOf = (layer: OverlayLayer): number => {
         if (xfadeFrom !== null) {
-          if (layer === xfadeTo) return xfadeP;
+          if (layer === xfadeTo) return layer === 'name' ? xfadeToNameFrac * xfadeP : xfadeP;
           if (layer === xfadeFrom) return layer === 'name' ? xfadeFromNameFrac * (1 - xfadeP) : 1 - xfadeP;
         }
         return layer === currentLayer ? 1 : 0;
@@ -1067,8 +1149,16 @@ export function useTerrainAnimation(
       // Combined "something full-screen is covering the page" flag — gates
       // every piece of underlying-page rendering (feed/tiles/np box/search
       // row/content masks/full-black music mode/terrain melt) for the whole
-      // transition, in either direction.
-      const overlayVisual = menuVisible || contactVisible;
+      // transition, in either direction. A menu→content close is the
+      // exception: the dissolving words render over the page WITHOUT
+      // suppressing it, so the page fades in beneath them.
+      // Over-content legs only stay transparent while the crossfade runs: an
+      // open-over-content leg must become a real overlay once the menu is at
+      // rest (the page has fully dissolved out by then — see the
+      // contentTitleFade scaling below), while a close leg ends with the menu
+      // gone anyway so the live-window distinction is free there.
+      const menuOverContentLive = xfadeMenuOverContent && xfadeFrom !== null;
+      const overlayVisual = (menuVisible && !menuOverContentLive) || contactVisible;
 
       // --- Content open animation ---
       let contentProgress = contentProgressRef.current;
@@ -1161,7 +1251,12 @@ export function useTerrainAnimation(
       const musicFullBlack = isMusicMode && contentProgress >= 1 && !overlayVisual;
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
       // and the intro block all scroll UNDER this boundary, never over it.
+      // On the generic feed the boundary extends to below the pinned
+      // PORTFOLIO heading so scrolled cards slide under the title too.
       const pinnedHeaderRows = Math.ceil(100 * canvasDpr / charH);
+      const feedContentTopRow = isMusicMode
+        ? pinnedHeaderRows
+        : Math.max(pinnedHeaderRows, feedHeadingBottomRow - 1);
 
       // --- Color LUT (reuse array, just overwrite values) ---
       const colorFn = getDuotoneColor;
@@ -1204,7 +1299,11 @@ export function useTerrainAnimation(
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Content titles scatter in (0.4→1.0)
-      const contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
+      let contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
+      // Menu opening over content: hash-dissolve the page out as the words
+      // scatter in, so the page hits zero exactly when the crossfade ends and
+      // overlayVisual takes over the suppression.
+      if (xfadeMenuOverContent && xfadeTo === 'menu') contentTitleFade *= 1 - menuReveal;
       const currentLabel = activeLabelRef?.current ?? null;
       const subItemsKey = cachedSubItemsKey;
       const detail = config.detailRef?.current;
@@ -1473,12 +1572,25 @@ export function useTerrainAnimation(
             if (contactReveal > hashC) gridSkip[idx] = 1;
           }
 
+          // Pinned "PORTFOLIO" heading (generic feed only): cutout silhouette
+          // in the exact style of the contact page's CONTACT heading, hash-
+          // gated so it scatter-reveals with the cards and whites out on exit.
+          if (!overlayVisual && !isMusicMode && contentTitleFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
+            let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
+            hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
+            const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
+            if (contentTitleFade * maskOpacity >= headingHash) {
+              if (contentTarget === 0 && !feedActive) gridColors[idx] = COLOR_LEVELS;
+              else gridSkip[idx] = 1;
+            }
+          }
+
           // Feed card / music tile boxes: suppress terrain inside the footprint.
           // Cards/tiles sit on a uniform row-block/column grid, so the index is
           // arithmetic — O(1) per cell (2D: row-block × column). Rows above
-          // pinnedHeaderRows are excluded so scrolled content never swallows
-          // the W/+/header band.
-          if (!overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= pinnedHeaderRows) {
+          // feedContentTopRow are excluded so scrolled content never swallows
+          // the W/+/header band (or the pinned PORTFOLIO heading on the feed).
+          if (!overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
             const scrolledR = r + drawScroll;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -1535,23 +1647,6 @@ export function useTerrainAnimation(
               }
             }
 
-            // Feed heading ("PORTFOLIO"): suppress terrain over the glyph
-            // cells, hash-gated like the cards so it scatter-reveals with them
-            // and whites out on exit the same way.
-            if (feedHeading) {
-              const hr = Math.floor(scrolledR) - feedHeading.row;
-              if (hr >= 0 && hr < feedHeading.scale &&
-                  c >= feedHeading.left && c < feedHeading.left + feedHeading.str.length * feedHeading.scale) {
-                let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
-                hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
-                const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
-                if (contentTitleFade * maskOpacity >= headingHash) {
-                  const isClosing = contentTarget === 0;
-                  if (isClosing && !feedActive) gridColors[idx] = COLOR_LEVELS;
-                  else gridSkip[idx] = 1;
-                }
-              }
-            }
           }
 
           // Now-playing box: suppress terrain inside the box area. Runs AFTER the
@@ -1732,7 +1827,7 @@ export function useTerrainAnimation(
         // header area stay visible at any scroll position.
         ctx.save();
         ctx.beginPath();
-        ctx.rect(0, pinnedHeaderRows * charH, canvas.width, canvas.height - pinnedHeaderRows * charH);
+        ctx.rect(0, feedContentTopRow * charH, canvas.width, canvas.height - feedContentTopRow * charH);
         ctx.clip();
 
         if (isMusicMode) {
@@ -1834,22 +1929,6 @@ export function useTerrainAnimation(
             }
           }
         } else {
-          // --- Page heading ("PORTFOLIO"): scrolls with the cards, full brightness ---
-          if (feedHeading) {
-            const headingScreenRow = Math.round(feedHeading.row - drawScroll);
-            if (headingScreenRow + feedHeading.scale > 0 && headingScreenRow < rows) {
-              ctx.font = `${fontSize * feedHeading.scale}px 'JetBrains Mono','Courier New',monospace`;
-              ctx.textBaseline = 'top';
-              for (let i = 0; i < feedHeading.str.length; i++) {
-                const c = feedHeading.left + i * feedHeading.scale;
-                if (!canDraw(headingScreenRow, c)) continue;
-                const idx = headingScreenRow * cols + c;
-                ctx.fillStyle = colorLUT[gridColors[idx]];
-                ctx.fillText(feedHeading.str[i], c * charW, headingScreenRow * charH);
-              }
-            }
-          }
-
           for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
             const fc = feedCards[fi];
             const ts2 = fc.textScale;
@@ -1909,7 +1988,7 @@ export function useTerrainAnimation(
         } else {
           feedBoundsArr.fill(OFFSCREEN_BOUNDS);
         }
-        const clampTopPx = pinnedHeaderRows * charH; // cards under the pinned header aren't clickable there
+        const clampTopPx = feedContentTopRow * charH; // cards under the pinned header/heading aren't clickable there
         for (let fi = feedVisStart; fi < feedVisEnd; fi++) {
           const fc = feedCards[fi];
           const screenTop = Math.round(fc.baseTop - drawScroll);

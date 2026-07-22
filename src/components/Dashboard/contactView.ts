@@ -17,7 +17,9 @@ export interface ContactUIState {
   name: string;
   email: string;
   message: string;
-  activeField: ContactField;
+  // null until the user actually selects a field (click/tap or Tab) — no
+  // field is active on open, so no caret blinks until then.
+  activeField: ContactField | null;
   status: ContactStatus;
 }
 

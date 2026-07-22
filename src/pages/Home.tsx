@@ -89,7 +89,7 @@ export default function Home() {
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
-  const [contactActiveField, setContactActiveField] = useState<ContactField>('name');
+  const [contactActiveField, setContactActiveField] = useState<ContactField | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>('idle');
 
   const contactNameRef = useRef(contactName); contactNameRef.current = contactName;
@@ -120,11 +120,12 @@ export default function Home() {
     el?.focus();
   }, []);
 
-  // Auto-focus the first field the moment contact mode opens, so typing
-  // works immediately without requiring a click first (desktop keyboard).
+  // No auto-focus on open: the caret only appears once a field is actually
+  // selected (click/tap or Tab). Reset the selection each time the form
+  // opens so a previous session's active field doesn't blink on arrival.
   useEffect(() => {
-    if (contactOpen) focusContactField('name');
-  }, [contactOpen, focusContactField]);
+    if (contactOpen) setContactActiveField(null);
+  }, [contactOpen]);
 
   const handleSendContact = useCallback(async () => {
     if (contactStatusRef.current === 'sending') return;
@@ -359,15 +360,23 @@ export default function Home() {
   }, [navigate, menuOpen, contactOpen]);
   const handleMenuClick = useCallback(() => {
     if (menuOpen) {
-      menuCloseToHomeRef.current = true;
-      setMenuOpen(false);
-      navigate('/');
+      if (page === 'home') {
+        menuCloseToHomeRef.current = true;
+        setMenuOpen(false);
+        navigate('/');
+      } else {
+        // Close back to the page the menu was opened over (portfolio/music/
+        // detail): stay on the route and dissolve the menu words over the
+        // live content instead of navigating to the landing.
+        menuCloseToContentRef.current = true;
+        setMenuOpen(false);
+      }
     } else {
       // Opens over contact mode without closing it — contact stays open
       // underneath until Esc or W (handleLogoClick above) closes it.
       setMenuOpen(true);
     }
-  }, [menuOpen, navigate]);
+  }, [menuOpen, navigate, page]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
     contactCloseToHomeRef.current = false;
@@ -529,7 +538,11 @@ export default function Home() {
       if (e.key !== 'Tab') return;
       e.preventDefault();
       const order: ContactField[] = ['name', 'email', 'message'];
-      const idx = order.indexOf(contactActiveFieldRef.current);
+      const cur = contactActiveFieldRef.current;
+      // Nothing selected yet: Tab enters the form at the first field,
+      // Shift-Tab at the last.
+      if (cur === null) { focusContactField(e.shiftKey ? 'message' : 'name'); return; }
+      const idx = order.indexOf(cur);
       const next = e.shiftKey ? (idx - 1 + order.length) % order.length : (idx + 1) % order.length;
       focusContactField(order[next]);
     };
@@ -568,7 +581,7 @@ export default function Home() {
           aria-label="Search tracks"
           autoCapitalize="off"
           autoCorrect="off"
-          style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+          style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
         />
       )}
 
@@ -584,10 +597,11 @@ export default function Home() {
             value={contactName}
             onChange={(e) => { setContactName(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
             onFocus={() => setContactActiveField('name')}
+            onBlur={() => setContactActiveField(null)}
             aria-label="Your name"
             autoCapitalize="off"
             autoCorrect="off"
-            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
           />
           <input
             ref={contactEmailInputRef}
@@ -595,19 +609,21 @@ export default function Home() {
             value={contactEmail}
             onChange={(e) => { setContactEmail(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
             onFocus={() => setContactActiveField('email')}
+            onBlur={() => setContactActiveField(null)}
             aria-label="Your email"
             autoCapitalize="off"
             autoCorrect="off"
-            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
           />
           <textarea
             ref={contactMessageInputRef}
             value={contactMessage}
             onChange={(e) => { setContactMessage(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
             onFocus={() => setContactActiveField('message')}
+            onBlur={() => setContactActiveField(null)}
             aria-label="Your message"
             maxLength={CONTACT_MESSAGE_MAX}
-            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
           />
         </>
       )}
