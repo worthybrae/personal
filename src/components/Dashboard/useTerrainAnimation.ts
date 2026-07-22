@@ -1361,12 +1361,16 @@ export function useTerrainAnimation(
           npBoxTop = Infinity;
         }
       }
-      // On the home page: fades out as contentProgress increases, hidden during any
-      // transition or feed. On the music feed: pinned fully visible while cards are up
-      // (isMusicMode wins over feedCards.length === 0 since cards ARE the feed there).
-      const npVisible = overlayVisual ? 0 : (np?.track && (feedCards.length === 0 || isMusicMode) && !feedToDetailMelt && !detailToFeedMelt
-        ? (isMusicMode ? 1 : Math.max(0, 1 - contentProgress * 3))
-        : 0);
+      // Persistent across pages: fully visible under the menu/contact
+      // overlays and on the music feed; on the home page it fades out as
+      // contentProgress increases. Hidden only on portfolio pages (the
+      // generic feed and detail pages — feedCards>0 / contentProgress→1)
+      // and during the melt transitions.
+      const npVisible = (np?.track && !feedToDetailMelt && !detailToFeedMelt)
+        ? (overlayVisual || isMusicMode
+            ? 1
+            : feedCards.length === 0 ? Math.max(0, 1 - contentProgress * 3) : 0)
+        : 0;
       const npIntro = Math.max(0, Math.min(1, (introElapsed - 1800) / 1200));
 
       // Re-entry scatter: when now-playing becomes visible again after initial intro, animate scatter-in
@@ -2143,6 +2147,7 @@ export function useTerrainAnimation(
           getMusicLayout(),
           musicUI,
           `rgb(${clearBgR},${clearBgG},${clearBgB})`,
+          (tc, tr) => colorLUT[gridColors[Math.min(rows - 1, Math.max(0, tr)) * cols + Math.min(cols - 1, Math.max(0, tc))]],
         );
       } else {
         musicControlZones = [];

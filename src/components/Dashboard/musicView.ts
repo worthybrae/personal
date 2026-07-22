@@ -28,7 +28,7 @@ export interface ControlZone {
   x: number; y: number; w: number; h: number; // canvas pixels
 }
 
-export interface PanelLine { str: string; col: number; row: number; scale: number; alpha: number }
+export interface PanelLine { str: string; col: number; row: number; scale: number; alpha: number; terrain?: boolean }
 export interface MusicPanelLayout {
   panelLeft: number;
   panelWidth: number;
@@ -46,8 +46,11 @@ const MONO = "'JetBrains Mono','Courier New',monospace";
 const SEARCH_LABEL = 'SEARCH: ';
 const BLURB =
   'I FELL IN LOVE WITH MUSIC WHEN I DISCOVERED MIXTAPES IN EARLY 2015. ' +
-  'ALONGSIDE THE TAPES I STARTED COLLECTING UNRELEASED AND LEAKED TRACKS, ' +
-  'FIRST HOSTED ON A BASIC WORDPRESS SITE. THAT COLLECTION IS REVIVED HERE.';
+  'I STARTED COLLECTING THEM ON A HARD DRIVE THAT HAS MIRACULOUSLY SURVIVED ' +
+  'SINCE THEN. AT SOME POINT I ALSO STARTED TO COLLECT UNRELEASED / LEAKED ' +
+  'TRACKS THAT SURFACED ONLINE. THE FIRST WEBSITE I MADE WAS A BASIC ' +
+  'WORDPRESS SITE THAT HOSTED SOME OF MY FAVORITE LEAKED MUSIC. WHILE THAT ' +
+  'WEBSITE IS LONG GONE, I WANTED TO REVIVE MY COLLECTION HERE.';
 
 function wrapText(text: string, width: number): string[] {
   const out: string[] = [];
@@ -72,8 +75,8 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
     const top = geom.headerRows + 3;
 
     // Title at 3x, two stacked lines
-    lines.push({ str: 'UNRELEASED', col: panelLeft, row: top, scale: 3, alpha: 0.95 });
-    lines.push({ str: 'LIBRARY', col: panelLeft, row: top + 3, scale: 3, alpha: 0.95 });
+    lines.push({ str: 'UNRELEASED', col: panelLeft, row: top, scale: 3, alpha: 0.95, terrain: true });
+    lines.push({ str: 'LIBRARY', col: panelLeft, row: top + 3, scale: 3, alpha: 0.95, terrain: true });
 
     // Blurb at 2x for readability
     let row = top + 7;
@@ -98,7 +101,7 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
   const panelWidth = cols - 6;
   const top = geom.headerRows + 2;
 
-  lines.push({ str: 'UNRELEASED LIBRARY', col: panelLeft, row: top, scale: 2, alpha: 0.95 });
+  lines.push({ str: 'UNRELEASED LIBRARY', col: panelLeft, row: top, scale: 2, alpha: 0.95, terrain: true });
   let row = top + 3;
   for (const l of wrapText(BLURB, panelWidth)) {
     lines.push({ str: l, col: panelLeft, row, scale: 1, alpha: 0.55 });
@@ -122,6 +125,9 @@ export function drawMusicChrome(
   layout: MusicPanelLayout,
   state: MusicChromeState,
   bgFill: string,
+  // Per-cell terrain color sampler (colorLUT[gridColors]) — lines flagged
+  // `terrain` render in the animated background palette instead of white.
+  terrainFill?: (col: number, row: number) => string,
 ): ControlZone[] {
   const { charW, charH, fontSize } = geom;
   ctx.textBaseline = 'top';
@@ -148,7 +154,16 @@ export function drawMusicChrome(
 
   // --- Title + blurb ---
   for (const ln of L.lines) {
-    putText(ln.str, ln.col, ln.row, ln.scale, `rgba(255,255,255,${ln.alpha})`);
+    if (ln.terrain && terrainFill) {
+      ctx.font = `${fontSize * ln.scale}px ${MONO}`;
+      for (let i = 0; i < ln.str.length; i++) {
+        if (ln.str[i] === ' ') continue;
+        ctx.fillStyle = terrainFill(ln.col + i * ln.scale, ln.row);
+        ctx.fillText(ln.str[i], (ln.col + i * ln.scale) * charW, ln.row * charH);
+      }
+    } else {
+      putText(ln.str, ln.col, ln.row, ln.scale, `rgba(255,255,255,${ln.alpha})`);
+    }
   }
 
   // --- Search input ---
