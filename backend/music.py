@@ -2,13 +2,16 @@ import os
 import json
 import time
 import logging
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
 _CATALOG_TTL = 300
 _PRESIGN_TTL = 3600
+_ART_CACHE_SIZE = 200
 
 _cache: dict = {}
+_art_cache: OrderedDict = OrderedDict()
 _s3 = None
 _s3_failed = False
 
@@ -76,3 +79,38 @@ def get_stream_url(track_id: str) -> str | None:
         Params={"Bucket": os.getenv("R2_BUCKET", ""), "Key": f"tracks/{track_id}.{track['ext']}"},
         ExpiresIn=_PRESIGN_TTL,
     )
+
+
+def get_art(track_id: str) -> bytes | None:
+    """Fetch album art for a track. Returns JPEG bytes or None if unavailable."""
+    catalog = get_catalog()
+    if not catalog:
+        return None
+    track = next((t for t in catalog.get("tracks", []) if t["id"] == track_id), None)
+    if track is None:
+        return None
+    if not track.get("has_art", False):
+        return None
+
+    # Check cache first
+    if track_id in _art_cache:
+        _art_cache.move_to_end(track_id)
+        return _art_cache[track_id]
+
+    client = _get_client()
+    if client is None:
+        return None
+
+    bucket = os.getenv("R2_BUCKET", "")
+    try:
+        obj = client.get_object(Bucket=bucket, Key=f"art/{track_id}.jpg")
+        art_bytes = obj["Body"].read()
+    except Exception:
+        logger.exception(f"failed to fetch art/{track_id}.jpg from R2")
+        return None
+
+    # Store in cache (evict oldest if at capacity)
+    if len(_art_cache) >= _ART_CACHE_SIZE:
+        _art_cache.popitem(last=False)
+    _art_cache[track_id] = art_bytes
+    return art_bytes

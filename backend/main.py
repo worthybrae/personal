@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -86,6 +86,22 @@ async def music_stream(track_id: str):
     if url is None:
         raise HTTPException(status_code=404, detail="unknown track")
     return RedirectResponse(url, status_code=302)
+
+
+@app.get("/api/music/art/{track_id}")
+async def music_art(track_id: str):
+    from music import get_catalog, get_art
+    catalog = get_catalog()
+    if catalog is None:
+        raise HTTPException(status_code=503, detail="music catalog unavailable")
+    art_bytes = get_art(track_id)
+    if art_bytes is None:
+        raise HTTPException(status_code=404, detail="unknown track or no artwork")
+    return Response(
+        content=art_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 @app.get("/api/spotify/now-playing")
