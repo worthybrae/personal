@@ -147,9 +147,19 @@ export default function Home() {
   const [searchFocused, setSearchFocused] = useState(false);
 
   // Keep the ref in sync every render (player UI flows through by reference so
-  // canvas sees live progress).
+  // canvas sees live progress). playingTrackId/playingIsPlaying are getters
+  // (not snapshotted values) so the rAF draw loop always reads whichever
+  // track is live at access time — player.uiRef.current is replaced wholesale
+  // by startCurrent() without triggering a React re-render, so a plain field
+  // captured here would go stale immediately (same reasoning as localPlayerRef above).
   musicUIRef.current = page === 'music'
-    ? { query: musicQuery, focused: searchFocused, caretOn: true }
+    ? {
+        query: musicQuery,
+        focused: searchFocused,
+        caretOn: true,
+        get playingTrackId() { return player.uiRef.current?.trackId ?? null; },
+        get playingIsPlaying() { return player.uiRef.current?.isPlaying ?? false; },
+      }
     : null;
 
   const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);

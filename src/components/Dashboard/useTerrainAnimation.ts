@@ -1145,12 +1145,37 @@ export function useTerrainAnimation(
           ctx.textBaseline = 'top';
 
           // --- Icon (on name row, full brightness) ---
-          for (let i = 0; i < fc.iconStr.length; i++) {
-            const c = fc.iconCol + i * ts2;
-            if (!canDraw(nameScreenRow, c)) continue;
-            const idx = nameScreenRow * cols + c;
-            ctx.fillStyle = colorLUT[gridColors[idx]];
-            ctx.fillText(fc.iconStr[i], c * charW, nameScreenRow * charH);
+          // Playing track's card gets an animated equalizer in place of its
+          // static icon. playingTrackId is a getter (see Home.tsx) so this
+          // always reflects the live player, not a stale render-time snapshot.
+          const playingTrackId = musicUIRef?.current?.playingTrackId ?? null;
+          const isPlayingCard = playingTrackId != null && fc.url === 'music:' + playingTrackId;
+          if (isPlayingCard) {
+            const isPlayingNow = musicUIRef?.current?.playingIsPlaying ?? false;
+            const barChars = '░▒▓█';
+            for (let i = 0; i < fc.iconStr.length; i++) {
+              const c = fc.iconCol + i * ts2;
+              if (!canDraw(nameScreenRow, c)) continue;
+              const idx = nameScreenRow * cols + c;
+              let charIdx = 0;
+              if (isPlayingNow) {
+                const p1 = Math.sin(ts * 0.005 + i * 1.7);
+                const p2 = Math.sin(ts * 0.0083 + i * 2.9 + 0.5);
+                const p3 = Math.sin(ts * 0.013 + i * 0.7 + nameScreenRow * 3.1);
+                const wave = Math.max(0, Math.min(1, (p1 + p2 * 0.6 + p3 * 0.3 + 1.2) / 2.8));
+                charIdx = Math.min(barChars.length - 1, (wave * barChars.length) | 0);
+              }
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(barChars[charIdx], c * charW, nameScreenRow * charH);
+            }
+          } else {
+            for (let i = 0; i < fc.iconStr.length; i++) {
+              const c = fc.iconCol + i * ts2;
+              if (!canDraw(nameScreenRow, c)) continue;
+              const idx = nameScreenRow * cols + c;
+              ctx.fillStyle = colorLUT[gridColors[idx]];
+              ctx.fillText(fc.iconStr[i], c * charW, nameScreenRow * charH);
+            }
           }
 
           // --- Name (full brightness) ---

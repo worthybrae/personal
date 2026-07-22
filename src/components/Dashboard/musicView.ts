@@ -12,6 +12,12 @@ export interface MusicChromeState {
   query: string;
   focused: boolean;
   caretOn: boolean;
+  // Getter-backed in Home.tsx (localPlayerRef pattern): trackId changes
+  // without a React render, so these read the live player ref at access
+  // time rather than being snapshotted into this object. Optional so
+  // callers/tests that only exercise the search chrome need not supply them.
+  playingTrackId?: string | null;
+  playingIsPlaying?: boolean;
 }
 export interface ControlZone {
   action: 'search';
