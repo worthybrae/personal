@@ -307,7 +307,10 @@ export function useTerrainAnimation(
     }
     let feedCards: FeedCard[] = [];
     let musicControlZones: ControlZone[] = [];
-    let feedCardWidth = 0;
+    let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 3 music desktop)
+    let feedColWidth = 0;     // grid-col width of a single card (uniform across columns)
+    const feedColGap = 2;     // grid cols between columns
+    let feedGridLeft = 0;     // grid col where the centered grid begins
     let feedStartRow = 0;
     let feedCardHeight = 0;
     let feedCardGap = 0;
@@ -474,34 +477,39 @@ export function useTerrainAnimation(
       const padV = 1;          // vertical padding (grid rows)
       const iconChars = 3;     // max icon characters
       const gapAfterIcon = 2;  // gap between icon and text (grid cols)
-      const cardGap = 4;       // rows between cards
+      const cardGap = 4;       // rows between card row-blocks
 
       // Each text line spans textScale rows; 2 lines (name + desc)
       const cardHeight = padV + textScale * 2 + padV; // 1 + 4 + 1 = 6
+      const iconCols = iconChars * textScale;
 
-      // Text width: measure in characters, then convert to grid columns via textScale
-      let maxTextChars = 0;
-      for (const item of items) {
-        const nameLen = item.text.toUpperCase().length;
-        const descLen = (item.description ?? '').toUpperCase().length;
-        maxTextChars = Math.max(maxTextChars, nameLen, descLen);
+      // --- Column count: music mode gets 3 desktop columns, other feeds 2; mobile always 1 ---
+      const isMusicMode = !!musicUIRef?.current;
+      let n = isMobile ? 1 : (isMusicMode ? 3 : 2);
+
+      // usable = full width minus a 2-col margin on each side
+      const colWidthFor = (k: number) => Math.floor((cols - 4 - (k - 1) * feedColGap) / k);
+      // Text char cap derived from a single column's box width (all columns share
+      // the same width — icon + gap layout stays fixed inside each card).
+      const textCharsFor = (colW: number) => {
+        const cappedContentCols = colW - (1 + padH + padH + 1);
+        const cappedTextCols = cappedContentCols - iconCols - gapAfterIcon;
+        return Math.floor(cappedTextCols / textScale);
+      };
+
+      let colWidth = colWidthFor(n);
+      let cappedTextChars = textCharsFor(colWidth);
+      // 3-col music layout can starve text width on narrower desktops (e.g. ~1024px) —
+      // clamp down to 2 columns once the per-card text cap drops below a usable minimum.
+      if (n === 3 && cappedTextChars < 8) {
+        n = 2;
+        colWidth = colWidthFor(n);
+        cappedTextChars = textCharsFor(colWidth);
       }
 
-      const iconCols = iconChars * textScale;
-      const textCols = maxTextChars * textScale;
-      const contentCols = iconCols + gapAfterIcon + textCols;
-      const maxBoxCols = Math.min(cols - 6, 90);
-      const cappedContentCols = Math.min(contentCols, maxBoxCols - (1 + padH + padH + 1));
-      const cappedTextCols = cappedContentCols - iconCols - gapAfterIcon;
-      const cappedTextChars = Math.floor(cappedTextCols / textScale);
-      feedCardWidth = 1 + padH + cappedContentCols + padH + 1;
-
-      // Center horizontally
-      const cardLeft = Math.floor((cols - feedCardWidth) / 2);
-      const cardRight = cardLeft + feedCardWidth - 1;
-      const contentLeft = cardLeft + 1 + padH;
-      const iconCol = contentLeft;
-      const textCol = contentLeft + iconCols + gapAfterIcon;
+      feedCols = n;
+      feedColWidth = colWidth;
+      feedGridLeft = Math.floor((cols - (n * feedColWidth + (n - 1) * feedColGap)) / 2);
 
       // Vertical layout: start below the 100px header
       const headerRows = Math.ceil(100 * canvasDpr / charH);
@@ -511,14 +519,21 @@ export function useTerrainAnimation(
       feedCardGap = cardGap;
 
       feedCards = items.map((item, i) => {
-        const baseTop = startRow + i * (cardHeight + cardGap);
+        const colIdx = i % n;
+        const rowBlock = Math.floor(i / n);
+        const left = feedGridLeft + colIdx * (feedColWidth + feedColGap);
+        const right = left + feedColWidth - 1;
+        const contentLeft = left + 1 + padH;
+        const iconCol = contentLeft;
+        const textCol = contentLeft + iconCols + gapAfterIcon;
+        const baseTop = startRow + rowBlock * (cardHeight + cardGap);
         const nameStr = item.text.toUpperCase();
         const descStr = (item.description ?? '').toUpperCase();
         return {
           baseTop,
           baseBottom: baseTop + cardHeight - 1,
-          left: cardLeft,
-          right: cardRight,
+          left,
+          right,
           iconCol,
           textCol,
           catRow: 0,
@@ -533,7 +548,8 @@ export function useTerrainAnimation(
         };
       });
 
-      const totalFeedHeight = startRow + items.length * (cardHeight + cardGap);
+      const numRowBlocks = Math.ceil(items.length / n);
+      const totalFeedHeight = startRow + numRowBlocks * (cardHeight + cardGap);
       feedMaxScroll = Math.max(0, totalFeedHeight - rows + 3 + extraBottomRows);
     }
 
@@ -906,14 +922,22 @@ export function useTerrainAnimation(
           }
 
           // Feed card boxes: suppress terrain inside card bounds.
-          // Cards are uniform height/gap, so the card index is arithmetic — O(1) per cell.
+          // Cards sit on a uniform row-block/column grid, so the card index is
+          // arithmetic — O(1) per cell (2D: row-block × column).
           if (contentTitleFade > 0 && feedCards.length > 0) {
             const scrolledR = r + feedScrollOffset;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
-            const fi = Math.floor(rel / period);
-            const fc = fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
-            if (fc && rel - fi * period <= feedCardHeight - 1 && c >= fc.left && c <= fc.right) {
+            const rowBlock = Math.floor(rel / period);
+            const colPeriod = feedColWidth + feedColGap;
+            const gc = c - feedGridLeft;
+            // Math.floor of a negative gc (cells left of the grid) yields -1 or lower,
+            // which the colIdx < 0 check below rejects.
+            const colIdx = Math.floor(gc / colPeriod);
+            const inColumn = colIdx >= 0 && colIdx < feedCols && gc - colIdx * colPeriod < feedColWidth;
+            const fi = rowBlock * feedCols + colIdx;
+            const fc = inColumn && rowBlock >= 0 && fi >= 0 && fi < feedCards.length ? feedCards[fi] : null;
+            if (fc && rel - rowBlock * period <= feedCardHeight - 1 && c >= fc.left && c <= fc.right) {
               let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
               hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
               const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
