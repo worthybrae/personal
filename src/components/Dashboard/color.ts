@@ -25,13 +25,6 @@ export const DUOTONES: Duotone[] = [
   { name: 'neon', a: { r: 180, g: 255, b: 100 }, b: { r: 255, g: 100, b: 190 }, bg: { r: 10, g: 14, b: 10 } },
 ];
 
-const RAMP = ".,':;|!ilc/1{[?eoasd0OkxXdpbWM#@@";
-
-/** Pick a character from the density ramp based on elevation value (0–1) */
-export function charForVal(val: number): string {
-  return RAMP[Math.max(0, Math.min(RAMP.length - 1, Math.floor(val * (RAMP.length - 1))))];
-}
-
 /** Logistic S-curve for contrast enhancement */
 export function scurve(val: number, strength: number): number {
   return 1 / (1 + Math.exp(-strength * (Math.max(0, Math.min(1, val)) - 0.5)));

@@ -1,0 +1,4 @@
+boto3==1.35.76
+mutagen==1.47.0
+Pillow==11.0.0
+pytest==8.3.4

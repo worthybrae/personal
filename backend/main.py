@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,6 +68,55 @@ async def blog_detail(slug: str):
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
+
+
+@app.get("/api/music/catalog")
+async def music_catalog():
+    from music import get_catalog
+    catalog = get_catalog()
+    if catalog is None:
+        raise HTTPException(status_code=503, detail="music catalog unavailable")
+    return catalog
+
+
+@app.get("/api/music/stream/{track_id}")
+async def music_stream(track_id: str):
+    from music import get_stream_url
+    url = get_stream_url(track_id)
+    if url is None:
+        raise HTTPException(status_code=404, detail="unknown track")
+    return RedirectResponse(url, status_code=302)
+
+
+@app.post("/api/music/plays/{track_id}")
+async def music_record_play(track_id: str):
+    from music import record_play, get_play_stats
+    if not record_play(track_id):
+        raise HTTPException(status_code=404, detail="unknown track")
+    # Return the fresh stat so the client can update its display immediately.
+    return get_play_stats()
+
+
+@app.get("/api/music/plays/stats")
+async def music_play_stats():
+    from music import get_play_stats
+    return get_play_stats()
+
+
+@app.get("/api/music/art/{track_id}")
+async def music_art(track_id: str):
+    from music import get_catalog, get_art
+    catalog = get_catalog()
+    if catalog is None:
+        raise HTTPException(status_code=503, detail="music catalog unavailable")
+    art_bytes = get_art(track_id)
+    if art_bytes is None:
+        raise HTTPException(status_code=404, detail="unknown track or no artwork")
+    return Response(
+        content=art_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 @app.get("/api/spotify/now-playing")

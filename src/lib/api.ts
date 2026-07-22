@@ -9,6 +9,7 @@ import type {
   SpotifyTopTracks,
   LetterboxdRecent,
 } from '@/types/analytics';
+import type { MusicCatalog, MusicPlayStats } from '@/types/music';
 
 const BASE = '/api';
 
@@ -28,4 +29,11 @@ export const api = {
   getSpotifyNowPlaying: () => fetchJSON<SpotifyNowPlaying>('/spotify/now-playing'),
   getSpotifyTopTracks: () => fetchJSON<SpotifyTopTracks>('/spotify/top-tracks'),
   getLetterboxdRecent: () => fetchJSON<LetterboxdRecent>('/letterboxd/recent'),
+  getMusicCatalog: () => fetchJSON<MusicCatalog>('/music/catalog'),
+  getMusicPlayStats: () => fetchJSON<MusicPlayStats>('/music/plays/stats'),
+  recordMusicPlay: async (trackId: string): Promise<MusicPlayStats> => {
+    const res = await fetch(`${BASE}/music/plays/${encodeURIComponent(trackId)}`, { method: 'POST' });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  },
 };

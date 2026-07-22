@@ -5,21 +5,28 @@ import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
 import { ART_PIECES, getArtPiece } from '@/lib/art';
 import { useFetch } from '@/hooks/useAnalytics';
+import { useMusicPlayer } from '@/hooks/useMusicPlayer';
 import { api } from '@/lib/api';
+import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
 import { ExternalLink } from 'lucide-react';
 import type { SpotifyNowPlaying } from '@/types/analytics';
+import type { MusicChromeState } from '@/components/Dashboard/musicView';
+import { CONTACT_MESSAGE_MAX, isContactFormValid, type ContactField, type ContactStatus, type ContactUIState } from '@/components/Dashboard/contactView';
+import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 
-type Page = 'home' | 'feed' | 'work-detail' | 'art-detail';
+type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
 function parseRoute(path: string): { page: Page; slug?: string } {
   if (path === '/feed') return { page: 'feed' };
+  if (path === '/music') return { page: 'music' };
   if (path.startsWith('/work/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/work/'.length)) };
   if (path.startsWith('/art/')) return { page: 'art-detail', slug: decodeURIComponent(path.slice('/art/'.length)) };
   return { page: 'home' };
 }
 
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
+const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,7 +53,115 @@ export default function Home() {
   const detailToFeedRef = useRef(false);
 
   // Track feed closing animation
-  const [feedClosing, setFeedClosing] = useState(false);
+  // While a card page (feed/music) closes back to home, remember WHICH page
+  // is closing so its items keep rendering through the fade — falling back to
+  // the feed's items mid-close flashed a portfolio list when leaving /music.
+  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'music'>(null);
+
+  // Full-screen "+" menu overlay. React state drives the button's toggle and
+  // the Esc handler; menuOpenRef mirrors it for the canvas draw loop (rAF
+  // reads .current every frame — a plain boolean ref sync in render is fine
+  // here, unlike the getter-refs elsewhere that guard against stale closures
+  // over objects replaced wholesale outside React's render cycle).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpenRef = useRef(false);
+  menuOpenRef.current = menuOpen;
+  // Set right before closing the menu: true for W/+ (animated close-to-landing
+  // crossfade), false for Esc (instant restore, unchanged). Read once by the
+  // canvas draw loop on the open->closed edge.
+  const menuCloseToHomeRef = useRef(false);
+  // Set right before a menu entry navigates to a content page (portfolio /
+  // music): the draw loop dissolves the menu words over the incoming page
+  // instead of dropping them instantly. Consumed (reset) by the draw loop.
+  const menuCloseToContentRef = useRef(false);
+
+  // Canvas-native contact mode — built into the terrain like the "+" menu
+  // above (contactOpenRef mirrors contactOpen the same way menuOpenRef
+  // mirrors menuOpen; contactCloseToHomeRef mirrors menuCloseToHomeRef).
+  const [contactOpen, setContactOpen] = useState(false);
+  const contactOpenRef = useRef(false);
+  contactOpenRef.current = contactOpen;
+  const contactCloseToHomeRef = useRef(false);
+
+  // Form fields + UI state. Plain useState is the source of truth (so the
+  // hidden <input>/<textarea> below stay normal controlled elements); each
+  // field also gets a ref kept in sync every render, and contactUIRef wraps
+  // those refs in getters (same "stale-snapshot rule" as nowPlayingRef
+  // above) so the rAF canvas draw loop always reads the live values rather
+  // than a value captured whenever contactUIRef itself was last created.
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactActiveField, setContactActiveField] = useState<ContactField | null>(null);
+  const [contactStatus, setContactStatus] = useState<ContactStatus>('idle');
+
+  const contactNameRef = useRef(contactName); contactNameRef.current = contactName;
+  const contactEmailRef = useRef(contactEmail); contactEmailRef.current = contactEmail;
+  const contactMessageRef = useRef(contactMessage); contactMessageRef.current = contactMessage;
+  const contactActiveFieldRef = useRef(contactActiveField); contactActiveFieldRef.current = contactActiveField;
+  const contactStatusRef = useRef(contactStatus); contactStatusRef.current = contactStatus;
+
+  const contactUIRef = useMemo(() => ({
+    get current(): ContactUIState {
+      return {
+        name: contactNameRef.current,
+        email: contactEmailRef.current,
+        message: contactMessageRef.current,
+        activeField: contactActiveFieldRef.current,
+        status: contactStatusRef.current,
+      };
+    },
+  }), []) as React.RefObject<ContactUIState | null>;
+
+  const contactNameInputRef = useRef<HTMLInputElement>(null);
+  const contactEmailInputRef = useRef<HTMLInputElement>(null);
+  const contactMessageInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const focusContactField = useCallback((field: ContactField) => {
+    setContactActiveField(field);
+    const el = field === 'name' ? contactNameInputRef.current : field === 'email' ? contactEmailInputRef.current : contactMessageInputRef.current;
+    el?.focus();
+  }, []);
+
+  // No auto-focus on open: the caret only appears once a field is actually
+  // selected (click/tap or Tab). Reset the selection each time the form
+  // opens so a previous session's active field doesn't blink on arrival.
+  useEffect(() => {
+    if (contactOpen) setContactActiveField(null);
+  }, [contactOpen]);
+
+  const handleSendContact = useCallback(async () => {
+    if (contactStatusRef.current === 'sending') return;
+    const snapshot = { name: contactNameRef.current, email: contactEmailRef.current, message: contactMessageRef.current };
+    if (!isContactFormValid(snapshot)) return;
+    setContactStatus('sending');
+    try {
+      const body = new FormData();
+      body.append('name', snapshot.name);
+      body.append('email', snapshot.email);
+      body.append('message', snapshot.message);
+      // Same Formspree endpoint/method/headers ContactForm.tsx used.
+      const response = await fetch('https://formspree.io/f/xdkyngrb', {
+        method: 'POST',
+        body,
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to send message');
+      setContactName('');
+      setContactEmail('');
+      setContactMessage('');
+      setContactStatus('sent');
+    } catch {
+      setContactStatus('error');
+    }
+  }, []);
+
+  const handleContactControl = useCallback((action: string) => {
+    if (action === 'send') { handleSendContact(); return; }
+    if (action.startsWith('field:')) {
+      focusContactField(action.slice('field:'.length) as ContactField);
+    }
+  }, [handleSendContact, focusContactField]);
 
   // Track detail→feed fade-out: keep old detail overlay mounted during transition
   const prevPageRef = useRef(page);
@@ -64,13 +179,13 @@ export default function Home() {
 
     if (prev === page) return;
 
-    if (prev === 'feed' && page === 'home') {
-      setFeedClosing(true);
+    if ((prev === 'feed' || prev === 'music') && page === 'home') {
+      setFeedClosing(prev);
     }
-    if (prev === 'feed' && (page === 'work-detail' || page === 'art-detail')) {
+    if ((prev === 'feed' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
       meltCompleteRef.current = false;
     }
-    if ((prev === 'work-detail' || prev === 'art-detail') && page === 'feed') {
+    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'music')) {
       detailToFeedRef.current = true;
       meltProgressRef.current = 0;
       setFadingDetail({ page: prev, slug: prevSlug ?? '' });
@@ -81,7 +196,7 @@ export default function Home() {
     if (feedClosing) {
       // Set immediately — no delay needed since FeedOverlay HTML is gone
       contentOpenRef.current = false;
-      const unmountTimer = setTimeout(() => setFeedClosing(false), 800);
+      const unmountTimer = setTimeout(() => setFeedClosing(null), 800);
       return () => { clearTimeout(unmountTimer); };
     }
     if (!isContent) {
@@ -89,15 +204,20 @@ export default function Home() {
     }
   }, [feedClosing, isContent]);
 
-  const showFeed = page === 'feed' || feedClosing;
+  const isCardPage = page === 'feed' || page === 'music';
+  const showFeed = isCardPage || feedClosing !== null;
+  // The card page whose items should render right now: the live page, or the
+  // one animating closed. Drives both the items memo and music-mode gating.
+  const cardPage = isCardPage ? page : feedClosing;
 
-  // Now-playing: fetch and expose via ref for terrain canvas
-  const nowPlayingRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
+  // Now-playing: fetch Spotify state and expose via ref for terrain canvas.
+  // Local playback (below) owns the landing-style box on /music instead.
+  const spotifyNPRef = useRef<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>(null);
   useEffect(() => {
     const fetchNP = () => {
       if (document.visibilityState === 'hidden') return;
       api.getSpotifyNowPlaying().then((d: SpotifyNowPlaying) => {
-        nowPlayingRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing, playedAt: d.played_at } : null;
+        spotifyNPRef.current = d.track ? { track: d.track, artist: d.artist, isPlaying: d.is_playing, playedAt: d.played_at } : null;
       }).catch(() => {});
     };
     fetchNP();
@@ -109,10 +229,118 @@ export default function Home() {
 
   const { data: blogData } = useFetch(() => api.getBlogPosts());
 
-  const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string }[]>([]);
+  const [musicQuery, setMusicQuery] = useState('');
+  const { data: musicCatalog, error: musicError } = useFetch(() => api.getMusicCatalog());
+  const musicTracks = useMemo(
+    () => filterTracks(musicCatalog?.tracks ?? [], musicQuery),
+    [musicCatalog, musicQuery],
+  );
+  // Library play tracking: every track start records a play server-side; the
+  // 30-day total renders as a stat in the /music intro panel. Ref-backed (not
+  // state) because only the rAF canvas draw reads it.
+  const plays30dRef = useRef<number | null>(null);
+  useEffect(() => {
+    api.getMusicPlayStats()
+      .then((s) => { plays30dRef.current = s.plays_30d; })
+      .catch(() => {});
+  }, []);
+  const handleTrackPlay = useCallback((trackId: string) => {
+    api.recordMusicPlay(trackId)
+      .then((s) => { plays30dRef.current = s.plays_30d; })
+      .catch(() => {});
+  }, []);
+  const player = useMusicPlayer(musicCatalog?.tracks ?? [], handleTrackPlay);
+
+  // Local playback owns the landing-style now-playing box on /music; Spotify
+  // owns it elsewhere. This is a getter-style ref (not a snapshot object) so
+  // the rAF draw loop always reads whichever source is live at access time —
+  // a plain object captured at render time would go stale the moment
+  // startCurrent() replaces player.uiRef.current wholesale without triggering
+  // a React re-render.
+  const localPlayerRef = player.uiRef;
+  // One global now-playing source, page-independent (the canvas decides where
+  // the box shows). Priority: whichever source is actively playing (library
+  // wins a tie — it's this site's own player), else whichever played more
+  // recently, so a library track outranks stale Spotify history as the
+  // "last listened to" entry.
+  const nowPlayingRef = useMemo(() => ({
+    get current() {
+      const local = localPlayerRef.current;
+      const spot = spotifyNPRef.current;
+      const localEntry = local
+        ? {
+            track: local.title,
+            artist: local.artist,
+            isPlaying: local.isPlaying,
+            playedAt: new Date(local.startedAt).toISOString(),
+          }
+        : null;
+      if (localEntry?.isPlaying) return localEntry;
+      if (spot?.isPlaying) return spot;
+      if (localEntry && spot) {
+        const localTime = Date.parse(localEntry.playedAt);
+        const spotTime = spot.playedAt ? Date.parse(spot.playedAt) : 0;
+        return localTime >= spotTime ? localEntry : spot;
+      }
+      return localEntry ?? spot;
+    },
+  }), [localPlayerRef]) as React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const musicUIRef = useRef<MusicChromeState | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  // Keep the ref in sync every render (player UI flows through by reference so
+  // canvas sees live progress). playingTrackId/playingIsPlaying are getters
+  // (not snapshotted values) so the rAF draw loop always reads whichever
+  // track is live at access time — player.uiRef.current is replaced wholesale
+  // by startCurrent() without triggering a React re-render, so a plain field
+  // captured here would go stale immediately (same reasoning as localPlayerRef above).
+  musicUIRef.current = cardPage === 'music'
+    ? {
+        query: musicQuery,
+        focused: searchFocused,
+        caretOn: true,
+        get playingTrackId() { return player.uiRef.current?.trackId ?? null; },
+        get playingIsPlaying() { return player.uiRef.current?.isPlaying ?? false; },
+        get plays30d() { return plays30dRef.current; },
+      }
+    : null;
+
+  const contentSubItemsRef = useRef<{ text: string; url: string; description?: string; mau?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean }[]>([]);
 
   const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
+
+    if (cardPage === 'music') {
+      if (musicError && !musicCatalog) {
+        return [{
+          text: 'CATALOG UNAVAILABLE',
+          url: 'music:none',
+          description: 'COULD NOT LOAD MUSIC LIBRARY',
+          icon: '!!!',
+        }];
+      }
+      const tracks = musicTracks;
+      const radioCard = {
+        text: '> RADIO',
+        url: 'music:radio',
+        description: `SHUFFLE ALL ${musicCatalog?.tracks.length ?? 0} TRACKS`,
+        icon: '((o',
+      };
+      const trackItems = tracks.map((t) => ({
+        text: t.title,
+        url: `music:${t.id}`,
+        description: formatDuration(t.duration_s),
+        icon: '.))',
+        // Catalog fields may be missing until the M1 refresh op has run against
+        // the live library — treat undefined as "no artist" / "no art" rather
+        // than crashing or showing "undefined".
+        artist: t.artist ?? '',
+        hasArt: t.has_art ?? false,
+      }));
+      return [radioCard, ...trackItems];
+    }
 
     const projectIcons: Record<string, string> = {
       coderview: '[#]',
@@ -147,23 +375,91 @@ export default function Home() {
       icon: '>>>',
     }));
 
+    // MUSIC card removed from the feed — the full-screen "+" menu covers
+    // navigation to /music now (see MENU_ENTRIES in useTerrainAnimation.ts).
     return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
-  }, [showFeed, blogData]);
+  }, [showFeed, page, blogData, musicCatalog, musicError, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
 
-  const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
-  const handleMenuClick = useCallback(() => navigate('/feed'), [navigate]);
+  const handleLogoClick = useCallback(() => {
+    if (menuOpen) {
+      menuCloseToHomeRef.current = true;
+      setMenuOpen(false);
+    }
+    // W always goes home, animated — closes contact mode the same way it
+    // closes the menu, regardless of whether the menu was open over it.
+    if (contactOpen) {
+      contactCloseToHomeRef.current = true;
+      setContactOpen(false);
+    }
+    navigate('/');
+  }, [navigate, menuOpen, contactOpen]);
+  const handleMenuClick = useCallback(() => {
+    if (menuOpen) {
+      if (page === 'home') {
+        menuCloseToHomeRef.current = true;
+        setMenuOpen(false);
+        navigate('/');
+      } else {
+        // Close back to the page the menu was opened over (portfolio/music/
+        // detail): stay on the route and dissolve the menu words over the
+        // live content instead of navigating to the landing.
+        menuCloseToContentRef.current = true;
+        setMenuOpen(false);
+      }
+    } else {
+      // Opens over contact mode without closing it — contact stays open
+      // underneath until Esc or W (handleLogoClick above) closes it.
+      setMenuOpen(true);
+    }
+  }, [menuOpen, navigate, page]);
+  const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
+    menuCloseToHomeRef.current = false;
+    contactCloseToHomeRef.current = false;
+    setMenuOpen(false);
+    if (entry === 'resume') { window.open(RESUME_URL, '_blank'); return; }
+    if (entry === 'portfolio' || entry === 'music') {
+      // Snap the name-dissolve scroll to its end state so the WORTHY RAE
+      // name never flashes between the menu words and the page content —
+      // the route's scroll target is 1 anyway; only the slow lerp from 0
+      // made the name reappear mid-transition. menuCloseToContentRef makes
+      // the menu words scatter-dissolve over the incoming page instead of
+      // vanishing instantly (consumed by the draw loop's close edge).
+      menuCloseToContentRef.current = true;
+      scrollProgressRef.current = 1;
+      setContactOpen(false);
+      navigate(entry === 'portfolio' ? '/feed' : '/music');
+    }
+    else if (entry === 'contact') setContactOpen(true);
+  }, [navigate]);
   const handleItemClick = useCallback(
-    (url: string) => { navigate(url); },
-    [navigate],
+    (url: string) => {
+      if (url === 'music:radio') { player.playShuffled(); return; }
+      if (url.startsWith('music:')) {
+        const id = url.slice('music:'.length);
+        const catalogIdx = (musicCatalog?.tracks ?? []).findIndex((t) => t.id === id);
+        if (catalogIdx >= 0) player.playAt(catalogIdx);
+        return;
+      }
+      navigate(url);
+    },
+    [navigate, player, musicCatalog],
   );
+
+  const handleMusicControl = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
 
   const config = useMemo(
     () => ({
       onLogoClick: handleLogoClick,
       onMenuClick: handleMenuClick,
       onSubItemClick: handleItemClick,
+      menuOpenRef,
+      menuCloseToHomeRef,
+      menuCloseToContentRef,
+      onMenuSelect: handleMenuSelect,
       contentOpenRef,
       activeLabelRef,
       scrollTargetRef,
@@ -173,11 +469,123 @@ export default function Home() {
       detailToFeedRef,
       nowPlayingRef,
       coverCanvasRef,
+      musicUIRef,
+      onMusicControl: handleMusicControl,
+      contactOpenRef,
+      contactCloseToHomeRef,
+      contactUIRef,
+      onContactControl: handleContactControl,
     }),
-    [handleLogoClick, handleMenuClick, handleItemClick],
+    [handleLogoClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef, contactUIRef, handleContactControl],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
+
+  // Clear the query when leaving /music. No desktop auto-focus of the hidden
+  // input — typing reaches search via the global keydown handler below; the
+  // hidden input stays mounted purely to summon the mobile keyboard when the
+  // search row is tapped.
+  useEffect(() => {
+    if (page !== 'music') setMusicQuery('');
+  }, [page]);
+
+  // Global keyboard transport + typing fallback: any canvas click blurs the
+  // hidden search input, after which typing would otherwise go nowhere.
+  // While on /music, space/arrow keys drive playback and printable
+  // keys / Backspace / Escape route into the query, whenever the hidden
+  // input isn't the focused element.
+  useEffect(() => {
+    if (page !== 'music') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return; // menu-close Esc (below) wins while the menu is open
+      if (contactOpen) return; // contact mode takes priority; no music transport while typing
+      if (document.activeElement === searchInputRef.current) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === ' ' && player.uiRef.current !== null) {
+        player.toggle();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        player.prev();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        player.next();
+        e.preventDefault();
+        return;
+      }
+      if (e.key.length === 1) {
+        setMusicQuery((q) => q + e.key);
+        e.preventDefault();
+      } else if (e.key === 'Backspace') {
+        setMusicQuery((q) => q.slice(0, -1));
+        e.preventDefault();
+      } else if (e.key === 'Escape') {
+        setMusicQuery('');
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [page, player, menuOpen, contactOpen]);
+
+  // Esc closes the full-screen menu. Capture phase + stopPropagation so it
+  // wins over the /music search Esc handler above (both listen on window;
+  // capture fires first and stops the bubble-phase listener from also running).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        menuCloseToHomeRef.current = false;
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [menuOpen]);
+
+  // Esc closes contact mode instantly (no crossfade — matches menu-Esc's
+  // instant restore). Yields to the menu's own Esc handler above when both
+  // are open (menu takes priority, same as the render/hitTest priority in
+  // useTerrainAnimation.ts).
+  useEffect(() => {
+    if (!contactOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        contactCloseToHomeRef.current = false;
+        setContactOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [contactOpen, menuOpen]);
+
+  // Tab / Shift-Tab cycles the active contact field while contact mode is open.
+  useEffect(() => {
+    if (!contactOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return;
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      const order: ContactField[] = ['name', 'email', 'message'];
+      const cur = contactActiveFieldRef.current;
+      // Nothing selected yet: Tab enters the form at the first field,
+      // Shift-Tab at the last.
+      if (cur === null) { focusContactField(e.shiftKey ? 'message' : 'name'); return; }
+      const idx = order.indexOf(cur);
+      const next = e.shiftKey ? (idx - 1 + order.length) % order.length : (idx + 1) % order.length;
+      focusContactField(order[next]);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [contactOpen, menuOpen, focusContactField]);
 
   // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
@@ -194,7 +602,68 @@ export default function Home() {
 
   return (
     <div>
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" />
+      {/* z-25 while the menu or contact mode is open: both draw on this
+          canvas and must sit above DetailOverlay (z-10) and the melt cover
+          canvas (z-20) so they're visible over detail pages too. */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: (menuOpen || contactOpen) ? 25 : 0 }} />
+
+      {page === 'music' && (
+        <input
+          ref={searchInputRef}
+          value={musicQuery}
+          onChange={(e) => setMusicQuery(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setMusicQuery(''); e.currentTarget.blur(); } }}
+          aria-label="Search tracks"
+          autoCapitalize="off"
+          autoCorrect="off"
+          style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
+        />
+      )}
+
+      {/* Hidden inputs backing the canvas-native contact fields (same
+          "invisible input summons the OS keyboard" technique as the /music
+          search input above). Controlled by React state; the canvas reads
+          the live values via contactUIRef and draws them as legible opaque
+          strips over the terrain — see contactView.ts / useTerrainAnimation.ts. */}
+      {contactOpen && (
+        <>
+          <input
+            ref={contactNameInputRef}
+            value={contactName}
+            onChange={(e) => { setContactName(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('name')}
+            onBlur={() => setContactActiveField(null)}
+            aria-label="Your name"
+            autoCapitalize="off"
+            autoCorrect="off"
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
+          />
+          <input
+            ref={contactEmailInputRef}
+            type="email"
+            value={contactEmail}
+            onChange={(e) => { setContactEmail(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('email')}
+            onBlur={() => setContactActiveField(null)}
+            aria-label="Your email"
+            autoCapitalize="off"
+            autoCorrect="off"
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
+          />
+          <textarea
+            ref={contactMessageInputRef}
+            value={contactMessage}
+            onChange={(e) => { setContactMessage(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('message')}
+            onBlur={() => setContactActiveField(null)}
+            aria-label="Your message"
+            maxLength={CONTACT_MESSAGE_MAX}
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
+          />
+        </>
+      )}
 
       {showWork && displayProject && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
