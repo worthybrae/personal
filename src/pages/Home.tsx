@@ -53,7 +53,10 @@ export default function Home() {
   const detailToFeedRef = useRef(false);
 
   // Track feed closing animation
-  const [feedClosing, setFeedClosing] = useState(false);
+  // While a card page (feed/music) closes back to home, remember WHICH page
+  // is closing so its items keep rendering through the fade — falling back to
+  // the feed's items mid-close flashed a portfolio list when leaving /music.
+  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'music'>(null);
 
   // Full-screen "+" menu overlay. React state drives the button's toggle and
   // the Esc handler; menuOpenRef mirrors it for the canvas draw loop (rAF
@@ -177,7 +180,7 @@ export default function Home() {
     if (prev === page) return;
 
     if ((prev === 'feed' || prev === 'music') && page === 'home') {
-      setFeedClosing(true);
+      setFeedClosing(prev);
     }
     if ((prev === 'feed' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
       meltCompleteRef.current = false;
@@ -193,7 +196,7 @@ export default function Home() {
     if (feedClosing) {
       // Set immediately — no delay needed since FeedOverlay HTML is gone
       contentOpenRef.current = false;
-      const unmountTimer = setTimeout(() => setFeedClosing(false), 800);
+      const unmountTimer = setTimeout(() => setFeedClosing(null), 800);
       return () => { clearTimeout(unmountTimer); };
     }
     if (!isContent) {
@@ -202,7 +205,10 @@ export default function Home() {
   }, [feedClosing, isContent]);
 
   const isCardPage = page === 'feed' || page === 'music';
-  const showFeed = isCardPage || feedClosing;
+  const showFeed = isCardPage || feedClosing !== null;
+  // The card page whose items should render right now: the live page, or the
+  // one animating closed. Drives both the items memo and music-mode gating.
+  const cardPage = isCardPage ? page : feedClosing;
 
   // Now-playing: fetch Spotify state and expose via ref for terrain canvas.
   // Local playback (below) owns the landing-style box on /music instead.
@@ -260,7 +266,7 @@ export default function Home() {
   // track is live at access time — player.uiRef.current is replaced wholesale
   // by startCurrent() without triggering a React re-render, so a plain field
   // captured here would go stale immediately (same reasoning as localPlayerRef above).
-  musicUIRef.current = page === 'music'
+  musicUIRef.current = cardPage === 'music'
     ? {
         query: musicQuery,
         focused: searchFocused,
@@ -275,7 +281,7 @@ export default function Home() {
   const feedSubItems = useMemo(() => {
     if (!showFeed) return [];
 
-    if (page === 'music') {
+    if (cardPage === 'music') {
       if (musicError && !musicCatalog) {
         return [{
           text: 'CATALOG UNAVAILABLE',

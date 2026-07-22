@@ -1255,7 +1255,10 @@ export function useTerrainAnimation(
       // beneath (overlayVisual).
       // Ease toward black instead of snapping: musicFullBlack (terrain fully
       // suppressed) only engages once the veil below has finished fading in.
-      const musicBlackTarget = isMusicMode && contentProgress >= 1 && !overlayVisual ? 1 : 0;
+      // Starts the moment music mode engages — waiting for the melt to fully
+      // settle (contentProgress >= 1) left seconds of idle terrain before the
+      // dissolve began.
+      const musicBlackTarget = isMusicMode && !overlayVisual ? 1 : 0;
       musicBlackness += (musicBlackTarget - musicBlackness) * 0.09;
       if (Math.abs(musicBlackTarget - musicBlackness) < 0.001) musicBlackness = musicBlackTarget;
       const musicFullBlack = musicBlackness >= 0.999;
