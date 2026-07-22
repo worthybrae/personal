@@ -448,6 +448,11 @@ export function useTerrainAnimation(
     let cachedFeedItemsKey = '';
     let cachedSubItemsKey = '';
     let wasFeedMode = false;
+    // 0→1 fade of the /music full-black background — replaces the old
+    // one-frame snap when contentProgress crossed 1. Drawn as a black veil
+    // over the terrain glyph pass; page chrome (tiles, art, np box) renders
+    // after the veil and is never dimmed by it.
+    let musicBlackness = 0;
     let feedToDetailMelt = false;
     let detailToFeedMelt = false;
     let d2fContentReset = false;
@@ -1248,7 +1253,12 @@ export function useTerrainAnimation(
       // Suppressed while the menu/contact overlay is showing — the frame
       // renders as plain full-brightness terrain regardless of the page
       // beneath (overlayVisual).
-      const musicFullBlack = isMusicMode && contentProgress >= 1 && !overlayVisual;
+      // Ease toward black instead of snapping: musicFullBlack (terrain fully
+      // suppressed) only engages once the veil below has finished fading in.
+      const musicBlackTarget = isMusicMode && contentProgress >= 1 && !overlayVisual ? 1 : 0;
+      musicBlackness += (musicBlackTarget - musicBlackness) * 0.09;
+      if (Math.abs(musicBlackTarget - musicBlackness) < 0.001) musicBlackness = musicBlackTarget;
+      const musicFullBlack = musicBlackness >= 0.999;
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
       // and the intro block all scroll UNDER this boundary, never over it.
       // On the generic feed the boundary extends to below the pinned
@@ -1812,6 +1822,14 @@ export function useTerrainAnimation(
             runStr = '';
           }
         }
+      }
+
+      // --- Music blackness veil: fades the terrain toward black while /music
+      // settles (and back out when leaving / opening an overlay). Everything
+      // drawn below (tiles, art, np box, search, overlays) stays full-bright.
+      if (musicBlackness > 0.001 && !musicFullBlack) {
+        ctx.fillStyle = `rgba(0,0,0,${musicBlackness.toFixed(3)})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
       // --- Feed card / music tile content ---
