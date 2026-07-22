@@ -12,7 +12,7 @@ import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglo
 import { ExternalLink } from 'lucide-react';
 import type { SpotifyNowPlaying } from '@/types/analytics';
 import type { MusicChromeState } from '@/components/Dashboard/musicView';
-import { isContactFormValid, type ContactField, type ContactStatus, type ContactUIState } from '@/components/Dashboard/contactView';
+import { CONTACT_MESSAGE_MAX, isContactFormValid, type ContactField, type ContactStatus, type ContactUIState } from '@/components/Dashboard/contactView';
 import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
@@ -26,6 +26,7 @@ function parseRoute(path: string): { page: Page; slug?: string } {
 }
 
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
+const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,6 +67,10 @@ export default function Home() {
   // crossfade), false for Esc (instant restore, unchanged). Read once by the
   // canvas draw loop on the open->closed edge.
   const menuCloseToHomeRef = useRef(false);
+  // Set right before a menu entry navigates to a content page (portfolio /
+  // music): the draw loop dissolves the menu words over the incoming page
+  // instead of dropping them instantly. Consumed (reset) by the draw loop.
+  const menuCloseToContentRef = useRef(false);
 
   // Canvas-native contact mode — built into the terrain like the "+" menu
   // above (contactOpenRef mirrors contactOpen the same way menuOpenRef
@@ -367,9 +372,19 @@ export default function Home() {
     menuCloseToHomeRef.current = false;
     contactCloseToHomeRef.current = false;
     setMenuOpen(false);
-    if (entry === 'portfolio') { setContactOpen(false); navigate('/feed'); }
-    else if (entry === 'music') { setContactOpen(false); navigate('/music'); }
-    else if (entry === 'resume') window.open('/resume.pdf', '_blank');
+    if (entry === 'resume') { window.open(RESUME_URL, '_blank'); return; }
+    if (entry === 'portfolio' || entry === 'music') {
+      // Snap the name-dissolve scroll to its end state so the WORTHY RAE
+      // name never flashes between the menu words and the page content —
+      // the route's scroll target is 1 anyway; only the slow lerp from 0
+      // made the name reappear mid-transition. menuCloseToContentRef makes
+      // the menu words scatter-dissolve over the incoming page instead of
+      // vanishing instantly (consumed by the draw loop's close edge).
+      menuCloseToContentRef.current = true;
+      scrollProgressRef.current = 1;
+      setContactOpen(false);
+      navigate(entry === 'portfolio' ? '/feed' : '/music');
+    }
     else if (entry === 'contact') setContactOpen(true);
   }, [navigate]);
   const handleItemClick = useCallback(
@@ -397,6 +412,7 @@ export default function Home() {
       onSubItemClick: handleItemClick,
       menuOpenRef,
       menuCloseToHomeRef,
+      menuCloseToContentRef,
       onMenuSelect: handleMenuSelect,
       contentOpenRef,
       activeLabelRef,
@@ -590,6 +606,7 @@ export default function Home() {
             onChange={(e) => { setContactMessage(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
             onFocus={() => setContactActiveField('message')}
             aria-label="Your message"
+            maxLength={CONTACT_MESSAGE_MAX}
             style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
           />
         </>

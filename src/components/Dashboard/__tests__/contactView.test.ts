@@ -6,6 +6,7 @@ import {
   isContactFormValid,
   wrapContactMessage,
   sendLabel,
+  CONTACT_MESSAGE_MAX,
 } from '../contactView';
 import type { ContactGeom, ContactUIState } from '../contactView';
 
@@ -29,20 +30,29 @@ describe('contactLayout', () => {
   it('lays out three field rows in order below the heading, then a send row', () => {
     const layout = contactLayout(geom);
     expect(layout.rows.map((r) => r.field)).toEqual(['name', 'email', 'message']);
-    expect(layout.rows[0].labelRow).toBe(geom.headingBottomRow);
+    // First strip starts just below the heading (top padding only, no label row).
+    expect(layout.rows[0].stripRow).toBe(geom.headingBottomRow + 1);
     // Rows strictly increase top-to-bottom, ending with sendRow last.
     for (let i = 1; i < layout.rows.length; i++) {
-      expect(layout.rows[i].labelRow).toBeGreaterThan(layout.rows[i - 1].labelRow);
+      expect(layout.rows[i].stripRow).toBeGreaterThan(layout.rows[i - 1].stripRow);
     }
     expect(layout.sendRow).toBeGreaterThan(layout.rows[layout.rows.length - 1].stripRow);
   });
 
-  it('gives the message field 3 lines and name/email 1 line', () => {
+  it('sizes the message strip to hold a full max-length message without scrolling', () => {
     const layout = contactLayout(geom);
     const byField = Object.fromEntries(layout.rows.map((r) => [r.field, r]));
     expect(byField.name.lines).toBe(1);
     expect(byField.email.lines).toBe(1);
-    expect(byField.message.lines).toBe(3);
+    expect(byField.message.lines * byField.message.charsPerLine).toBeGreaterThanOrEqual(CONTACT_MESSAGE_MAX);
+  });
+
+  it('insets text so each line fits inside the strip with horizontal padding', () => {
+    const layout = contactLayout(geom);
+    for (const row of layout.rows) {
+      // 2 cols of padding each side, 2 cols per char at 2x scale.
+      expect(2 + row.charsPerLine * 2).toBeLessThanOrEqual(row.width - 2);
+    }
   });
 
   it('caps strip width to fit a narrow (375px-class) column count', () => {
@@ -92,6 +102,12 @@ describe('wrapContactMessage', () => {
 
   it('returns a single empty line for empty input', () => {
     expect(wrapContactMessage('', 10)).toEqual(['']);
+  });
+});
+
+describe('CONTACT_MESSAGE_MAX', () => {
+  it('caps the message at 200 characters', () => {
+    expect(CONTACT_MESSAGE_MAX).toBe(200);
   });
 });
 
