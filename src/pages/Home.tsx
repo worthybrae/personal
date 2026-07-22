@@ -9,10 +9,10 @@ import { useMusicPlayer } from '@/hooks/useMusicPlayer';
 import { api } from '@/lib/api';
 import { filterTracks, formatDuration } from '@/lib/music';
 import { prepareWithSegments, layoutWithLines, measureLineStats } from '@chenglou/pretext';
-import { ExternalLink, X } from 'lucide-react';
-import ContactForm from '@/components/global/ContactForm';
+import { ExternalLink } from 'lucide-react';
 import type { SpotifyNowPlaying } from '@/types/analytics';
 import type { MusicChromeState } from '@/components/Dashboard/musicView';
+import { isContactFormValid, type ContactField, type ContactStatus, type ContactUIState } from '@/components/Dashboard/contactView';
 import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
@@ -66,7 +66,93 @@ export default function Home() {
   // crossfade), false for Esc (instant restore, unchanged). Read once by the
   // canvas draw loop on the open->closed edge.
   const menuCloseToHomeRef = useRef(false);
+
+  // Canvas-native contact mode — built into the terrain like the "+" menu
+  // above (contactOpenRef mirrors contactOpen the same way menuOpenRef
+  // mirrors menuOpen; contactCloseToHomeRef mirrors menuCloseToHomeRef).
   const [contactOpen, setContactOpen] = useState(false);
+  const contactOpenRef = useRef(false);
+  contactOpenRef.current = contactOpen;
+  const contactCloseToHomeRef = useRef(false);
+
+  // Form fields + UI state. Plain useState is the source of truth (so the
+  // hidden <input>/<textarea> below stay normal controlled elements); each
+  // field also gets a ref kept in sync every render, and contactUIRef wraps
+  // those refs in getters (same "stale-snapshot rule" as nowPlayingRef
+  // above) so the rAF canvas draw loop always reads the live values rather
+  // than a value captured whenever contactUIRef itself was last created.
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactActiveField, setContactActiveField] = useState<ContactField>('name');
+  const [contactStatus, setContactStatus] = useState<ContactStatus>('idle');
+
+  const contactNameRef = useRef(contactName); contactNameRef.current = contactName;
+  const contactEmailRef = useRef(contactEmail); contactEmailRef.current = contactEmail;
+  const contactMessageRef = useRef(contactMessage); contactMessageRef.current = contactMessage;
+  const contactActiveFieldRef = useRef(contactActiveField); contactActiveFieldRef.current = contactActiveField;
+  const contactStatusRef = useRef(contactStatus); contactStatusRef.current = contactStatus;
+
+  const contactUIRef = useMemo(() => ({
+    get current(): ContactUIState {
+      return {
+        name: contactNameRef.current,
+        email: contactEmailRef.current,
+        message: contactMessageRef.current,
+        activeField: contactActiveFieldRef.current,
+        status: contactStatusRef.current,
+      };
+    },
+  }), []) as React.RefObject<ContactUIState | null>;
+
+  const contactNameInputRef = useRef<HTMLInputElement>(null);
+  const contactEmailInputRef = useRef<HTMLInputElement>(null);
+  const contactMessageInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const focusContactField = useCallback((field: ContactField) => {
+    setContactActiveField(field);
+    const el = field === 'name' ? contactNameInputRef.current : field === 'email' ? contactEmailInputRef.current : contactMessageInputRef.current;
+    el?.focus();
+  }, []);
+
+  // Auto-focus the first field the moment contact mode opens, so typing
+  // works immediately without requiring a click first (desktop keyboard).
+  useEffect(() => {
+    if (contactOpen) focusContactField('name');
+  }, [contactOpen, focusContactField]);
+
+  const handleSendContact = useCallback(async () => {
+    if (contactStatusRef.current === 'sending') return;
+    const snapshot = { name: contactNameRef.current, email: contactEmailRef.current, message: contactMessageRef.current };
+    if (!isContactFormValid(snapshot)) return;
+    setContactStatus('sending');
+    try {
+      const body = new FormData();
+      body.append('name', snapshot.name);
+      body.append('email', snapshot.email);
+      body.append('message', snapshot.message);
+      // Same Formspree endpoint/method/headers ContactForm.tsx used.
+      const response = await fetch('https://formspree.io/f/xdkyngrb', {
+        method: 'POST',
+        body,
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to send message');
+      setContactName('');
+      setContactEmail('');
+      setContactMessage('');
+      setContactStatus('sent');
+    } catch {
+      setContactStatus('error');
+    }
+  }, []);
+
+  const handleContactControl = useCallback((action: string) => {
+    if (action === 'send') { handleSendContact(); return; }
+    if (action.startsWith('field:')) {
+      focusContactField(action.slice('field:'.length) as ContactField);
+    }
+  }, [handleSendContact, focusContactField]);
 
   // Track detail→feed fade-out: keep old detail overlay mounted during transition
   const prevPageRef = useRef(page);
@@ -258,22 +344,30 @@ export default function Home() {
       menuCloseToHomeRef.current = true;
       setMenuOpen(false);
     }
+    // W always goes home, animated — closes contact mode the same way it
+    // closes the menu, regardless of whether the menu was open over it.
+    if (contactOpen) {
+      contactCloseToHomeRef.current = true;
+      setContactOpen(false);
+    }
     navigate('/');
-  }, [navigate, menuOpen]);
+  }, [navigate, menuOpen, contactOpen]);
   const handleMenuClick = useCallback(() => {
     if (menuOpen) {
       menuCloseToHomeRef.current = true;
       setMenuOpen(false);
       navigate('/');
     } else {
+      // Opens over contact mode without closing it — contact stays open
+      // underneath until Esc or W (handleLogoClick above) closes it.
       setMenuOpen(true);
     }
   }, [menuOpen, navigate]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
     setMenuOpen(false);
-    if (entry === 'portfolio') navigate('/feed');
-    else if (entry === 'music') navigate('/music');
+    if (entry === 'portfolio') { setContactOpen(false); navigate('/feed'); }
+    else if (entry === 'music') { setContactOpen(false); navigate('/music'); }
     else if (entry === 'resume') window.open('/resume.pdf', '_blank');
     else if (entry === 'contact') setContactOpen(true);
   }, [navigate]);
@@ -314,8 +408,12 @@ export default function Home() {
       coverCanvasRef,
       musicUIRef,
       onMusicControl: handleMusicControl,
+      contactOpenRef,
+      contactCloseToHomeRef,
+      contactUIRef,
+      onContactControl: handleContactControl,
     }),
-    [handleLogoClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef],
+    [handleLogoClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef, contactUIRef, handleContactControl],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
@@ -386,6 +484,41 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [menuOpen]);
 
+  // Esc closes contact mode instantly (no crossfade — matches menu-Esc's
+  // instant restore). Yields to the menu's own Esc handler above when both
+  // are open (menu takes priority, same as the render/hitTest priority in
+  // useTerrainAnimation.ts).
+  useEffect(() => {
+    if (!contactOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        contactCloseToHomeRef.current = false;
+        setContactOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [contactOpen, menuOpen]);
+
+  // Tab / Shift-Tab cycles the active contact field while contact mode is open.
+  useEffect(() => {
+    if (!contactOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return;
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      const order: ContactField[] = ['name', 'email', 'message'];
+      const idx = order.indexOf(contactActiveFieldRef.current);
+      const next = e.shiftKey ? (idx - 1 + order.length) % order.length : (idx + 1) % order.length;
+      focusContactField(order[next]);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [contactOpen, menuOpen, focusContactField]);
+
   // Detail page data (active or fading-out)
   const project = page === 'work-detail' && slug ? getProject(slug) : null;
   const artPiece = page === 'art-detail' && slug ? getArtPiece(slug) : null;
@@ -401,10 +534,10 @@ export default function Home() {
 
   return (
     <div>
-      {/* z-25 while the menu is open: it draws on this canvas and must sit above
-          DetailOverlay (z-10) and the melt cover canvas (z-20) so it's visible
-          over detail pages too, but still below the contact-form overlay (z-30). */}
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: menuOpen ? 25 : 0 }} />
+      {/* z-25 while the menu or contact mode is open: both draw on this
+          canvas and must sit above DetailOverlay (z-10) and the melt cover
+          canvas (z-20) so they're visible over detail pages too. */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: (menuOpen || contactOpen) ? 25 : 0 }} />
 
       {page === 'music' && (
         <input
@@ -419,6 +552,45 @@ export default function Home() {
           autoCorrect="off"
           style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
         />
+      )}
+
+      {/* Hidden inputs backing the canvas-native contact fields (same
+          "invisible input summons the OS keyboard" technique as the /music
+          search input above). Controlled by React state; the canvas reads
+          the live values via contactUIRef and draws them as legible opaque
+          strips over the terrain — see contactView.ts / useTerrainAnimation.ts. */}
+      {contactOpen && (
+        <>
+          <input
+            ref={contactNameInputRef}
+            value={contactName}
+            onChange={(e) => { setContactName(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('name')}
+            aria-label="Your name"
+            autoCapitalize="off"
+            autoCorrect="off"
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+          />
+          <input
+            ref={contactEmailInputRef}
+            type="email"
+            value={contactEmail}
+            onChange={(e) => { setContactEmail(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('email')}
+            aria-label="Your email"
+            autoCapitalize="off"
+            autoCorrect="off"
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+          />
+          <textarea
+            ref={contactMessageInputRef}
+            value={contactMessage}
+            onChange={(e) => { setContactMessage(e.target.value); if (contactStatus !== 'idle') setContactStatus('idle'); }}
+            onFocus={() => setContactActiveField('message')}
+            aria-label="Your message"
+            style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5 }}
+          />
+        </>
       )}
 
       {showWork && displayProject && (
@@ -521,30 +693,6 @@ export default function Home() {
       )}
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
-
-      {contactOpen && (
-        // stopPropagation: the canvas's own click handler listens on `window`
-        // (so it still sees clicks after they bubble past this DOM overlay).
-        // The close button sits near the same screen position as the "+" menu
-        // icon, so an unguarded click here would bubble to window and get
-        // hit-tested against the canvas, accidentally re-opening the menu.
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto px-6 py-16"
-          style={{ backgroundColor: '#000' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => setContactOpen(false)}
-            aria-label="Close contact form"
-            className="fixed top-6 right-6 text-white/50 hover:text-white/90 transition-colors"
-          >
-            <X size={22} />
-          </button>
-          <div className="w-full max-w-md">
-            <ContactForm embedded onClose={() => setContactOpen(false)} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
