@@ -308,8 +308,8 @@ export function useTerrainAnimation(
     let feedCards: FeedCard[] = [];
     let musicControlZones: ControlZone[] = [];
     let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 3 music desktop)
-    let feedColWidth = 0;     // grid-col width of a single card (uniform across columns)
-    const feedColGap = 2;     // grid cols between columns
+    let feedColWidth = 0;     // grid-col width of a single card, sized to content (uniform across columns)
+    const feedColGap = 4;     // grid cols between columns — a deliberate terrain band, not a sliver
     let feedGridLeft = 0;     // grid col where the centered grid begins
     let feedStartRow = 0;
     let feedCardHeight = 0;
@@ -483,32 +483,31 @@ export function useTerrainAnimation(
       const cardHeight = padV + textScale * 2 + padV; // 1 + 4 + 1 = 6
       const iconCols = iconChars * textScale;
 
-      // --- Column count: music mode gets 3 desktop columns, other feeds 2; mobile always 1 ---
-      const isMusicMode = !!musicUIRef?.current;
-      let n = isMobile ? 1 : (isMusicMode ? 3 : 2);
-
-      // usable = full width minus a 2-col margin on each side
-      const colWidthFor = (k: number) => Math.floor((cols - 4 - (k - 1) * feedColGap) / k);
-      // Text char cap derived from a single column's box width (all columns share
-      // the same width — icon + gap layout stays fixed inside each card).
-      const textCharsFor = (colW: number) => {
-        const cappedContentCols = colW - (1 + padH + padH + 1);
-        const cappedTextCols = cappedContentCols - iconCols - gapAfterIcon;
-        return Math.floor(cappedTextCols / textScale);
-      };
-
-      let colWidth = colWidthFor(n);
-      let cappedTextChars = textCharsFor(colWidth);
-      // 3-col music layout can starve text width on narrower desktops (e.g. ~1024px) —
-      // clamp down to 2 columns once the per-card text cap drops below a usable minimum.
-      if (n === 3 && cappedTextChars < 8) {
-        n = 2;
-        colWidth = colWidthFor(n);
-        cappedTextChars = textCharsFor(colWidth);
+      // --- Card width: content-sized (same measurement as the original single-column
+      // layout) — every card gets the width its longest title/desc actually needs,
+      // capped so a stray long music track title can't blow out the box. ---
+      let maxTextChars = 0;
+      for (const item of items) {
+        const nameLen = item.text.toUpperCase().length;
+        const descLen = (item.description ?? '').toUpperCase().length;
+        maxTextChars = Math.max(maxTextChars, nameLen, descLen);
       }
+      const textCols = maxTextChars * textScale;
+      const contentCols = iconCols + gapAfterIcon + textCols;
+      const maxBoxCols = Math.min(cols - 6, 64);
+      const cappedContentCols = Math.min(contentCols, maxBoxCols - (1 + padH + padH + 1));
+      const cappedTextCols = cappedContentCols - iconCols - gapAfterIcon;
+      const cappedTextChars = Math.floor(cappedTextCols / textScale);
+      feedColWidth = 1 + padH + cappedContentCols + padH + 1;
+
+      // --- Column count: how many content-width cards fit side by side, clamped to
+      // the mode's max (3 desktop music, 2 other feeds; mobile always 1). ---
+      const isMusicMode = !!musicUIRef?.current;
+      const maxCols = isMusicMode ? 3 : 2;
+      const nFit = Math.floor((cols - 4 + feedColGap) / (feedColWidth + feedColGap));
+      const n = isMobile ? 1 : Math.max(1, Math.min(nFit, maxCols));
 
       feedCols = n;
-      feedColWidth = colWidth;
       feedGridLeft = Math.floor((cols - (n * feedColWidth + (n - 1) * feedColGap)) / 2);
 
       // Vertical layout: start below the 100px header
