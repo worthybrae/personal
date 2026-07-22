@@ -1302,9 +1302,11 @@ export function useTerrainAnimation(
       colorLUT[COLOR_LEVELS] = '#fff'; // white override for hover
 
       // --- Clear ---
-      const clearBgR = musicFullBlack ? 0 : Math.round(bgR * brightnessScale);
-      const clearBgG = musicFullBlack ? 0 : Math.round(bgG * brightnessScale);
-      const clearBgB = musicFullBlack ? 0 : Math.round(bgB * brightnessScale);
+      // Background lerps to black in step with the cell dissolve (matches the
+      // forward melt's bg fade); at musicBlackness 1 this is pure black.
+      const clearBgR = Math.round(bgR * brightnessScale * (1 - musicBlackness));
+      const clearBgG = Math.round(bgG * brightnessScale * (1 - musicBlackness));
+      const clearBgB = Math.round(bgB * brightnessScale * (1 - musicBlackness));
       ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1494,9 +1496,16 @@ export function useTerrainAnimation(
           gridChars[idx] = Math.max(0, Math.min(rampLen - 1, (val * (rampLen - 1)) | 0));
           gridColors[idx] = Math.min(COLOR_LEVELS - 1, (val * COLOR_LEVELS) | 0);
 
-          // Full-black music mode: start every cell suppressed; W/+ and tile
+          // Full-black music mode: cells scatter-dissolve to black as
+          // musicBlackness ramps (same hash pattern as the detail-page
+          // forward melt), landing on every cell suppressed; W/+ and tile
           // placeholder squares punch holes back through below.
-          if (musicFullBlack) gridSkip[idx] = 1;
+          if (musicBlackness > 0) {
+            let hb = (c * 271828183 + r * 314159265) | 0;
+            hb = ((hb ^ (hb >>> 13)) * 1274126177) | 0;
+            const bHash = ((hb ^ (hb >>> 16)) & 0x7fff) / 0x7fff;
+            if (musicBlackness >= bHash) gridSkip[idx] = 1;
+          }
 
           // W logo — scatter-reveal on intro, highlight on hover. In full-black
           // music mode the contrast trick inverts: normally the letter is a flat
@@ -1822,14 +1831,6 @@ export function useTerrainAnimation(
             runStr = '';
           }
         }
-      }
-
-      // --- Music blackness veil: fades the terrain toward black while /music
-      // settles (and back out when leaving / opening an overlay). Everything
-      // drawn below (tiles, art, np box, search, overlays) stays full-bright.
-      if (musicBlackness > 0.001 && !musicFullBlack) {
-        ctx.fillStyle = `rgba(0,0,0,${musicBlackness.toFixed(3)})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
       // --- Feed card / music tile content ---
