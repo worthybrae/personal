@@ -23,6 +23,19 @@ const COLOR_LEVELS = 64;
 const NP_BOTTOM_RESERVE = 10;          // single-line now-playing box: 7 rows + 2 margin + 1
 const NP_BOTTOM_RESERVE_STACKED = 12;  // stacked (mobile) box: 9 rows + 2 margin + 1
 
+// Terrain cell size in CSS pixels. Everything drawn as a terrain cutout — the
+// W, the menu words, the page headings — is made of these cells, so the cell
+// size sets how much detail a letterform can carry. The phone ramp bottoms out
+// at 7px rather than 9px: at 9px a narrow phone only has ~62 columns, which
+// leaves the nine letters of PORTFOLIO about seven cells each and no letterform
+// survives that. Both the mask builder and the resize handler must agree on
+// this, hence one function.
+function terrainFontSize(innerWidth: number): number {
+  return innerWidth < 768
+    ? Math.max(7, Math.min(14, innerWidth / 55))
+    : Math.max(5, Math.min(9, innerWidth / 180));
+}
+
 export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'contact';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
   { key: 'portfolio', label: 'PORTFOLIO' },
@@ -169,10 +182,7 @@ export function useTerrainAnimation(
       w2ctx.fillRect(0, 0, w2.width, w2.height);
 
       const dpr = canvasWidth / window.innerWidth;
-      const isMob = window.innerWidth < 768;
-      const fs = isMob
-        ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
-        : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
+      const fs = terrainFontSize(window.innerWidth) * dpr;
       const cW = fs * 0.602;
       const cH = fs;
       // Both header icons are exactly this many grid rows tall so they read as
@@ -656,19 +666,43 @@ export function useTerrainAnimation(
       const isPortrait = canvas.height > canvas.width;
       // Sized to read as 4 big stacked words filling the viewport, matching
       // the scale of the landing WORTHY RAE name treatment it replaces.
-      const lineH = isPortrait ? canvas.width * 0.16 : canvas.height * 0.125;
+      const maxW = canvas.width * 0.9;
+
+      // --- One size and one condense for the whole stack ---
+      // Passing maxWidth to fillText condenses each word independently, so on a
+      // narrow screen PORTFOLIO came out crushed to ~0.7 while MUSIC and RESUME
+      // rendered at full width: four words, four different stroke weights, and
+      // the set stopped reading as one menu. Instead the longest word sets a
+      // single condense factor for all four, floored so nothing gets crushed
+      // past legibility — below that floor the whole stack steps down in size.
+      const MIN_CONDENSE = 0.72;
+      const baseLineH = isPortrait ? canvas.width * 0.18 : canvas.height * 0.125;
+      o.font = `900 ${baseLineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      let widest = 1;
+      for (const e of MENU_ENTRIES) widest = Math.max(widest, o.measureText(e.label).width);
+
+      // Shrink the type only as far as the condense floor demands, then let the
+      // condense take up whatever slack is left.
+      const lineH = Math.min(baseLineH, (baseLineH * maxW) / (widest * MIN_CONDENSE));
+      const condense = Math.min(1, maxW / (widest * (lineH / baseLineH)));
+
       const gap = lineH * 0.35;
       const totalH = n * lineH + (n - 1) * gap;
       const startCY = canvas.height / 2 - totalH / 2 + lineH / 2;
-      const maxW = canvas.width * 0.9;
 
       o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
 
       const newBounds: { x: number; y: number; w: number; h: number }[] = [];
       for (let i = 0; i < n; i++) {
         const cy = startCY + i * (lineH + gap);
-        o.fillText(MENU_ENTRIES[i].label, canvas.width / 2, cy, maxW);
-        const tw = Math.min(o.measureText(MENU_ENTRIES[i].label).width, maxW);
+        const tw = o.measureText(MENU_ENTRIES[i].label).width * condense;
+        // Condense by scaling the x axis rather than via fillText's maxWidth,
+        // so every word shares the factor instead of only the overlong ones.
+        o.save();
+        o.translate(canvas.width / 2, cy);
+        o.scale(condense, 1);
+        o.fillText(MENU_ENTRIES[i].label, 0, 0);
+        o.restore();
         newBounds.push({
           x: canvas.width / 2 - tw / 2,
           y: cy - lineH * 0.6,
@@ -988,9 +1022,14 @@ export function useTerrainAnimation(
       // Desktop keeps the width-driven size: its band already divides cleanly
       // and shrinking tiles there would only crowd the now-playing box.
       if (isMobile) {
+        // Floor the shrink so the grid still fills most of its width: trading a
+        // full-bleed row of large tiles for an extra row of small ones stranded
+        // between wide side gutters is not a win.
+        const minGridCols = Math.floor(availCols * 0.72);
+        const minFitT = Math.max(minT, Math.ceil((minGridCols - (n - 1) * tileGap) / n));
         const slotsAt = (t: number) => Math.floor(availRows / tilePeriod(t));
         const baseSlots = Math.max(1, slotsAt(T));
-        for (let t = T - 1; t >= minT; t--) {
+        for (let t = T - 1; t >= minFitT; t--) {
           if (slotsAt(t) > baseSlots) { T = t; break; }
         }
       }
@@ -1062,9 +1101,7 @@ export function useTerrainAnimation(
       canvas.height = window.innerHeight * canvasDpr;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
-      fontSize = isMobile
-        ? Math.max(9, Math.min(14, window.innerWidth / 70)) * canvasDpr
-        : Math.max(5, Math.min(9, window.innerWidth / 180)) * canvasDpr;
+      fontSize = terrainFontSize(window.innerWidth) * canvasDpr;
       charW = fontSize * 0.602;
       charH = fontSize * 1.0;
       cols = Math.ceil(canvas.width / charW);
