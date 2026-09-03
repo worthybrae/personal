@@ -36,9 +36,14 @@ function terrainFontSize(innerWidth: number): number {
     : Math.max(5, Math.min(9, innerWidth / 180));
 }
 
+// Floor on how far a cutout word may be condensed to fit its width before the
+// type steps down in size instead. Shared by the menu stack and the page
+// headings so every big word on the site carries the same stroke weight.
+const MENU_CONDENSE_FLOOR = 0.76;
+
 export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'contact';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
-  { key: 'portfolio', label: 'PORTFOLIO' },
+  { key: 'portfolio', label: 'WORK' },
   { key: 'music', label: 'MUSIC' },
   { key: 'resume', label: 'RESUME' },
   { key: 'contact', label: 'CONTACT' },
@@ -663,32 +668,43 @@ export function useTerrainAnimation(
       o.textBaseline = 'middle';
 
       const n = MENU_ENTRIES.length;
-      const isPortrait = canvas.height > canvas.width;
-      // Sized to read as 4 big stacked words filling the viewport, matching
-      // the scale of the landing WORTHY RAE name treatment it replaces.
       const maxW = canvas.width * 0.9;
 
       // --- One size and one condense for the whole stack ---
-      // Passing maxWidth to fillText condenses each word independently, so on a
-      // narrow screen PORTFOLIO came out crushed to ~0.7 while MUSIC and RESUME
-      // rendered at full width: four words, four different stroke weights, and
-      // the set stopped reading as one menu. Instead the longest word sets a
-      // single condense factor for all four, floored so nothing gets crushed
-      // past legibility — below that floor the whole stack steps down in size.
-      const MIN_CONDENSE = 0.72;
-      const baseLineH = isPortrait ? canvas.width * 0.18 : canvas.height * 0.125;
-      o.font = `900 ${baseLineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      let widest = 1;
-      for (const e of MENU_ENTRIES) widest = Math.max(widest, o.measureText(e.label).width);
+      // Passing maxWidth to fillText condenses each word independently, so the
+      // longest word came out crushed while the short ones rendered at full
+      // width: four words, four different stroke weights, and the set stopped
+      // reading as one menu. Instead the longest word sets a single condense
+      // factor for all four, floored so nothing gets crushed past legibility.
+      const GAP_RATIO = 0.35;
 
-      // Shrink the type only as far as the condense floor demands, then let the
-      // condense take up whatever slack is left.
-      const lineH = Math.min(baseLineH, (baseLineH * maxW) / (widest * MIN_CONDENSE));
-      const condense = Math.min(1, maxW / (widest * (lineH / baseLineH)));
+      // --- Size from whichever budget actually binds ---
+      // These words are terrain cutouts, so their legibility is purely a
+      // question of how many grid cells each letter gets. Deriving the size
+      // from the viewport WIDTH (as this did) throws away the vertical budget:
+      // the stack sat in the middle half of a phone screen at two thirds the
+      // size it had room for. Now width and height are solved separately and
+      // the smaller wins.
+      const probe = 100;
+      o.font = `900 ${probe}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      let widestEm = 0.01;
+      for (const e of MENU_ENTRIES) widestEm = Math.max(widestEm, o.measureText(e.label).width / probe);
+      // Widest word fills maxW once condensed to the floor.
+      const widthLineH = maxW / (widestEm * MENU_CONDENSE_FLOOR);
 
-      const gap = lineH * 0.35;
+      // Vertical band clear of the header icons and the now-playing box.
+      const bandTop = 100 * canvasDpr;
+      const bandBottom = canvas.height
+        - (isMobile ? NP_BOTTOM_RESERVE_STACKED : NP_BOTTOM_RESERVE) * charH;
+      const bandH = Math.max(charH * 8, bandBottom - bandTop - charH * 4);
+      const heightLineH = bandH / (n + (n - 1) * GAP_RATIO);
+
+      const lineH = Math.min(widthLineH, heightLineH);
+      const condense = Math.min(1, maxW / (widestEm * lineH));
+
+      const gap = lineH * GAP_RATIO;
       const totalH = n * lineH + (n - 1) * gap;
-      const startCY = canvas.height / 2 - totalH / 2 + lineH / 2;
+      const startCY = (bandTop + bandBottom) / 2 - totalH / 2 + lineH / 2;
 
       o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
 
@@ -720,6 +736,44 @@ export function useTerrainAnimation(
       });
     }
 
+    // Shared page-heading treatment for the contact and feed pages: one big
+    // word pinned under the header band, drawn with the same uniform-condense
+    // rule as the menu stack (see MENU_CONDENSE_FLOOR) rather than fillText's
+    // per-word maxWidth squeeze, which crushed the long words and left the
+    // short ones untouched.
+    function drawPageHeading(
+      o: CanvasRenderingContext2D,
+      off: HTMLCanvasElement,
+      word: string,
+    ) {
+      const isPortrait = off.height > off.width;
+      const baseLineH = isPortrait ? off.width * 0.18 : off.height * 0.13;
+      const maxW = off.width * 0.9;
+
+      const probe = 100;
+      o.fillStyle = '#fff';
+      o.textAlign = 'center';
+      o.textBaseline = 'middle';
+      o.font = `900 ${probe}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      const em = Math.max(0.01, o.measureText(word).width / probe);
+
+      const lineH = Math.min(baseLineH, maxW / (em * MENU_CONDENSE_FLOOR));
+      const condense = Math.min(1, maxW / (em * lineH));
+      const cy = 100 * canvasDpr + lineH * 1.1;
+
+      o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      o.save();
+      o.translate(off.width / 2, cy);
+      o.scale(condense, 1);
+      o.fillText(word, 0, 0);
+      o.restore();
+
+      return {
+        mask: { data: o.getImageData(0, 0, off.width, off.height).data, width: off.width, height: off.height },
+        bottomRow: Math.ceil((cy + lineH * 0.7) / charH) + 3,
+      };
+    }
+
     // Canvas-native contact mode heading — same offscreen-canvas / Arial
     // Black / getImageData-bake-to-grid cutout technique as the menu-word
     // overlay above, applied to a single smaller "CONTACT" word positioned
@@ -738,28 +792,17 @@ export function useTerrainAnimation(
       o.textAlign = 'center';
       o.textBaseline = 'middle';
 
-      const isPortrait = canvas.height > canvas.width;
-      const lineH = isPortrait ? canvas.width * 0.16 : canvas.height * 0.13;
-      const headerBandPx = 100 * canvasDpr;
-      const cy = headerBandPx + lineH * 1.1;
-      const maxW = canvas.width * 0.9;
-
-      o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      o.fillText('CONTACT', canvas.width / 2, cy, maxW);
-
+      const h = drawPageHeading(o, off, 'CONTACT');
       contactHeadingGrid = new Uint8Array(cols * rows);
-      bakeMaskGrid(contactHeadingGrid, {
-        data: o.getImageData(0, 0, off.width, off.height).data,
-        width: off.width,
-        height: off.height,
-      });
+      bakeMaskGrid(contactHeadingGrid, h.mask);
       // A handful of blank rows below the heading's baseline before fields begin.
-      contactHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
+      contactHeadingBottomRow = h.bottomRow;
     }
 
-    // "PORTFOLIO" heading for the generic feed — identical metrics, font, and
-    // position to buildContactHeadingMask above so the two pages' titles look
-    // exactly the same; only the string differs.
+    // Heading for the generic feed — same helper, same metrics and position as
+    // the contact heading above so the two pages' titles look identical; only
+    // the string differs. It mirrors the menu's first entry, so both change
+    // together.
     function buildFeedHeadingMask() {
       if (!canvas) return;
       const off = document.createElement('canvas');
@@ -769,26 +812,10 @@ export function useTerrainAnimation(
       o.fillStyle = '#000';
       o.fillRect(0, 0, off.width, off.height);
 
-      o.fillStyle = '#fff';
-      o.textAlign = 'center';
-      o.textBaseline = 'middle';
-
-      const isPortrait = canvas.height > canvas.width;
-      const lineH = isPortrait ? canvas.width * 0.16 : canvas.height * 0.13;
-      const headerBandPx = 100 * canvasDpr;
-      const cy = headerBandPx + lineH * 1.1;
-      const maxW = canvas.width * 0.9;
-
-      o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      o.fillText('PORTFOLIO', canvas.width / 2, cy, maxW);
-
+      const h = drawPageHeading(o, off, MENU_ENTRIES[0].label);
       feedHeadingGrid = new Uint8Array(cols * rows);
-      bakeMaskGrid(feedHeadingGrid, {
-        data: o.getImageData(0, 0, off.width, off.height).data,
-        width: off.width,
-        height: off.height,
-      });
-      feedHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
+      bakeMaskGrid(feedHeadingGrid, h.mask);
+      feedHeadingBottomRow = h.bottomRow;
     }
 
     function setupNowPlaying(
