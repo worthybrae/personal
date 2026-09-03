@@ -14,6 +14,8 @@ import type { SpotifyNowPlaying } from '@/types/analytics';
 import type { MusicChromeState } from '@/components/Dashboard/musicView';
 import { CONTACT_MESSAGE_MAX, isContactFormValid, type ContactField, type ContactStatus, type ContactUIState } from '@/components/Dashboard/contactView';
 import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
+import SeoContent from '@/components/SeoContent';
+import { useSeo } from '@/hooks/useSeo';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -34,6 +36,10 @@ export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const { page, slug } = parseRoute(location.pathname);
+
+  // Canvas draws everything a human sees; this keeps the document head in sync
+  // for anything that reads the page instead of looking at it.
+  useSeo({ path: location.pathname });
 
   const isContent = page !== 'home';
 
@@ -602,6 +608,8 @@ export default function Home() {
 
   return (
     <div>
+      <SeoContent page={page} />
+
       {/* z-25 while the menu or contact mode is open: both draw on this
           canvas and must sit above DetailOverlay (z-10) and the melt cover
           canvas (z-20) so they're visible over detail pages too. */}

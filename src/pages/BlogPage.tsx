@@ -3,10 +3,19 @@ import { useFetch } from '@/hooks/useAnalytics';
 import { api } from '@/lib/api';
 import DOMPurify from 'dompurify';
 import TerrainLayout from '@/components/Layout/TerrainLayout';
+import { useSeo } from '@/hooks/useSeo';
+import { SITE } from '@/lib/seo';
 
 export default function BlogPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data, loading, error } = useFetch(() => api.getBlogPost(slug!));
+
+  useSeo({
+    path: `/blog/${slug}`,
+    title: data ? `${data.title} — ${SITE.name}` : `Blog — ${SITE.name}`,
+    description: data?.description || SITE.description,
+    type: 'article',
+  });
 
   if (loading) {
     return (

@@ -49,3 +49,5 @@ ENV/
 .superpowers/
 docs/
 .playwright-mcp/
+# Frontend build copied in by backend/Dockerfile
+backend/static

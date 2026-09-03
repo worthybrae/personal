@@ -20,7 +20,8 @@ const NOISE_SCALE = 0.015;
 const COLOR_LEVELS = 64;
 // Reserved rows below the feed cards so the last card can scroll clear of the
 // now-playing box (box height 7 + bottom offset 3 — see setupNowPlaying).
-const NP_BOTTOM_RESERVE = 10;
+const NP_BOTTOM_RESERVE = 10;          // single-line now-playing box: 7 rows + 2 margin + 1
+const NP_BOTTOM_RESERVE_STACKED = 12;  // stacked (mobile) box: 9 rows + 2 margin + 1
 
 export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'contact';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
@@ -172,69 +173,124 @@ export function useTerrainAnimation(
       const fs = isMob
         ? Math.max(9, Math.min(14, window.innerWidth / 70)) * dpr
         : Math.max(5, Math.min(9, window.innerWidth / 180)) * dpr;
-      // W logo: render at test size, scan pixel data to count actual grid rows, rescale to 6
       const cW = fs * 0.602;
       const cH = fs;
-      const targetIconRows = 6;
+      // Both header icons are exactly this many grid rows tall so they read as
+      // one pair. The W's column span follows from the row count and the cell
+      // aspect ratio (see wCols below) rather than from the font's metrics.
+      const targetIconRows = 8;
       const logoX = 24 * dpr;
       const logoY = 20 * dpr;
-      w2ctx.fillStyle = '#fff';
-      w2ctx.textAlign = 'left';
-      w2ctx.textBaseline = 'top';
-      const wTestSize = 10 * fs;
-      w2ctx.font = `900 ${wTestSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      w2ctx.fillText('W', logoX, logoY);
-      // Scan at grid resolution to measure actual rendered height
-      const wScan = w2ctx.getImageData(0, 0, w2.width, w2.height).data;
-      let wMinR = Infinity, wMaxR = 0;
-      for (let r = 0; r < Math.ceil(w2.height / cH); r++) {
-        const py = Math.floor(r * cH);
-        for (let c = 0; c < Math.ceil(w2.width / cW); c++) {
-          const px = Math.floor(c * cW);
-          if (px < w2.width && py < w2.height && wScan[(py * w2.width + px) * 4] > 128) {
-            if (r < wMinR) wMinR = r;
-            if (r > wMaxR) wMaxR = r;
-            break;
+      // Snap the icon origin to the character grid so the W and the + share a
+      // top row exactly and both sit the same distance from their screen edge.
+      const iconTopRow = Math.round(logoY / cH);
+      const iconLeftCol = Math.round(logoX / cW);
+
+      // --- W logo mask ---
+      // The mask is baked to grid resolution downstream by point-sampling each
+      // cell's top-left pixel. On the coarse mobile grid that sampling drops the
+      // W's notches and the letter collapses into a solid block, so the glyph is
+      // quantized to whole cells here (a cell inks when enough of its area is
+      // covered) and the downstream point-sample then lands on a solid cell.
+      const wCols = Math.max(8, Math.round((targetIconRows * 1.12) / 0.602));
+      const glyph = document.createElement('canvas');
+      glyph.width = Math.ceil((wCols + 4) * cW);
+      glyph.height = Math.ceil((targetIconRows + 4) * cH);
+      const gctx = glyph.getContext('2d')!;
+      gctx.textAlign = 'left';
+      gctx.textBaseline = 'top';
+
+      // Measure the glyph's ink box at a probe size, then scale so the ink is
+      // exactly targetIconRows tall and wCols wide (the W is stretched slightly
+      // to fill its column span — cells are 0.602 as wide as they are tall, so
+      // an unscaled W would land at whatever width Arial Black happens to give).
+      const inkBox = (ctx2: CanvasRenderingContext2D, w: number, h: number) => {
+        const d = ctx2.getImageData(0, 0, w, h).data;
+        let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] > 40) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
           }
         }
-      }
-      const wMeasured = wMaxR >= wMinR ? wMaxR - wMinR + 1 : 7;
-      const logoSize = wTestSize * (targetIconRows / wMeasured);
-      // Clear and redraw at corrected size
-      w2ctx.fillStyle = '#000';
-      w2ctx.fillRect(0, 0, w2.width, w2.height);
-      w2ctx.fillStyle = '#fff';
-      w2ctx.font = `900 ${logoSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-      w2ctx.fillText('W', logoX, logoY);
-      // Scan final render to get actual top row for + alignment
-      const wFinal = w2ctx.getImageData(0, 0, w2.width, w2.height).data;
-      let wFinalMinR = Infinity;
-      for (let r = 0; r < Math.ceil(w2.height / cH); r++) {
-        const py = Math.floor(r * cH);
-        for (let c = 0; c < Math.ceil(w2.width / cW); c++) {
-          const px = Math.floor(c * cW);
-          if (px < w2.width && py < w2.height && wFinal[(py * w2.width + px) * 4] > 128) {
-            wFinalMinR = r;
-            break;
+        return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+      };
+
+      const probeSize = 8 * fs;
+      gctx.clearRect(0, 0, glyph.width, glyph.height);
+      gctx.fillStyle = '#fff';
+      gctx.font = `900 ${probeSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      gctx.fillText('W', 0, 0);
+      const probe = inkBox(gctx, glyph.width, glyph.height);
+      const targetW = wCols * cW;
+      const targetH = targetIconRows * cH;
+      const drawW = probe ? (targetW / probe.w) * probeSize : targetW;
+      const drawH = probe ? (targetH / probe.h) * probeSize : targetH;
+      const offX = probe ? -(probe.x / probe.w) * targetW : 0;
+      const offY = probe ? -(probe.y / probe.h) * targetH : 0;
+
+      gctx.clearRect(0, 0, glyph.width, glyph.height);
+      gctx.save();
+      // Non-uniform scale: horizontal and vertical are solved independently so
+      // the ink lands on exactly wCols x targetIconRows cells.
+      gctx.scale(drawW / probeSize, drawH / probeSize);
+      gctx.fillStyle = '#fff';
+      gctx.font = `900 ${probeSize}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+      gctx.fillText('W', (offX * probeSize) / drawW, (offY * probeSize) / drawH);
+      gctx.restore();
+
+      // Quantize to cells: >= 40% covered turns the cell on. Sampled on a 4x4
+      // lattice per cell, which is plenty at these cell sizes and keeps the
+      // diagonal strokes from either dropping out or bleeding together.
+      const gData = gctx.getImageData(0, 0, glyph.width, glyph.height).data;
+      const cellInked = (col: number, row: number) => {
+        const x0 = col * cW, y0 = row * cH;
+        let hit = 0;
+        for (let sy = 0; sy < 4; sy++) {
+          for (let sx = 0; sx < 4; sx++) {
+            const px = Math.floor(x0 + ((sx + 0.5) / 4) * cW);
+            const py = Math.floor(y0 + ((sy + 0.5) / 4) * cH);
+            if (px < 0 || py < 0 || px >= glyph.width || py >= glyph.height) continue;
+            if (gData[(py * glyph.width + px) * 4 + 3] > 40) hit++;
           }
         }
-        if (wFinalMinR < Infinity) break;
+        return hit >= 6; // 6/16 ~= 40% coverage
+      };
+
+      const fillCellOn = (ctx2: CanvasRenderingContext2D, r: number, c: number) => {
+        const x = Math.floor(c * cW);
+        const y = Math.floor(r * cH);
+        ctx2.fillRect(x, y, Math.floor((c + 1) * cW) - x, Math.floor((r + 1) * cH) - y);
+      };
+
+      w2ctx.fillStyle = '#fff';
+      let wMaxCol = 0;
+      for (let r = 0; r < targetIconRows; r++) {
+        for (let c = 0; c < wCols; c++) {
+          if (!cellInked(c, r)) continue;
+          if (c > wMaxCol) wMaxCol = c;
+          fillCellOn(w2ctx, iconTopRow + r, iconLeftCol + c);
+        }
       }
-      const wMetrics = w2ctx.measureText('W');
+
       wLogoBoundsRef.current = {
-        x: logoX,
-        y: logoY,
-        w: wMetrics.width,
+        x: iconLeftCol * cW,
+        y: iconTopRow * cH,
+        w: (wMaxCol + 1) * cW,
         h: targetIconRows * cH,
       };
 
       wLogoMaskRef.current = {
-        data: wFinal,
+        data: w2ctx.getImageData(0, 0, w2.width, w2.height).data,
         width: w2.width,
         height: w2.height,
       };
 
-      // --- Menu (+) icon mask — grid-aligned, 3-wide vertical bar, 2-thick horizontal ---
+      // --- Menu (+) icon mask — grid-drawn, same row height as the W ---
       const m = document.createElement('canvas');
       m.width = canvasWidth;
       m.height = canvasHeight;
@@ -243,30 +299,32 @@ export function useTerrainAnimation(
       mctx.fillRect(0, 0, m.width, m.height);
 
       mctx.fillStyle = '#fff';
-      const plusCols = 9;
-      const vBarThick = 3; // vertical bar: 3 columns wide
+      // Odd span in both axes so the bars centre on an exact cell. Column count
+      // tracks the row count through the cell aspect ratio, so the + stays
+      // visually square (and matched to the W) at every viewport.
+      // (targetIconRows is even and plusCols is forced odd, which is what lets
+      // the even-thickness horizontal bar and odd-thickness vertical bar each
+      // land on the exact centre of their axis.)
+      const plusRows = targetIconRows;
+      let plusCols = Math.round(plusRows / 0.602);
+      if (plusCols % 2 === 0) plusCols += 1;
+      const vBarThick = 3; // vertical bar: 3 columns wide (~1.8 rows of ink)
       const hBarThick = 2; // horizontal bar: 2 rows thick
-      const plusRows = 6;
-      const plusRightCol = Math.floor((canvasWidth - logoX) / cW);
-      const plusTopRow = wFinalMinR < Infinity ? wFinalMinR : Math.floor(logoY / cH);
-      const plusLeftCol = plusRightCol - plusCols;
+      // Mirror the W's left inset on the right edge.
+      const plusLeftCol = Math.floor((canvasWidth - logoX) / cW) - plusCols;
+      const plusTopRow = iconTopRow + Math.floor((targetIconRows - plusRows) / 2);
       const plusMidCol = plusLeftCol + Math.floor((plusCols - vBarThick) / 2);
       const plusMidRow = plusTopRow + Math.floor((plusRows - hBarThick) / 2);
-      const fillCell = (r: number, c: number) => {
-        const x = Math.floor(c * cW);
-        const y = Math.floor(r * cH);
-        mctx.fillRect(x, y, Math.floor((c + 1) * cW) - x, Math.floor((r + 1) * cH) - y);
-      };
-      // Vertical bar (3 cols wide)
+      // Vertical bar
       for (let r = plusTopRow; r < plusTopRow + plusRows; r++) {
         for (let c = plusMidCol; c < plusMidCol + vBarThick; c++) {
-          fillCell(r, c);
+          fillCellOn(mctx, r, c);
         }
       }
-      // Horizontal bar (2 rows thick)
+      // Horizontal bar
       for (let r = plusMidRow; r < plusMidRow + hBarThick; r++) {
         for (let c = plusLeftCol; c < plusLeftCol + plusCols; c++) {
-          fillCell(r, c);
+          fillCellOn(mctx, r, c);
         }
       }
       menuBoundsRef.current = {
@@ -281,7 +339,6 @@ export function useTerrainAnimation(
         width: m.width,
         height: m.height,
       };
-
     },
     [showNameMask],
   );
@@ -377,6 +434,13 @@ export function useTerrainAnimation(
     let npIsPlaying = false;
     let npMaxTextWidth = 0;     // max visible chars for track text
     let npFullTextStr = '';     // full untruncated track text for scrolling
+    // Narrow viewports stack the track over the artist on two 2x rows instead
+    // of running "TRACK — ARTIST" as one marquee'd line: at mobile grid widths
+    // that single line always overflows, and a permanently scrolling title is
+    // the least readable thing on the page.
+    let npStacked = false;
+    let npArtistStr = '';
+    let npArtistRow = 0;
     let lastNowPlayingTrack = '';
 
     // Feed card geometry
@@ -545,6 +609,35 @@ export function useTerrainAnimation(
     // Full-screen "+" menu overlay mask — same offscreen-canvas / Arial Black /
     // getImageData-bake-to-grid technique as the WORTHY RAE name mask and
     // buildContentTitleMask above, applied to 4 stacked entries. Static text,
+    // Bake an offscreen mask (white ink on black) down to the character grid.
+    // Sampling a single pixel per cell — the cell's top-left corner, which is
+    // what this used to do — silently drops any stroke narrower than one cell,
+    // and at mobile grid sizes that is most of them: the headings came out as
+    // rubble and the W collapsed into a solid block. Inking a cell on area
+    // coverage instead keeps thin strokes and open counters at every size.
+    function bakeMaskGrid(
+      out: Uint8Array,
+      mask: { data: Uint8ClampedArray; width: number; height: number },
+    ) {
+      const S = 4;              // 4x4 sample lattice per cell
+      const MIN_HITS = 6;       // 6/16 ~= 40% coverage
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let hits = 0;
+          for (let sy = 0; sy < S; sy++) {
+            const py = Math.floor((r + (sy + 0.5) / S) * charH);
+            if (py < 0 || py >= mask.height) continue;
+            for (let sx = 0; sx < S; sx++) {
+              const px = Math.floor((c + (sx + 0.5) / S) * charW);
+              if (px < 0 || px >= mask.width) continue;
+              if (mask.data[(py * mask.width + px) * 4] > 128) hits++;
+            }
+          }
+          out[r * cols + c] = hits >= MIN_HITS ? 1 : 0;
+        }
+      }
+    }
+
     // so it's rebuilt on every resize (cheap) rather than lazily on open.
     function buildMenuOverlayMask() {
       if (!canvas) return;
@@ -585,18 +678,12 @@ export function useTerrainAnimation(
       }
       menuEntryBoundsRef.current = newBounds;
 
-      const maskData = o.getImageData(0, 0, off.width, off.height).data;
       menuOverlayGrid = new Uint8Array(cols * rows);
-      for (let r = 0; r < rows; r++) {
-        const py = Math.floor(r * charH);
-        for (let c = 0; c < cols; c++) {
-          const px = Math.floor(c * charW);
-          const idx = r * cols + c;
-          if (px < off.width && py < off.height) {
-            menuOverlayGrid[idx] = maskData[(py * off.width + px) * 4] > 128 ? 1 : 0;
-          }
-        }
-      }
+      bakeMaskGrid(menuOverlayGrid, {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      });
     }
 
     // Canvas-native contact mode heading — same offscreen-canvas / Arial
@@ -626,18 +713,12 @@ export function useTerrainAnimation(
       o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
       o.fillText('CONTACT', canvas.width / 2, cy, maxW);
 
-      const maskData = o.getImageData(0, 0, off.width, off.height).data;
       contactHeadingGrid = new Uint8Array(cols * rows);
-      for (let r = 0; r < rows; r++) {
-        const py = Math.floor(r * charH);
-        for (let c = 0; c < cols; c++) {
-          const px = Math.floor(c * charW);
-          const idx = r * cols + c;
-          if (px < off.width && py < off.height) {
-            contactHeadingGrid[idx] = maskData[(py * off.width + px) * 4] > 128 ? 1 : 0;
-          }
-        }
-      }
+      bakeMaskGrid(contactHeadingGrid, {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      });
       // A handful of blank rows below the heading's baseline before fields begin.
       contactHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
     }
@@ -667,18 +748,12 @@ export function useTerrainAnimation(
       o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
       o.fillText('PORTFOLIO', canvas.width / 2, cy, maxW);
 
-      const maskData = o.getImageData(0, 0, off.width, off.height).data;
       feedHeadingGrid = new Uint8Array(cols * rows);
-      for (let r = 0; r < rows; r++) {
-        const py = Math.floor(r * charH);
-        for (let c = 0; c < cols; c++) {
-          const px = Math.floor(c * charW);
-          const idx = r * cols + c;
-          if (px < off.width && py < off.height) {
-            feedHeadingGrid[idx] = maskData[(py * off.width + px) * 4] > 128 ? 1 : 0;
-          }
-        }
-      }
+      bakeMaskGrid(feedHeadingGrid, {
+        data: o.getImageData(0, 0, off.width, off.height).data,
+        width: off.width,
+        height: off.height,
+      });
       feedHeadingBottomRow = Math.ceil((cy + lineH * 0.7) / charH) + 3;
     }
 
@@ -691,32 +766,52 @@ export function useTerrainAnimation(
     ) {
       npIsPlaying = isPlaying;
       npLabelStr = isPlaying ? labels[0] : labels[1];
-      npFullTextStr = (artist ? `${track} — ${artist}` : track).toUpperCase();
+      const trackStr = track.toUpperCase();
+      const artistStr = artist.toUpperCase();
+      npFullTextStr = (artist ? `${trackStr} — ${artistStr}` : trackStr);
 
       // Bars only shown when playing
       const barsWidth = isPlaying ? 5 : 0;
       const gapAfterBars = isPlaying ? 2 : 0;
       // Title renders at 2x: each char spans 2 grid cols/rows (same as feed cards)
       const textScale = 2;
-      // Cap text width so the box doesn't overflow the screen
-      const maxBoxCols = Math.min(cols - 6, 80);
-      const maxTextCols = maxBoxCols - (1 + 2 + barsWidth + gapAfterBars + 2 + 1);
-      npMaxTextWidth = Math.floor(maxTextCols / textScale); // in CHARS, not cols
-      // Truncate display text with ellipsis if needed; full text used for scrolling
-      if (npFullTextStr.length > npMaxTextWidth) {
-        npTextStr = npFullTextStr.slice(0, npMaxTextWidth - 1) + '…';
-      } else {
-        npTextStr = npFullTextStr;
-      }
-      // Size box to actual content, not max width
-      const textDisplayCols = Math.min(npFullTextStr.length, npMaxTextWidth) * textScale;
-      const contentWidth = Math.max(npLabelStr.length, textDisplayCols);
-      const innerWidth = barsWidth + gapAfterBars + contentWidth;
       const padH = 2; // horizontal padding inside border
+      const chrome = 1 + padH + barsWidth + gapAfterBars + padH + 1;
+      // Cap text width so the box doesn't overflow the screen. Mobile keeps a
+      // wider outer margin because the box sits edge-to-edge otherwise.
+      const maxBoxCols = Math.min(cols - (isMobile ? 10 : 6), 80);
+      const maxTextCols = maxBoxCols - chrome;
+      npMaxTextWidth = Math.max(4, Math.floor(maxTextCols / textScale)); // in CHARS, not cols
+
+      // Stack onto two rows on phones, and anywhere the combined line can't
+      // fit. A joined "TRACK — ARTIST" line only just squeezes onto the wider
+      // phones, leaving the box pressed against both screen edges, and on the
+      // rest it marquees — the least readable thing on the page.
+      npStacked = !!artist && (isMobile || npFullTextStr.length > npMaxTextWidth);
+
+      const clip = (str: string) =>
+        str.length > npMaxTextWidth ? str.slice(0, npMaxTextWidth - 1) + '…' : str;
+
+      let contentChars: number;
+      if (npStacked) {
+        npTextStr = clip(trackStr);
+        npArtistStr = clip(artistStr);
+        contentChars = Math.max(npTextStr.length, npArtistStr.length);
+      } else {
+        npArtistStr = '';
+        npTextStr = clip(npFullTextStr);
+        // Marquee (single-line path only) scrolls the full string in place.
+        contentChars = Math.min(npFullTextStr.length, npMaxTextWidth);
+      }
+
+      // Size box to actual content, not max width
+      const contentWidth = Math.max(npLabelStr.length, contentChars * textScale);
+      const innerWidth = barsWidth + gapAfterBars + contentWidth;
       const boxWidth = 1 + padH + innerWidth + padH + 1; // border + pad + content + pad + border
 
-      // Box height: border + pad + label(1) + title(2 rows at 2x) + pad + border
-      const boxHeight = 7;
+      // Box height: border + pad + label(1) + title(2 rows at 2x)
+      // [+ artist(2 rows) when stacked] + pad + border
+      const boxHeight = npStacked ? 9 : 7;
 
       // Center horizontally
       npBoxLeft = Math.floor((cols - boxWidth) / 2);
@@ -734,6 +829,7 @@ export function useTerrainAnimation(
       npLabelRow = npBoxTop + 2;
       npTextCol = contentLeft + barsWidth + gapAfterBars;
       npTextRow = npBoxTop + 3; // spans rows +3 and +4 (2x)
+      npArtistRow = npTextRow + textScale;
     }
 
     type FeedItem = { text: string; url: string; description?: string; category?: string; icon?: string; artist?: string; hasArt?: boolean };
@@ -877,9 +973,29 @@ export function useTerrainAnimation(
       T = Math.max(minT, T);
       n = Math.max(1, n);
 
-      const artRows = Math.max(6, Math.round(T * 0.602));
       const textScale = 2;      // title/artist at 2x glyph size
       const artTextPad = 1;     // breathing room between art bottom and title top
+      const tileArtRows = (t: number) => Math.max(6, Math.round(t * 0.602));
+      const tilePeriod = (t: number) => tileArtRows(t) + artTextPad + textScale * 2 + tileGap;
+
+      const availRows = rows - extraBottomRows - L.tilesTopRow + tileGap;
+
+      // --- Mobile: fit the tile size to BOTH axes ---
+      // T above is the widest tile the columns allow. On a phone the band left
+      // under the intro panel only fits one such row, stranding most of a
+      // second row's worth of empty space (about a third of the viewport). So
+      // walk T down and take the largest tile that fits one more slot row.
+      // Desktop keeps the width-driven size: its band already divides cleanly
+      // and shrinking tiles there would only crowd the now-playing box.
+      if (isMobile) {
+        const slotsAt = (t: number) => Math.floor(availRows / tilePeriod(t));
+        const baseSlots = Math.max(1, slotsAt(T));
+        for (let t = T - 1; t >= minT; t--) {
+          if (slotsAt(t) > baseSlots) { T = t; break; }
+        }
+      }
+
+      const artRows = tileArtRows(T);
       const tileHeight = artRows + artTextPad + textScale * 2;
       const cappedTileChars = Math.max(3, Math.floor((T - 2) / textScale));
 
@@ -888,12 +1004,10 @@ export function useTerrainAnimation(
       feedGridLeft = regionLeft + Math.max(0, Math.floor((availCols - (n * T + (n - 1) * tileGap)) / 2));
 
       const period = tileHeight + tileGap;
-      const availRows = rows - extraBottomRows - L.tilesTopRow + tileGap;
       musicSlotRows = Math.max(1, Math.floor(availRows / period));
-      // Center the fixed slot grid in the available band instead of hugging
-      // the top — otherwise the floor() above leaves a dead band at the
-      // bottom (worst on mobile, where one slot row is a large fraction of
-      // the viewport).
+      // Center the fixed slot grid in whatever band is left over, so any
+      // remaining slack reads as symmetric padding rather than a dead band
+      // hanging off the bottom.
       const leftoverRows = Math.max(0, availRows - musicSlotRows * period);
       const startRow = L.tilesTopRow + Math.floor(leftoverRows / 2);
       feedStartRow = startRow;
@@ -973,22 +1087,9 @@ export function useTerrainAnimation(
       const wMask = wLogoMaskRef.current;
       const menuMask = menuMaskRef.current;
 
-      for (let r = 0; r < rows; r++) {
-        const py = Math.floor(r * charH);
-        for (let c = 0; c < cols; c++) {
-          const px = Math.floor(c * charW);
-          const idx = r * cols + c;
-          if (nameMask && px < nameMask.width && py < nameMask.height) {
-            nameMaskGrid[idx] = nameMask.data[(py * nameMask.width + px) * 4] > 128 ? 1 : 0;
-          }
-          if (wMask && px < wMask.width && py < wMask.height) {
-            wLogoMaskGrid[idx] = wMask.data[(py * wMask.width + px) * 4] > 128 ? 1 : 0;
-          }
-          if (menuMask && px < menuMask.width && py < menuMask.height) {
-            menuMaskGrid[idx] = menuMask.data[(py * menuMask.width + px) * 4] > 128 ? 1 : 0;
-          }
-        }
-      }
+      if (nameMask) bakeMaskGrid(nameMaskGrid, nameMask);
+      if (wMask) bakeMaskGrid(wLogoMaskGrid, wMask);
+      if (menuMask) bakeMaskGrid(menuMaskGrid, menuMask);
 
       buildMenuOverlayMask();
       buildContactHeadingMask();
@@ -1198,7 +1299,10 @@ export function useTerrainAnimation(
       if (feedItemsKey !== lastFeedItemsKey) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
-        setupFeedCards(feedItems, musicUIRef?.current ? NP_BOTTOM_RESERVE : 0);
+        setupFeedCards(
+          feedItems,
+          musicUIRef?.current ? (isMobile ? NP_BOTTOM_RESERVE_STACKED : NP_BOTTOM_RESERVE) : 0,
+        );
         feedScrollTarget = 0;
         feedScrollOffset = 0;
         // Feed → detail: restart melt animation so terrain transitions to black
@@ -1897,9 +2001,23 @@ export function useTerrainAnimation(
             let title = fc.nameStr;
             let titleStartCol: number;
             if (title.length > visChars) {
+              // Timed rather than counted in steps: holding for a fixed number
+              // of steps means a long title spends nearly all its cycle
+              // mid-scroll, and a grid of tiles doing that reads as churn
+              // instead of as a list of names. Fixed hold durations plus a
+              // brisk crawl keep every tile parked on its opening characters
+              // for most of the loop no matter how long the title is.
+              const HOLD_START_MS = 3200;
+              const HOLD_END_MS = 1400;
+              const STEP_MS = 220;
               const over = title.length - visChars;
-              const step = Math.floor(ts / 350) % (over + 8); // 3 steps pause at start, 5 at end
-              const shift = Math.max(0, Math.min(over, step - 3));
+              const crawlMs = over * STEP_MS;
+              const t = ts % (HOLD_START_MS + crawlMs + HOLD_END_MS);
+              const shift = t < HOLD_START_MS
+                ? 0
+                : t < HOLD_START_MS + crawlMs
+                  ? Math.min(over, Math.floor((t - HOLD_START_MS) / STEP_MS))
+                  : over;
               title = title.slice(shift, shift + visChars);
               titleStartCol = fc.left + 1;
             } else {
@@ -2093,14 +2211,23 @@ export function useTerrainAnimation(
 
         // --- Track text (2x scale, full brightness, scrolling if truncated) ---
         ctx.font = `${fontSize * 2}px 'JetBrains Mono','Courier New',monospace`;
-        const drawTitleChar = (ch: string, i: number) => {
+        const drawTitleChar = (ch: string, i: number, row = npTextRow, dim = 1) => {
           const c = npTextCol + i * 2;
-          if (!canDraw(npTextRow, c)) return;
-          const idx = npTextRow * cols + c;
-          ctx.fillStyle = colorLUT[gridColors[idx]];
-          ctx.fillText(ch, c * charW, npTextRow * charH);
+          if (!canDraw(row, c)) return;
+          const idx = row * cols + c;
+          const lvl = dim === 1
+            ? gridColors[idx]
+            : Math.max(0, Math.min(COLOR_LEVELS - 1, (gridColors[idx] * dim) | 0));
+          ctx.fillStyle = colorLUT[lvl];
+          ctx.fillText(ch, c * charW, row * charH);
         };
-        if (npFullTextStr.length > npMaxTextWidth) {
+        if (npStacked) {
+          // Two static 2x rows: track, then artist a shade dimmer.
+          for (let i = 0; i < npTextStr.length; i++) drawTitleChar(npTextStr[i], i);
+          for (let i = 0; i < npArtistStr.length; i++) {
+            drawTitleChar(npArtistStr[i], i, npArtistRow, 0.7);
+          }
+        } else if (npFullTextStr.length > npMaxTextWidth) {
           // Pause-scroll-pause-scroll marquee with smoothstep easing
           const pad = '   ';
           const loopText = npFullTextStr + pad;

@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -143,16 +143,35 @@ def letterboxd_recent():
     return get_recent_films()
 
 
+@app.get("/sitemap.xml")
+async def sitemap():
+    from seo import build_sitemap
+    return Response(
+        content=build_sitemap(),
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 # Serve frontend static files (JS, CSS, assets)
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
     @app.get("/{path:path}")
     async def spa_fallback(path: str):
+        from seo import render_index
+
         file = STATIC_DIR / path
-        if file.is_file():
+        if file.is_file() and file.name != "index.html":
             return FileResponse(file)
-        return FileResponse(STATIC_DIR / "index.html")
+
+        # Every other path is a client route. Serve index.html with the SEO
+        # block rewritten for that route so crawlers and link unfurlers get
+        # real metadata instead of the home-page defaults.
+        document = render_index(path)
+        if document is None:
+            return FileResponse(STATIC_DIR / "index.html")
+        return HTMLResponse(document)
 
 
 if __name__ == "__main__":
