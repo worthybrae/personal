@@ -1,5 +1,7 @@
 FROM node:20-slim AS frontend
 
+ARG VITE_LIVE_STREAM_URL
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
