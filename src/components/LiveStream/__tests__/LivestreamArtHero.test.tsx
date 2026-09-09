@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { getArtPiece } from '@/lib/art'
-import { LivestreamArtHero } from '../LivestreamArtHero'
+import { LivestreamArtHero, LivestreamArtScrollRegion } from '../LivestreamArtHero'
 
 vi.mock('../ArtMedia', () => ({
   ArtMedia: ({ fill }: { fill?: boolean }) => (
@@ -18,5 +18,26 @@ describe('LivestreamArtHero', () => {
       'h-[calc(100dvh-100px)]',
     )
     expect(screen.getByTestId('mock-art-media')).toHaveAttribute('data-fill', 'true')
+  })
+
+  it('reserves an additional viewport only for livestream details', () => {
+    const { rerender } = render(
+      <LivestreamArtScrollRegion active>
+        <p>Artwork details</p>
+      </LivestreamArtScrollRegion>,
+    )
+
+    expect(screen.getByTestId('livestream-art-scroll-region')).toHaveClass(
+      'min-h-[calc(100dvh-100px)]',
+    )
+
+    rerender(
+      <LivestreamArtScrollRegion active={false}>
+        <p>Artwork details</p>
+      </LivestreamArtScrollRegion>,
+    )
+
+    expect(screen.queryByTestId('livestream-art-scroll-region')).not.toBeInTheDocument()
+    expect(screen.getByText('Artwork details')).toBeInTheDocument()
   })
 })

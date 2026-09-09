@@ -17,7 +17,7 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 import { ArtMedia } from '@/components/LiveStream/ArtMedia';
-import { LivestreamArtHero } from '@/components/LiveStream/LivestreamArtHero';
+import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -729,6 +729,7 @@ export default function Home() {
           {displayArtPiece.slug === 'livestream-art' && (
             <LivestreamArtHero piece={displayArtPiece} />
           )}
+          <LivestreamArtScrollRegion active={displayArtPiece.slug === 'livestream-art'}>
           <div className={`flex items-start justify-between gap-4 ${
             displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
           }`}>
@@ -778,6 +779,7 @@ export default function Home() {
             TOOLS
           </div>
           <TechTags tags={displayArtPiece.tech} />
+          </LivestreamArtScrollRegion>
         </DetailOverlay>
       )}
 

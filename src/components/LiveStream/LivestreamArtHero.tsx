@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ArtPiece } from '@/lib/art'
 import { ArtMedia } from './ArtMedia'
 
@@ -10,5 +11,24 @@ export function LivestreamArtHero({ piece }: { piece: ArtPiece }) {
     >
       <ArtMedia piece={piece} fill />
     </section>
+  )
+}
+
+export function LivestreamArtScrollRegion({
+  active,
+  children,
+}: {
+  active: boolean
+  children: ReactNode
+}) {
+  if (!active) return <>{children}</>
+
+  return (
+    <div
+      data-testid="livestream-art-scroll-region"
+      className="min-h-[calc(100dvh-100px)]"
+    >
+      {children}
+    </div>
   )
 }
