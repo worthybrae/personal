@@ -47,6 +47,7 @@ ENV/
 .venv/
 
 .superpowers/
+.worktrees/
 docs/
 .playwright-mcp/
 # Frontend build copied in by backend/Dockerfile
