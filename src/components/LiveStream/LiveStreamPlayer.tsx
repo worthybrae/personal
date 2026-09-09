@@ -11,6 +11,7 @@ export interface LiveStreamPlayerProps {
 const POLL_INTERVAL_MS = 2_000
 const STALL_CHECK_INTERVAL_MS = 5_000
 const STARTUP_TIMEOUT_MS = 90_000
+const CROSSFADE_DURATION_MS = 500
 
 export function LiveStreamPlayer({
   fallbackUrl,
@@ -18,12 +19,14 @@ export function LiveStreamPlayer({
   attachStream = attachHls,
 }: LiveStreamPlayerProps) {
   const [phase, setPhase] = useState<LivePhase>(baseUrl ? 'waking' : 'fallback')
+  const [liveVideoVisible, setLiveVideoVisible] = useState(false)
   const liveVideoRef = useRef<HTMLVideoElement>(null)
   const onCanPlayRef = useRef<() => void>(() => undefined)
 
   useEffect(() => {
     if (!baseUrl) {
       setPhase('fallback')
+      setLiveVideoVisible(false)
       return
     }
 
@@ -36,9 +39,11 @@ export function LiveStreamPlayer({
     let retryTimer: ReturnType<typeof setTimeout> | null = null
     let stallTimer: ReturnType<typeof setInterval> | null = null
     let startupTimer: ReturnType<typeof setTimeout> | null = null
+    let crossfadeTimer: ReturnType<typeof setTimeout> | null = null
     let retryAttempt = 0
     let hasReachedLive = false
     let startupTimedOut = false
+    let canPlayHandled = false
     let lastPlaybackTime = 0
     let unchangedChecks = 0
 
@@ -63,6 +68,13 @@ export function LiveStreamPlayer({
       }
     }
 
+    const clearCrossfadeTimer = () => {
+      if (crossfadeTimer !== null) {
+        clearTimeout(crossfadeTimer)
+        crossfadeTimer = null
+      }
+    }
+
     const abortRequest = () => {
       requestController?.abort()
       requestController = null
@@ -70,10 +82,15 @@ export function LiveStreamPlayer({
 
     const destroyStream = () => {
       clearStallTimer()
+      clearCrossfadeTimer()
       attached = false
+      canPlayHandled = false
       const currentHandle = handle
       handle = null
       currentHandle?.destroy()
+      if (!disposed) {
+        setLiveVideoVisible(false)
+      }
     }
 
     const recover = (unavailable = false) => {
@@ -115,10 +132,11 @@ export function LiveStreamPlayer({
 
     onCanPlayRef.current = () => {
       const video = liveVideoRef.current
-      if (disposed || !attached || !video) {
+      if (disposed || !attached || canPlayHandled || !video) {
         return
       }
 
+      canPlayHandled = true
       void video.play().catch(() => recover())
       hasReachedLive = true
       startupTimedOut = false
@@ -127,8 +145,14 @@ export function LiveStreamPlayer({
         clearTimeout(startupTimer)
         startupTimer = null
       }
-      setPhase('live')
+      setLiveVideoVisible(true)
       startStallChecks(video)
+      crossfadeTimer = setTimeout(() => {
+        crossfadeTimer = null
+        if (!disposed && attached) {
+          setPhase('live')
+        }
+      }, CROSSFADE_DURATION_MS)
     }
 
     const attachLiveStream = () => {
@@ -196,6 +220,7 @@ export function LiveStreamPlayer({
       }
     }
 
+    setLiveVideoVisible(false)
     setPhase('waking')
     startupTimer = setTimeout(() => {
       startupTimer = null
@@ -213,6 +238,7 @@ export function LiveStreamPlayer({
       clearPollTimer()
       clearRetryTimer()
       clearStallTimer()
+      clearCrossfadeTimer()
       if (startupTimer !== null) {
         clearTimeout(startupTimer)
         startupTimer = null
@@ -220,8 +246,6 @@ export function LiveStreamPlayer({
       destroyStream()
     }
   }, [attachStream, baseUrl])
-
-  const isLive = phase === 'live'
 
   return (
     <div className="relative aspect-video overflow-hidden bg-black">
@@ -233,7 +257,7 @@ export function LiveStreamPlayer({
         muted
         playsInline
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-          isLive ? 'opacity-0' : 'opacity-100'
+          liveVideoVisible ? 'opacity-0' : 'opacity-100'
         }`}
       />
 
@@ -245,7 +269,7 @@ export function LiveStreamPlayer({
           playsInline
           onCanPlay={() => onCanPlayRef.current()}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-            isLive ? 'opacity-100' : 'opacity-0'
+            liveVideoVisible ? 'opacity-100' : 'opacity-0'
           }`}
         />
       )}

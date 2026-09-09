@@ -32,7 +32,7 @@ describe('attachHls', () => {
     vi.clearAllMocks()
   })
 
-  it('uses native HLS and removes its source when destroyed', () => {
+  it('forwards native playback errors and removes its listener when destroyed', () => {
     const video = document.createElement('video')
     const load = vi.spyOn(video, 'load').mockImplementation(() => undefined)
     const onFatal = vi.fn()
@@ -43,10 +43,15 @@ describe('attachHls', () => {
     expect(video.src).toBe('https://live.worthyrae.com/api/stream')
     expect(hls.constructor).not.toHaveBeenCalled()
 
+    video.dispatchEvent(new Event('error'))
+    expect(onFatal).toHaveBeenCalledOnce()
+
     handle.destroy()
 
     expect(video.getAttribute('src')).toBeNull()
     expect(load).toHaveBeenCalledOnce()
+    video.dispatchEvent(new Event('error'))
+    expect(onFatal).toHaveBeenCalledOnce()
   })
 
   it('attaches hls.js and forwards fatal playback errors', () => {

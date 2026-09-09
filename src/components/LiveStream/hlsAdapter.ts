@@ -11,9 +11,11 @@ export function attachHls(
 ): StreamHandle {
   if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = playlistUrl
+    video.addEventListener('error', onFatal)
 
     return {
       destroy() {
+        video.removeEventListener('error', onFatal)
         video.removeAttribute('src')
         video.load()
       },

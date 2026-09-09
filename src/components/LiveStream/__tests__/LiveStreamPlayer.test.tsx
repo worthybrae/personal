@@ -96,7 +96,7 @@ describe('LiveStreamPlayer', () => {
     expect(screen.getByText('STARTING LIVE FEED')).toBeInTheDocument()
   })
 
-  it('shows LIVE only after canplay', async () => {
+  it('reveals live video on canplay and shows LIVE only after the crossfade', async () => {
     await renderAttachedPlayer()
     const liveVideo = screen.getByTestId('live-video') as HTMLVideoElement
 
@@ -104,6 +104,13 @@ describe('LiveStreamPlayer', () => {
 
     expect(liveVideo.play).toHaveBeenCalledOnce()
     expect(liveVideo).toHaveClass('opacity-100')
+    expect(screen.queryByText('LIVE')).not.toBeInTheDocument()
+    expect(screen.getByText('STARTING LIVE FEED')).toBeInTheDocument()
+
+    await vi.advanceTimersByTimeAsync(499)
+    expect(screen.queryByText('LIVE')).not.toBeInTheDocument()
+
+    await vi.advanceTimersByTimeAsync(1)
     expect(screen.getByText('LIVE')).toBeInTheDocument()
     expect(screen.queryByText('STARTING LIVE FEED')).not.toBeInTheDocument()
   })
