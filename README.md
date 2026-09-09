@@ -44,6 +44,10 @@ make clean      # Clean up everything
 - Set `GA4_PROPERTY_ID` environment variable
 - Set `GOOGLE_CREDENTIALS` environment variable with the contents of ga.json (the startup script will create the file automatically)
 
+**Live artwork:**
+- Set `VITE_LIVE_STREAM_URL=https://live.worthyrae.com` when building the portfolio to enable the live playback handoff on `/art/livestream-art`.
+- Leave it unset to intentionally keep the prerecorded Abbey Road recording in place.
+
 ## Tech Stack
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS
@@ -64,4 +68,3 @@ make clean      # Clean up everything
 ├── ga.json                # Google Analytics credentials (local only, not in git)
 └── .env                  # Environment variables (not in git)
 ```
-

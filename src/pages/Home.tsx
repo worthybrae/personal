@@ -16,6 +16,7 @@ import { CONTACT_MESSAGE_MAX, isContactFormValid, type ContactField, type Contac
 import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
+import { ArtMedia } from '@/components/LiveStream/ArtMedia';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -753,7 +754,7 @@ export default function Home() {
             )}
           </div>
           <div className="mt-8">
-            <MediaBlock videoUrl={displayArtPiece.videoUrl} imageUrl={displayArtPiece.imageUrl} />
+            <ArtMedia piece={displayArtPiece} />
           </div>
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
