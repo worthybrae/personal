@@ -6,6 +6,7 @@ export interface LiveStreamPlayerProps {
   fallbackUrl: string
   baseUrl?: string
   attachStream?: typeof attachHls
+  fill?: boolean
 }
 
 const POLL_INTERVAL_MS = 2_000
@@ -17,6 +18,7 @@ export function LiveStreamPlayer({
   fallbackUrl,
   baseUrl,
   attachStream = attachHls,
+  fill = false,
 }: LiveStreamPlayerProps) {
   const [phase, setPhase] = useState<LivePhase>(baseUrl ? 'waking' : 'fallback')
   const [liveVideoVisible, setLiveVideoVisible] = useState(false)
@@ -256,7 +258,10 @@ export function LiveStreamPlayer({
   }, [attachStream, baseUrl])
 
   return (
-    <div className="relative aspect-video overflow-hidden bg-black">
+    <div
+      data-testid="live-stream-player"
+      className={`relative overflow-hidden bg-black ${fill ? 'h-full w-full' : 'aspect-video'}`}
+    >
       <video
         data-testid="fallback-video"
         src={fallbackUrl}

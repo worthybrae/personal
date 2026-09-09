@@ -4,8 +4,21 @@ import { getArtPiece } from '@/lib/art'
 import { ArtMedia } from '../ArtMedia'
 
 vi.mock('../LiveStreamPlayer', () => ({
-  LiveStreamPlayer: ({ fallbackUrl, baseUrl }: { fallbackUrl: string; baseUrl?: string }) => (
-    <div data-testid="mock-live-player" data-fallback={fallbackUrl} data-base-url={baseUrl} />
+  LiveStreamPlayer: ({
+    fallbackUrl,
+    baseUrl,
+    fill,
+  }: {
+    fallbackUrl: string
+    baseUrl?: string
+    fill?: boolean
+  }) => (
+    <div
+      data-testid="mock-live-player"
+      data-fallback={fallbackUrl}
+      data-base-url={baseUrl}
+      data-fill={fill}
+    />
   ),
 }))
 
@@ -17,6 +30,12 @@ describe('ArtMedia', () => {
       'data-fallback',
       'https://portfolio-worthy.s3.us-east-1.amazonaws.com/abbey_road_best.mp4',
     )
+  })
+
+  it('forwards the fill layout to livestream-art', () => {
+    render(<ArtMedia piece={getArtPiece('livestream-art')!} fill />)
+
+    expect(screen.getByTestId('mock-live-player')).toHaveAttribute('data-fill', 'true')
   })
 
   it('keeps an ordinary looping video for other video artwork', () => {

@@ -1,9 +1,15 @@
 import type { ArtPiece } from '@/lib/art'
 import { LiveStreamPlayer } from './LiveStreamPlayer'
 
-export function ArtMedia({ piece }: { piece: ArtPiece }): JSX.Element | null {
+export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: boolean }): JSX.Element | null {
   if (piece.slug === 'livestream-art') {
-    return <LiveStreamPlayer fallbackUrl={piece.videoUrl!} baseUrl={import.meta.env.VITE_LIVE_STREAM_URL} />
+    return (
+      <LiveStreamPlayer
+        fallbackUrl={piece.videoUrl!}
+        baseUrl={import.meta.env.VITE_LIVE_STREAM_URL}
+        fill={fill}
+      />
+    )
   }
 
   if (piece.videoUrl) {

@@ -67,6 +67,24 @@ describe('LiveStreamPlayer', () => {
     expect(screen.getByText('STARTING LIVE FEED')).toBeInTheDocument()
   })
 
+  it('fills its parent when requested without forcing an aspect ratio', () => {
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => undefined))
+
+    render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} fill />)
+
+    const root = screen.getByTestId('live-stream-player')
+    expect(root).toHaveClass('h-full', 'w-full')
+    expect(root).not.toHaveClass('aspect-video')
+  })
+
+  it('keeps the inline aspect ratio by default', () => {
+    vi.mocked(fetch).mockImplementation(() => new Promise(() => undefined))
+
+    render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} />)
+
+    expect(screen.getByTestId('live-stream-player')).toHaveClass('aspect-video')
+  })
+
   it('polls status until ready and attaches the live playlist', async () => {
     const { attachStream } = streamDouble()
     vi.mocked(fetch)
