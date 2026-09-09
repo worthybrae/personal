@@ -17,6 +17,7 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 import { ArtMedia } from '@/components/LiveStream/ArtMedia';
+import { LivestreamArtHero } from '@/components/LiveStream/LivestreamArtHero';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
 
@@ -725,7 +726,12 @@ export default function Home() {
 
       {showArt && displayArtPiece && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
-          <div className="flex items-start justify-between gap-4">
+          {displayArtPiece.slug === 'livestream-art' && (
+            <LivestreamArtHero piece={displayArtPiece} />
+          )}
+          <div className={`flex items-start justify-between gap-4 ${
+            displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
+          }`}>
             <div className="text-left">
               <h1
                 className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
@@ -753,9 +759,11 @@ export default function Home() {
               </a>
             )}
           </div>
-          <div className="mt-8">
-            <ArtMedia piece={displayArtPiece} />
-          </div>
+          {displayArtPiece.slug !== 'livestream-art' && (
+            <div className="mt-8">
+              <ArtMedia piece={displayArtPiece} />
+            </div>
+          )}
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
             style={{ fontFamily: monoFont }}
