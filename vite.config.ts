@@ -1,4 +1,5 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig } from 'vitest/config'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { SITE, allRoutes } from './src/lib/seo'
@@ -24,6 +25,10 @@ function seoManifest(): Plugin {
 
 export default defineConfig({
   plugins: [react(), seoManifest()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
