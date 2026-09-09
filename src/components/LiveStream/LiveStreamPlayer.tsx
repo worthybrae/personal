@@ -269,9 +269,7 @@ export function LiveStreamPlayer({
         loop
         muted
         playsInline
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-          liveVideoVisible ? 'opacity-0' : 'opacity-100'
-        }`}
+        className="absolute inset-0 h-full w-full object-cover opacity-100"
       />
 
       {baseUrl && (

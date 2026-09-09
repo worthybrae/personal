@@ -133,6 +133,23 @@ describe('LiveStreamPlayer', () => {
     expect(screen.queryByText('STARTING LIVE FEED')).not.toBeInTheDocument()
   })
 
+  it('keeps the fallback opaque beneath visible live video and through recovery', async () => {
+    const { attachStream, handle } = await renderAttachedPlayer()
+    const fallbackVideo = screen.getByTestId('fallback-video')
+    const liveVideo = screen.getByTestId('live-video')
+
+    fireEvent.canPlay(liveVideo)
+
+    expect(liveVideo).toHaveClass('opacity-100')
+    expect(fallbackVideo).toHaveClass('opacity-100')
+
+    act(() => attachStream.mock.calls[0]?.[2]())
+
+    expect(handle.destroy).toHaveBeenCalledOnce()
+    expect(liveVideo).toHaveClass('opacity-0')
+    expect(fallbackVideo).toHaveClass('opacity-100')
+  })
+
   it('keeps fallback and shows retrying after ninety seconds', async () => {
     vi.mocked(fetch).mockResolvedValue(response(startingStatus))
 

@@ -730,55 +730,55 @@ export default function Home() {
             <LivestreamArtHero piece={displayArtPiece} />
           )}
           <LivestreamArtScrollRegion active={displayArtPiece.slug === 'livestream-art'}>
-          <div className={`flex items-start justify-between gap-4 ${
-            displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
-          }`}>
-            <div className="text-left">
-              <h1
-                className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
-                style={{ fontFamily: monoFont }}
-              >
-                {displayArtPiece.name}
-              </h1>
-              <div
-                className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
-                style={{ fontFamily: monoFont }}
-              >
-                {displayArtPiece.description}
+            <div className={`flex items-start justify-between gap-4 ${
+              displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
+            }`}>
+              <div className="text-left">
+                <h1
+                  className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
+                  style={{ fontFamily: monoFont }}
+                >
+                  {displayArtPiece.name}
+                </h1>
+                <div
+                  className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
+                  style={{ fontFamily: monoFont }}
+                >
+                  {displayArtPiece.description}
+                </div>
               </div>
+              {displayArtPiece.githubUrl && (
+                <a
+                  href={displayArtPiece.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
+                  style={{ fontFamily: monoFont }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+                  View
+                </a>
+              )}
             </div>
-            {displayArtPiece.githubUrl && (
-              <a
-                href={displayArtPiece.githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
-                style={{ fontFamily: monoFont }}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
-                View
-              </a>
+            {displayArtPiece.slug !== 'livestream-art' && (
+              <div className="mt-8">
+                <ArtMedia piece={displayArtPiece} />
+              </div>
             )}
-          </div>
-          {displayArtPiece.slug !== 'livestream-art' && (
-            <div className="mt-8">
-              <ArtMedia piece={displayArtPiece} />
+            <div
+              className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+              style={{ fontFamily: monoFont }}
+            >
+              SUMMARY
             </div>
-          )}
-          <div
-            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-            style={{ fontFamily: monoFont }}
-          >
-            SUMMARY
-          </div>
-          <PretextSummary text={displayArtPiece.summary} />
-          <div
-            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-            style={{ fontFamily: monoFont }}
-          >
-            TOOLS
-          </div>
-          <TechTags tags={displayArtPiece.tech} />
+            <PretextSummary text={displayArtPiece.summary} />
+            <div
+              className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+              style={{ fontFamily: monoFont }}
+            >
+              TOOLS
+            </div>
+            <TechTags tags={displayArtPiece.tech} />
           </LivestreamArtScrollRegion>
         </DetailOverlay>
       )}

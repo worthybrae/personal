@@ -17,6 +17,7 @@ describe('LivestreamArtHero', () => {
       'w-screen',
       'h-[calc(100dvh-100px)]',
     )
+    expect(screen.getByTestId('livestream-art-hero')).not.toHaveClass('min-h-[360px]')
     expect(screen.getByTestId('mock-art-media')).toHaveAttribute('data-fill', 'true')
   })
 
