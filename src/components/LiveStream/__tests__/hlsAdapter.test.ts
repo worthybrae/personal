@@ -63,7 +63,7 @@ describe('attachHls', () => {
 
     expect(hls.constructor).toHaveBeenCalledWith({
       lowLatencyMode: false,
-      liveSyncDurationCount: 3,
+      liveSyncDuration: 18,
     })
     expect(hls.loadSource).toHaveBeenCalledOnce()
     expect(hls.loadSource).toHaveBeenCalledWith('https://live.worthyrae.com/api/stream')

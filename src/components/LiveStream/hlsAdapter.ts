@@ -22,7 +22,7 @@ export function attachHls(
     }
   }
 
-  const hls = new Hls({ lowLatencyMode: false, liveSyncDurationCount: 3 })
+  const hls = new Hls({ lowLatencyMode: false, liveSyncDuration: 18 })
   hls.loadSource(playlistUrl)
   hls.attachMedia(video)
   hls.on(Hls.Events.ERROR, (_event, data) => {

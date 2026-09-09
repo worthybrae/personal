@@ -56,6 +56,20 @@ describe('LiveStreamPlayer', () => {
     vi.unstubAllGlobals()
   })
 
+  it('stops demand in a hidden tab and reconnects when visible', async () => {
+    const { handle, attachStream } = await renderAttachedPlayer()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    expect(handle.destroy).toHaveBeenCalledOnce()
+    const requests = vi.mocked(fetch).mock.calls.length
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(fetch).toHaveBeenCalledTimes(requests)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(attachStream).toHaveBeenCalledTimes(2)
+  })
+
   it('renders the fallback while the first status request is pending', () => {
     vi.mocked(fetch).mockImplementation(() => new Promise(() => undefined))
 

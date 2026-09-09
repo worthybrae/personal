@@ -21,12 +21,27 @@ export function LiveStreamPlayer({
   fill = false,
 }: LiveStreamPlayerProps) {
   const [phase, setPhase] = useState<LivePhase>(baseUrl ? 'waking' : 'fallback')
+  const [pageVisible, setVisible] = useState(() => document.visibilityState !== 'hidden')
+  useEffect(() => {
+    const changed = () => setVisible(document.visibilityState !== 'hidden')
+    document.addEventListener('visibilitychange', changed)
+    return () => document.removeEventListener('visibilitychange', changed)
+  }, [])
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [onScreen, setOnScreen] = useState(true)
+  useEffect(() => {
+    if (!rootRef.current || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting))
+    observer.observe(rootRef.current)
+    return () => observer.disconnect()
+  }, [])
+  const visible = pageVisible && onScreen
   const [liveVideoVisible, setLiveVideoVisible] = useState(false)
   const liveVideoRef = useRef<HTMLVideoElement>(null)
   const onCanPlayRef = useRef<() => void>(() => undefined)
 
   useEffect(() => {
-    if (!baseUrl) {
+    if (!baseUrl || !visible) {
       setPhase('fallback')
       setLiveVideoVisible(false)
       return
@@ -255,10 +270,11 @@ export function LiveStreamPlayer({
       clearAttemptDeadline()
       destroyStream()
     }
-  }, [attachStream, baseUrl])
+  }, [attachStream, baseUrl, visible])
 
   return (
     <div
+      ref={rootRef}
       data-testid="live-stream-player"
       className={`relative overflow-hidden bg-black ${fill ? 'h-full w-full' : 'aspect-video'}`}
     >
@@ -285,10 +301,11 @@ export function LiveStreamPlayer({
         />
       )}
 
+      {baseUrl && visible && phase === 'live' && <EngineTelemetry baseUrl={baseUrl} />}
       {baseUrl && phase !== 'fallback' && (
         <div
           aria-live="polite"
-          className="absolute left-3 top-3 bg-black/70 px-2 py-1 font-mono text-xs tracking-widest text-white"
+          className="absolute left-4 bottom-4 bg-black/70 px-2 py-1 font-mono text-xs tracking-widest text-white"
         >
           {phase === 'live' && 'LIVE'}
           {(phase === 'waking' || phase === 'buffering') && 'STARTING LIVE FEED'}
@@ -298,4 +315,30 @@ export function LiveStreamPlayer({
       )}
     </div>
   )
+}
+
+function EngineTelemetry({ baseUrl }: { baseUrl: string }) {
+  const [data, setData] = useState<{ engine: { width: number; height: number; rendered_frames: number; frame_p50_ms: number; frame_p95_ms: number }; buffer_count: number } | null>(null)
+  useEffect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout>
+    const controller = new AbortController()
+    async function poll() {
+      try {
+        const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/live/metrics`, { signal: controller.signal, cache: 'no-store' })
+        if (!response.ok) throw new Error('Metrics unavailable')
+        const value = await response.json()
+        if (!stopped && value.engine && ['width', 'height', 'rendered_frames', 'frame_p50_ms', 'frame_p95_ms'].every(key => Number.isFinite(value.engine[key])) && Number.isFinite(value.buffer_count)) setData(value)
+      } catch { if (!stopped) setData(null) }
+      if (!stopped) timer = setTimeout(() => void poll(), 6000)
+    }
+    void poll()
+    return () => { stopped = true; controller.abort(); clearTimeout(timer) }
+  }, [baseUrl])
+  if (!data || !data.engine.width) return null
+  const e = data.engine
+  return <div className="absolute right-4 bottom-4 max-w-[70%] bg-black/70 px-2 py-1 text-right font-mono text-[10px] text-white/60">
+    ENGINE · FRAME {e.rendered_frames.toLocaleString()} · {e.width}×{e.height}<br />
+    P50 / P95 {e.frame_p50_ms.toFixed(1)} / {e.frame_p95_ms.toFixed(1)} MS · {data.buffer_count} SEGMENTS
+  </div>
 }

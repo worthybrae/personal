@@ -50,6 +50,7 @@ const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
 ];
 
 export interface TerrainConfig {
+  liveArtRef?: React.RefObject<boolean>;
   speedDivisor?: number;
   showNameMask?: boolean;
   contrast?: number;
@@ -94,7 +95,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -1482,7 +1483,11 @@ export function useTerrainAnimation(
       const clearBgG = Math.round(bgG * brightnessScale * (1 - musicBlackness));
       const clearBgB = Math.round(bgB * brightnessScale * (1 - musicBlackness));
       ctx.fillStyle = `rgb(${clearBgR},${clearBgG},${clearBgB})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (liveArtRef?.current && !menuOpenRef?.current && !contactOpenRef?.current) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       // Content titles scatter in (0.4→1.0)
       let contentTitleFade = Math.max(0, Math.min(1, (contentProgress - 0.4) / 0.6));
@@ -1897,7 +1902,7 @@ export function useTerrainAnimation(
         const invBgG = Math.round(bgG * (1 - inv));
         const invBgB = Math.round(bgB * (1 - inv));
         ctx.fillStyle = `rgb(${invBgR},${invBgG},${invBgB})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (!liveArtRef?.current) ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Scatter-dissolve: terrain melts away, W/+ fill with terrain to stay visible
         const totalCells = rows * cols;

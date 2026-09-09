@@ -44,6 +44,8 @@ export default function Home() {
   useSeo({ path: location.pathname });
 
   const isContent = page !== 'home';
+  const liveArtRef = useRef(false);
+  liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
 
   // Delay contentOpen going false until feed content has faded out
   const contentOpenRef = useRef(isContent);
@@ -461,6 +463,7 @@ export default function Home() {
 
   const config = useMemo(
     () => ({
+      liveArtRef,
       onLogoClick: handleLogoClick,
       onMenuClick: handleMenuClick,
       onSubItemClick: handleItemClick,
@@ -615,7 +618,7 @@ export default function Home() {
       {/* z-25 while the menu or contact mode is open: both draw on this
           canvas and must sit above DetailOverlay (z-10) and the melt cover
           canvas (z-20) so they're visible over detail pages too. */}
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: (menuOpen || contactOpen) ? 25 : 0 }} />
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: (menuOpen || contactOpen) ? 25 : liveArtRef.current ? 15 : 0, clipPath: liveArtRef.current && !menuOpen && !contactOpen ? 'inset(0 0 calc(100% - 100px) 0)' : undefined }} />
 
       {page === 'music' && (
         <input
@@ -725,7 +728,7 @@ export default function Home() {
       )}
 
       {showArt && displayArtPiece && (
-        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
           {displayArtPiece.slug === 'livestream-art' && (
             <LivestreamArtHero piece={displayArtPiece} />
           )}
@@ -804,7 +807,8 @@ function TechTags({ tags }: { tags: string[] }) {
   );
 }
 
-function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeComplete }: {
+function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeComplete, fullBleed = false }: {
+  fullBleed?: boolean;
   children: React.ReactNode;
   meltProgressRef: React.MutableRefObject<number>;
   fadeOut?: boolean;
@@ -838,8 +842,8 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeCompl
       ref={overlayRef}
       className="fixed left-0 right-0 bottom-0 z-10 overflow-y-auto"
       style={{
-        top: fadeOut ? '0px' : '100px',
-        paddingTop: fadeOut ? '120px' : '20px',
+        top: fullBleed || fadeOut ? '0px' : '100px',
+        paddingTop: fullBleed ? '0px' : fadeOut ? '120px' : '20px',
         paddingBottom: '120px',
         pointerEvents: fadeOut ? 'none' : 'auto',
         backgroundColor: '#000',

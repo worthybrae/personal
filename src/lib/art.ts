@@ -23,10 +23,10 @@ export const ART_PIECES: ArtPiece[] = [
     slug: 'livestream-art',
     name: 'LIVESTREAM ART',
     description: 'COMPUTER VISION VIDEO TRANSFORMATIONS',
-    summary: 'Real-time artistic transformation of the iconic Abbey Road crossing livestream into a continuous, ever-changing digital canvas. The system captures the HLS feed at 30 frames per second, applies Gaussian blur for noise reduction, then runs Canny edge detection with adaptive thresholds that adjust to the scene\'s overall brightness and time of day. Morphological operations smooth the detected edges into cleaner lines, and a dynamic overlay adds contextual time and location data. A distributed Celery task queue manages the computational workload across multiple worker nodes, maintaining an average processing latency of just 200ms per frame on Full HD 1920x1080 video — ensuring the artistic visualization stays connected to the live events at the crossing.',
+    summary: 'Abbey Road becomes a living drawing: fine white and gray contours on charcoal, with passing people and cars leaving traces that fade over the next two seconds. A native Rust renderer transforms the live camera feed and sends the finished artwork to this page. The renderer runs on demand, preserving the source cadence while keeping the stream small. The studio uses the same renderer to explore line weight, contrast, and the persistence of movement.',
     videoUrl: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/abbey_road_best.mp4',
     githubUrl: 'https://github.com/worthybrae/livestream-morphing',
-    tech: ['OpenCV', 'Celery', 'Python', 'FFmpeg'],
+    tech: ['Rust', 'FFmpeg', 'HLS', 'React'],
   },
 ];
 
