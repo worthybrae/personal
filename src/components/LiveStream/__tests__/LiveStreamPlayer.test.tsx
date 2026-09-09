@@ -126,6 +126,62 @@ describe('LiveStreamPlayer', () => {
     expect(screen.getByText('LIVE FEED UNAVAILABLE · RETRYING')).toBeInTheDocument()
   })
 
+  it('bounds every hanging status attempt after the first timeout', async () => {
+    const signals: AbortSignal[] = []
+    vi.mocked(fetch).mockImplementation((_input, init) => {
+      signals.push(init?.signal as AbortSignal)
+      return new Promise(() => undefined)
+    })
+
+    const { unmount } = render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} />)
+    expect(signals).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(signals[0]?.aborted).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(signals).toHaveLength(2)
+    expect(signals[1]?.aborted).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(signals[1]?.aborted).toBe(true)
+    expect(screen.getByText('LIVE FEED UNAVAILABLE · RETRYING')).toBeInTheDocument()
+
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('times out a retry stream that never reaches canplay after prior live playback', async () => {
+    const firstHandle: StreamHandle = { destroy: vi.fn() }
+    const secondHandle: StreamHandle = { destroy: vi.fn() }
+    const handles = [firstHandle, secondHandle]
+    let attachment = 0
+    const attachStream = vi.fn<typeof attachHls>(() => handles[attachment++] as StreamHandle)
+    vi.mocked(fetch).mockResolvedValue(response(readyStatus))
+
+    const { unmount } = render(
+      <LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} attachStream={attachStream} />,
+    )
+    await vi.advanceTimersByTimeAsync(0)
+    fireEvent.canPlay(screen.getByTestId('live-video'))
+    await vi.advanceTimersByTimeAsync(500)
+    expect(screen.getByText('LIVE')).toBeInTheDocument()
+
+    act(() => attachStream.mock.calls[0]?.[2]())
+    expect(firstHandle.destroy).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(attachStream).toHaveBeenCalledTimes(2)
+    expect(secondHandle.destroy).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(secondHandle.destroy).toHaveBeenCalledOnce()
+    expect(screen.getByText('LIVE FEED UNAVAILABLE · RETRYING')).toBeInTheDocument()
+
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('returns to fallback after a fatal HLS error', async () => {
     const { attachStream, handle } = await renderAttachedPlayer()
     const liveVideo = screen.getByTestId('live-video')

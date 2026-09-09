@@ -10,7 +10,7 @@ export interface LiveStreamPlayerProps {
 
 const POLL_INTERVAL_MS = 2_000
 const STALL_CHECK_INTERVAL_MS = 5_000
-const STARTUP_TIMEOUT_MS = 90_000
+const ATTEMPT_DEADLINE_MS = 90_000
 const CROSSFADE_DURATION_MS = 500
 
 export function LiveStreamPlayer({
@@ -38,11 +38,10 @@ export function LiveStreamPlayer({
     let pollTimer: ReturnType<typeof setTimeout> | null = null
     let retryTimer: ReturnType<typeof setTimeout> | null = null
     let stallTimer: ReturnType<typeof setInterval> | null = null
-    let startupTimer: ReturnType<typeof setTimeout> | null = null
+    let attemptDeadlineTimer: ReturnType<typeof setTimeout> | null = null
     let crossfadeTimer: ReturnType<typeof setTimeout> | null = null
     let retryAttempt = 0
-    let hasReachedLive = false
-    let startupTimedOut = false
+    let attemptTimedOut = false
     let canPlayHandled = false
     let lastPlaybackTime = 0
     let unchangedChecks = 0
@@ -75,6 +74,13 @@ export function LiveStreamPlayer({
       }
     }
 
+    const clearAttemptDeadline = () => {
+      if (attemptDeadlineTimer !== null) {
+        clearTimeout(attemptDeadlineTimer)
+        attemptDeadlineTimer = null
+      }
+    }
+
     const abortRequest = () => {
       requestController?.abort()
       requestController = null
@@ -101,6 +107,7 @@ export function LiveStreamPlayer({
       abortRequest()
       clearPollTimer()
       clearRetryTimer()
+      clearAttemptDeadline()
       destroyStream()
       setPhase(unavailable ? 'unavailable' : 'recovering')
 
@@ -108,7 +115,7 @@ export function LiveStreamPlayer({
       retryAttempt += 1
       retryTimer = setTimeout(() => {
         retryTimer = null
-        void pollStatus()
+        beginAttempt()
       }, delay)
     }
 
@@ -138,13 +145,9 @@ export function LiveStreamPlayer({
 
       canPlayHandled = true
       void video.play().catch(() => recover())
-      hasReachedLive = true
-      startupTimedOut = false
+      attemptTimedOut = false
       retryAttempt = 0
-      if (startupTimer !== null) {
-        clearTimeout(startupTimer)
-        startupTimer = null
-      }
+      clearAttemptDeadline()
       setLiveVideoVisible(true)
       startStallChecks(video)
       crossfadeTimer = setTimeout(() => {
@@ -195,7 +198,7 @@ export function LiveStreamPlayer({
         requestController = null
 
         if (!status || status.state === 'unavailable') {
-          recover(startupTimedOut)
+          recover(attemptTimedOut)
           return
         }
 
@@ -204,7 +207,7 @@ export function LiveStreamPlayer({
           return
         }
 
-        if (!startupTimedOut) {
+        if (!attemptTimedOut) {
           setPhase(status.buffer_count > 0 ? 'buffering' : 'waking')
         }
         clearPollTimer()
@@ -215,21 +218,29 @@ export function LiveStreamPlayer({
       } catch {
         if (!disposed && !controller.signal.aborted) {
           requestController = null
-          recover(startupTimedOut)
+          recover(attemptTimedOut)
         }
       }
     }
 
+    function beginAttempt() {
+      if (disposed) {
+        return
+      }
+
+      attemptTimedOut = false
+      clearAttemptDeadline()
+      attemptDeadlineTimer = setTimeout(() => {
+        attemptDeadlineTimer = null
+        attemptTimedOut = true
+        recover(true)
+      }, ATTEMPT_DEADLINE_MS)
+      void pollStatus()
+    }
+
     setLiveVideoVisible(false)
     setPhase('waking')
-    startupTimer = setTimeout(() => {
-      startupTimer = null
-      if (!hasReachedLive) {
-        startupTimedOut = true
-        recover(true)
-      }
-    }, STARTUP_TIMEOUT_MS)
-    void pollStatus()
+    beginAttempt()
 
     return () => {
       disposed = true
@@ -239,10 +250,7 @@ export function LiveStreamPlayer({
       clearRetryTimer()
       clearStallTimer()
       clearCrossfadeTimer()
-      if (startupTimer !== null) {
-        clearTimeout(startupTimer)
-        startupTimer = null
-      }
+      clearAttemptDeadline()
       destroyStream()
     }
   }, [attachStream, baseUrl])
