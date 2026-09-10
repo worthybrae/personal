@@ -48,7 +48,7 @@ export function InkStudio() {
   }
   function update(id: string, value: number) { setParams(previous=>({...previous,[id]:value})) }
   return <section className="public-ink-studio" id="ink-playground" aria-labelledby="public-ink-title">
-    <header><h2 id="public-ink-title">Shape the drawing</h2><p>Those stages become the controls below. Start with the live look, then change a threshold, soften a stroke, or let an old outline linger. The recorded moment stays the same, making each change easier to see.</p></header>
+    <header><h2 id="public-ink-title">Shape the drawing</h2><p>The drawing step is where the image changes. Try it on this recorded sample: adjust the contours, contrast, or distortion and see how an individual frame is transformed before it would be encoded back into video.</p></header>
     <div className="public-ink-workspace">
       <div className="public-ink-preview-column">
         <div className="public-ink-preview-sticky">
@@ -80,7 +80,7 @@ export function InkStudio() {
         <div className="public-ink-presets"><span>Starting points</span>
           {(['linework','motion'] as const).map(kind=><div key={kind} className="public-ink-preset-row" aria-label={kind}>{looks[kind].map(look=><button key={look.id} aria-pressed={Object.entries(look.params).every(([id,value])=>Math.abs(params[id]-value)<0.0001)} onClick={()=>setParams(previous=>({...previous,...look.params}))}>{look.name}</button>)}</div>)}
         </div>
-        {groups.map(group=><fieldset key={group.title}><legend>{group.title}</legend>{group.ids.map(id=>{
+        <div className="public-ink-parameter-groups">{groups.map(group=><fieldset key={group.title}><legend>{group.title}</legend>{group.ids.map(id=>{
           const def=definitions.find(p=>p.id===id)!
           const inactive=(id==='broad_threshold' && params.broad_weight===0)||(id==='trail_half_life' && params.trail_strength===0)
           return <label className={`public-ink-slider ${inactive?'public-ink-inactive':''}`} key={id}>
@@ -88,7 +88,7 @@ export function InkStudio() {
             <input aria-label={def.name} type="range" min={def.min} max={def.max} step={def.step} value={params[id]} aria-describedby={`help-${id}`} onChange={e=>update(id,Number(e.target.value))}/>
             <small id={`help-${id}`}>{help[id]}{inactive && ' Currently inactive.'}</small>
           </label>
-        })}</fieldset>)}
+        })}</fieldset>)}</div>
       </aside>
     </div>
     {!!preview.error && <InkPlayground id="ink-recorded-studies"/>}
