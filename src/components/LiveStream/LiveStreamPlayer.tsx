@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { LiveComparison } from './LiveComparison'
 import { LondonClock } from './LondonClock'
 import { attachHls, type StreamHandle } from './hlsAdapter'
 import { parseLiveStatus, retryDelay, type LivePhase } from './liveStreamState'
@@ -39,6 +40,7 @@ export function LiveStreamPlayer({
   const visible = pageVisible && onScreen
   const [liveVideoVisible, setLiveVideoVisible] = useState(false)
   const liveVideoRef = useRef<HTMLVideoElement>(null)
+  const liveHandleRef = useRef<StreamHandle | null>(null)
   const fallbackVideoRef = useRef<HTMLVideoElement>(null)
   const fallbackPaused = useRef(false)
   useEffect(() => {
@@ -124,6 +126,7 @@ export function LiveStreamPlayer({
       canPlayHandled = false
       const currentHandle = handle
       handle = null
+      liveHandleRef.current = null
       currentHandle?.destroy()
       if (!disposed) {
         setLiveVideoVisible(false)
@@ -199,6 +202,7 @@ export function LiveStreamPlayer({
       setPhase('buffering')
       try {
         handle = attachStream(video, `${liveBaseUrl}/api/stream`, () => recover())
+        liveHandleRef.current = handle
       } catch {
         attached = false
         recover()
@@ -316,6 +320,7 @@ export function LiveStreamPlayer({
         />
       )}
 
+      {baseUrl && visible && phase === 'live' && <LiveComparison baseUrl={baseUrl} editedVideo={liveVideoRef} editedHandle={liveHandleRef} />}
       <LondonClock active={visible} phase={phase} />
       {baseUrl && visible && phase === 'live' && <EngineTelemetry baseUrl={baseUrl} />}
 

@@ -10,12 +10,15 @@ const hls = vi.hoisted(() => ({
 
 vi.mock('hls.js', () => {
   class HlsMock {
+    static isSupported = () => false
     static Events = { ERROR: 'error' }
 
     constructor(options: unknown) {
       hls.constructor(options)
     }
 
+    currentLevel = -1
+    levels = [{details:{fragments:[{url:'https://example.com/api/raw-segments/pair.ts',start:20,duration:6.006}]}}]
     loadSource = hls.loadSource
     attachMedia = hls.attachMedia
     on = hls.on
@@ -52,6 +55,17 @@ describe('attachHls', () => {
     expect(load).toHaveBeenCalledOnce()
     video.dispatchEvent(new Event('error'))
     expect(onFatal).toHaveBeenCalledOnce()
+  })
+
+  it('maps matching segment IDs before playback starts, independent of timeline origins', () => {
+    const video = document.createElement('video')
+    Object.defineProperty(video, 'canPlayType', {value:()=>''})
+    video.currentTime=22
+    const handle=attachHls(video,'https://example.com/api/stream',vi.fn())
+    expect(handle.position?.()).toEqual({id:'pair.ts',offset:2})
+    expect(handle.timeFor?.({id:'pair.ts',offset:3})).toBe(23)
+    expect(handle.timeFor?.({id:'missing.ts',offset:3})).toBeNull()
+    handle.destroy()
   })
 
   it('attaches hls.js and forwards fatal playback errors', () => {

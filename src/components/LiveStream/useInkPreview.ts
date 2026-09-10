@@ -43,7 +43,7 @@ export function useInkPreview(enabled: boolean, width: number, params: Record<st
         const bitmap = await createImageBitmap(source!)
         if (disposed) { bitmap.close(); return }
         worker.postMessage({ type: 'frame', bitmap, time, version: revision, params: settings.current }, [bitmap])
-        timeout = window.setTimeout(() => fail('This device took too long to render. Try 720p or use the recorded studies.'), 15000)
+        timeout = window.setTimeout(() => fail('This device took too long to render. Try the recorded studies.'), 15000)
       } catch { busy = false; if (!disposed) fail('The camera sample could not be read. Try the recorded studies below.') }
     }
     requestFrame.current = () => { dirty = true; void capture() }
@@ -75,7 +75,7 @@ export function useInkPreview(enabled: boolean, width: number, params: Record<st
       } else if (source!.paused) setMetrics({ fps: 0, milliseconds: data.milliseconds })
       if (data.version !== version.current || dirty) void capture()
     }
-    worker.onerror = () => fail('The drawing engine stopped. Try another resolution or use the recorded studies.')
+    worker.onerror = () => fail('The drawing engine stopped. Try the recorded studies.')
     const loaded = () => { dirty = true; void capture() }
     const play = () => {setPlaying(true);setPlaybackError('')}
     const pause = () => {setPlaying(false);dirty = true;void capture()}

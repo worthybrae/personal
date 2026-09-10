@@ -39,7 +39,7 @@ async function renderAttachedPlayer() {
   const view = render(
     <LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} attachStream={stream.attachStream} />,
   )
-  await vi.advanceTimersByTimeAsync(0)
+  await act(async () => { await vi.advanceTimersByTimeAsync(0) })
   return { ...view, ...stream }
 }
 
@@ -63,11 +63,11 @@ describe('LiveStreamPlayer', () => {
     act(() => document.dispatchEvent(new Event('visibilitychange')))
     expect(handle.destroy).toHaveBeenCalledOnce()
     const requests = vi.mocked(fetch).mock.calls.length
-    await vi.advanceTimersByTimeAsync(120_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
     expect(fetch).toHaveBeenCalledTimes(requests)
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
     act(() => document.dispatchEvent(new Event('visibilitychange')))
-    await vi.advanceTimersByTimeAsync(0)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(attachStream).toHaveBeenCalledTimes(2)
   })
 
@@ -107,11 +107,11 @@ describe('LiveStreamPlayer', () => {
       .mockResolvedValueOnce(response(readyStatus))
 
     render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} attachStream={attachStream} />)
-    await vi.advanceTimersByTimeAsync(0)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(fetch).toHaveBeenCalledWith(`${baseUrl}/api/live/status`, expect.objectContaining({ cache: 'no-store' }))
     expect(attachStream).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
 
     expect(attachStream).toHaveBeenCalledOnce()
     expect(attachStream).toHaveBeenCalledWith(
@@ -140,10 +140,10 @@ describe('LiveStreamPlayer', () => {
     expect(screen.queryByText('LIVE')).not.toBeInTheDocument()
     expect(screen.getByText('STARTING LIVE FEED')).toBeInTheDocument()
 
-    await vi.advanceTimersByTimeAsync(499)
+    await act(async () => { await vi.advanceTimersByTimeAsync(499) })
     expect(screen.queryByText('LIVE')).not.toBeInTheDocument()
 
-    await vi.advanceTimersByTimeAsync(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
     expect(screen.getByText('LIVE')).toBeInTheDocument()
     expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(screen.getByTestId('fallback-video'))
     expect(screen.queryByText('STARTING LIVE FEED')).not.toBeInTheDocument()
@@ -170,7 +170,7 @@ describe('LiveStreamPlayer', () => {
     vi.mocked(fetch).mockResolvedValue(response(startingStatus))
 
     render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} />)
-    await vi.advanceTimersByTimeAsync(90_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
 
     expect(screen.getByTestId('fallback-video')).toHaveClass('opacity-100')
     expect(screen.getByTestId('live-video')).toHaveClass('opacity-0')
@@ -187,14 +187,14 @@ describe('LiveStreamPlayer', () => {
     const { unmount } = render(<LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} />)
     expect(signals).toHaveLength(1)
 
-    await vi.advanceTimersByTimeAsync(90_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
     expect(signals[0]?.aborted).toBe(true)
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
     expect(signals).toHaveLength(2)
     expect(signals[1]?.aborted).toBe(false)
 
-    await vi.advanceTimersByTimeAsync(90_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
     expect(signals[1]?.aborted).toBe(true)
     expect(screen.getByText('LIVE FEED UNAVAILABLE · RETRYING')).toBeInTheDocument()
 
@@ -213,19 +213,19 @@ describe('LiveStreamPlayer', () => {
     const { unmount } = render(
       <LiveStreamPlayer fallbackUrl={fallbackUrl} baseUrl={baseUrl} attachStream={attachStream} />,
     )
-    await vi.advanceTimersByTimeAsync(0)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     fireEvent.canPlay(screen.getByTestId('live-video'))
-    await vi.advanceTimersByTimeAsync(500)
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
     expect(screen.getByText('LIVE')).toBeInTheDocument()
 
     act(() => attachStream.mock.calls[0]?.[2]())
     expect(firstHandle.destroy).toHaveBeenCalledOnce()
 
-    await vi.advanceTimersByTimeAsync(2_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
     expect(attachStream).toHaveBeenCalledTimes(2)
     expect(secondHandle.destroy).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(90_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
     expect(secondHandle.destroy).toHaveBeenCalledOnce()
     expect(screen.getByText('LIVE FEED UNAVAILABLE · RETRYING')).toBeInTheDocument()
 
@@ -253,7 +253,7 @@ describe('LiveStreamPlayer', () => {
     Object.defineProperty(liveVideo, 'currentTime', { value: 12, writable: true })
     fireEvent.canPlay(liveVideo)
 
-    await vi.advanceTimersByTimeAsync(10_000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
 
     expect(handle.destroy).toHaveBeenCalledOnce()
     expect(liveVideo).toHaveClass('opacity-0')
