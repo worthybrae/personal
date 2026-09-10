@@ -1,8 +1,6 @@
 .live-comparison-raw { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none; }
-.live-comparison-divider { position:absolute;top:0;bottom:0;border-left:1px solid #fff;width:32px;margin-left:-16px;transform:translateX(16px);cursor:ew-resize;touch-action:none; }
-.live-comparison-divider>span { position:absolute;top:50%;left:0;transform:translate(-50%,-50%);border:1px solid #fff;border-radius:50%;background:#111b;color:white;width:36px;height:36px;display:grid;place-items:center; }
-.live-comparison-controls { position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;align-items:center;flex-direction:column;gap:8px;padding:10px 14px;background:#000b;color:#eee;font:10px 'JetBrains Mono',monospace;max-width:calc(100% - 32px); }
-.live-comparison-controls button { background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px; }
-.live-comparison-slider { display:flex;align-items:center;gap:8px;white-space:nowrap; }.live-comparison-slider input { width:140px;accent-color:#eee;cursor:ew-resize; }
-.live-comparison-controls :focus-visible { outline:2px solid white;outline-offset:4px; }
-@media(max-width:700px) { .live-comparison-controls { bottom:110px; }.live-comparison-slider input { width:100px; } }
+.live-comparison-divider { position:absolute;top:0;bottom:0;width:36px;transform:translateX(-50%);cursor:ew-resize;touch-action:none; }
+.live-comparison-divider::before { content:'';position:absolute;left:50%;top:0;bottom:0;border-left:1px solid #fff;pointer-events:none; }
+.live-comparison-divider>span { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border:1px solid #fff;border-radius:50%;background:#111b;color:white;width:36px;height:36px;display:grid;place-items:center; }
+.live-comparison-divider:focus-visible>span { outline:2px solid white;outline-offset:4px; }
+.live-comparison-error { position:absolute;top:calc(50% + 28px);left:50%;transform:translateX(-50%);width:200px;padding:8px;background:#000c;color:#eee;font:10px/1.5 monospace;text-align:center; }

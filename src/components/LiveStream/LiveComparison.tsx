@@ -5,13 +5,12 @@ import './live-comparison.css'
 export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
   baseUrl: string; editedVideo: RefObject<HTMLVideoElement>; editedHandle: RefObject<StreamHandle>
 }) {
-  const [enabled, setEnabled] = useState(false)
   const [split, setSplit] = useState(50)
   const [synced, setSynced] = useState(false)
   const [error, setError] = useState('')
   const raw = useRef<HTMLVideoElement>(null)
   useEffect(() => {
-    if (!enabled || !raw.current) return
+    if (!raw.current) return
     const video = raw.current
     let disposed = false
     let starting = false
@@ -24,7 +23,7 @@ export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
     let timer = 0
     function fail() {
       if (disposed) return
-      setSynced(false); setError('Camera comparison could not load. Close it and try again.')
+      setSynced(false); setError('Camera comparison could not load. Reload the page to try again.')
       clearInterval(timer); handle?.destroy(); handle = null
     }
     try { handle = attachHls(video, `${baseUrl.replace(/\/+$/, '')}/api/raw-stream`, fail) }
@@ -50,25 +49,25 @@ export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
     }
     timer = window.setInterval(sync, 100)
     return () => { disposed = true; clearInterval(timer); video.pause(); handle?.destroy() }
-  }, [enabled, baseUrl, editedHandle, editedVideo])
+  }, [baseUrl, editedHandle, editedVideo])
 
   return <>
-    {enabled && <>
-      <video ref={raw} muted playsInline aria-label="Raw Abbey Road livestream" className="live-comparison-raw" style={{clipPath:`inset(0 ${100-split}% 0 0)`,opacity:synced?1:0}} />
-      {synced && <div className="live-comparison-divider" style={{left:`${split}%`}} aria-hidden="true"
-        onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId)}}
-        onPointerMove={event=>{
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-          const bounds=event.currentTarget.parentElement!.getBoundingClientRect()
-          setSplit(Math.max(0,Math.min(100,(event.clientX-bounds.left)/bounds.width*100)))
-        }}><span>↔</span></div>}
-    </>}
-    <div className="live-comparison-controls">
-      <button onClick={() => setEnabled(value => !value)} aria-pressed={enabled}>{enabled?'Close comparison':'Compare camera'}</button>
-      {enabled && <>
-        <label className="live-comparison-slider"><span>Raw camera</span><input aria-label="Raw camera versus drawing" type="range" min="0" max="100" value={split} onChange={event=>setSplit(Number(event.target.value))}/><span>Drawing</span></label>
-        {!synced && <span role="status">{error || 'Synchronizing camera…'}</span>}
-      </>}
+    <video ref={raw} muted playsInline aria-label="Raw Abbey Road livestream" className="live-comparison-raw" style={{clipPath:`inset(0 ${100-split}% 0 0)`,opacity:synced?1:0}} />
+    <div className="live-comparison-divider" style={{left:`${split}%`}} role="slider" tabIndex={0}
+      aria-label="Raw camera versus drawing" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split)}
+      aria-valuetext={`${Math.round(split)} percent raw camera`} aria-describedby="live-comparison-status"
+      onKeyDown={event=>{
+        const values: Record<string,number> = {ArrowLeft:split-1,ArrowDown:split-1,ArrowRight:split+1,ArrowUp:split+1,Home:0,End:100}
+        if (event.key in values) {event.preventDefault();setSplit(Math.max(0,Math.min(100,values[event.key])))}
+      }}
+      onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus()}}
+      onPointerMove={event=>{
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+        const bounds=event.currentTarget.parentElement!.getBoundingClientRect()
+        setSplit(Math.max(0,Math.min(100,(event.clientX-bounds.left)/bounds.width*100)))
+      }}><span aria-hidden="true">↔</span>
+      {error && <small className="live-comparison-error">{error}</small>}
     </div>
+    <span id="live-comparison-status" className="sr-only">{error || (synced?'Raw camera on the left, drawing on the right. Drag the divider or use the arrow keys.':'Synchronizing camera…')}</span>
   </>
 }
