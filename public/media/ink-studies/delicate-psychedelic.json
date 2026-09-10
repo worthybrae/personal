@@ -1,0 +1,15 @@
+{
+  "smoothing": 1,
+  "fine_threshold": 24,
+  "broad_threshold": 12,
+  "fine_weight": 1.05,
+  "broad_weight": 0,
+  "stroke_body": 0,
+  "charcoal": 32,
+  "highlight": 245,
+  "trail_strength": 0,
+  "subpixel": 1,
+  "warp_amplitude": 0.03,
+  "warp_frequency": 11,
+  "warp_period": 4
+}

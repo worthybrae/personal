@@ -17,6 +17,7 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 import { ArtMedia } from '@/components/LiveStream/ArtMedia';
+import { InkPlayground } from '@/components/LiveStream/InkPlayground';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 
 type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
@@ -775,6 +776,7 @@ export default function Home() {
               SUMMARY
             </div>
             <PretextSummary text={displayArtPiece.summary} />
+            {displayArtPiece.slug === 'livestream-art' && <InkPlayground />}
             <div
               className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
               style={{ fontFamily: monoFont }}

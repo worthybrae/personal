@@ -10,6 +10,10 @@ export function LivestreamArtHero({ piece }: { piece: ArtPiece }) {
       className="relative left-1/2 h-[100dvh] w-screen -translate-x-1/2 overflow-hidden bg-black"
     >
       <ArtMedia piece={piece} fill />
+      <button type="button" className="absolute bottom-8 left-6 z-10 border border-white/40 bg-black/70 px-4 py-3 font-mono text-xs text-white hover:bg-black focus-visible:outline focus-visible:outline-white"
+        onClick={() => document.getElementById('ink-playground')?.scrollIntoView({ behavior: 'instant', block: 'start' })}>
+        Explore the styles ↓
+      </button>
     </section>
   )
 }
