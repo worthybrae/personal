@@ -43,10 +43,10 @@ const MENU_CONDENSE_FLOOR = 0.76;
 
 export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'art';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
+  { key: 'art', label: 'ART' },
   { key: 'portfolio', label: 'WORK' },
   { key: 'music', label: 'MUSIC' },
   { key: 'resume', label: 'RESUME' },
-  { key: 'art', label: 'ART' },
 ];
 
 export interface TerrainConfig {
@@ -801,8 +801,7 @@ export function useTerrainAnimation(
 
     // Heading for the generic feed — same helper, same metrics and position as
     // the contact heading above so the two pages' titles look identical; only
-    // the string differs. It mirrors the menu's first entry, so both change
-    // together.
+    // the string differs according to the active page.
     function buildFeedHeadingMask() {
       if (!canvas) return;
       const off = document.createElement('canvas');
@@ -812,7 +811,7 @@ export function useTerrainAnimation(
       o.fillStyle = '#000';
       o.fillRect(0, 0, off.width, off.height);
 
-      const h = drawPageHeading(o, off, activeLabelRef?.current === 'art' ? 'ART' : MENU_ENTRIES[0].label);
+      const h = drawPageHeading(o, off, activeLabelRef?.current === 'art' ? 'ART' : 'WORK');
       feedHeadingGrid = new Uint8Array(cols * rows);
       bakeMaskGrid(feedHeadingGrid, h.mask);
       feedHeadingBottomRow = h.bottomRow;

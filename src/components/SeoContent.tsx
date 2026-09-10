@@ -33,10 +33,10 @@ export default function SeoContent({ page }: { page: string }) {
       <nav aria-label="Site">
         <ul>
           <li><Link to="/">Home</Link></li>
+          <li><Link to="/art">Art</Link></li>
           <li><Link to="/feed">Portfolio</Link></li>
           <li><Link to="/music">Music</Link></li>
           <li><a href={RESUME_URL}>Resume</a></li>
-          <li><Link to="/art">Art</Link></li>
         </ul>
       </nav>
 
