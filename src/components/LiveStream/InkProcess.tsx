@@ -28,7 +28,6 @@ export function InkProcess() {
     const timer = window.setInterval(() => setStage(previous => (previous + 1) % stages.length), 2400)
     return () => clearInterval(timer)
   }, [animate, visible, pageVisible])
-  const item = stages[stage]
   function select(index: number) { setAnimate(false); setStage(index) }
   return <section ref={root} className="ink-process" aria-labelledby="ink-process-title">
     <h2 id="ink-process-title">A livestream, one segment at a time</h2>
@@ -44,10 +43,10 @@ export function InkProcess() {
           {index===3 && <div className="ink-repack"><span>1 · 2 · 3 · … · 180</span><span>→</span><strong>segment n<small>H.264 / TS</small></strong></div>}
           {index===4 && <div className="ink-playback-line"><span>previous</span><strong>segment n</strong><span>next</span><small>one continuous timeline · 29.97 fps</small></div>}
         </div>
+        <div className="ink-process-explanation"><h3>{entry.title}</h3><p>{entry.description}</p><code>{entry.detail}</code></div>
       </div>)}
       <p className="ink-pipeline-footnote">Illustrated sequence, slowed for explanation. Segment lengths vary with the source.</p>
     </div>
-    <div className="ink-process-explanation" aria-live={animate?'off':'polite'}><h3>{item.title}</h3><p>{item.description}</p><code>{item.detail}</code></div>
     <p className="ink-process-finish">At 1080p, each frame has just over two million pixels. Keeping only a few decoded frames in flight limits memory use while the workers keep drawing. Resolution, frame cadence, and processing speed are separate: a 30 fps output still needs the renderer to finish each segment before playback catches up.</p>
   </section>
 }

@@ -16,7 +16,8 @@
 .ink-worker-lanes>span { border-color:#7c8d6e;color:#dce8d0; }.ink-repack>span { font-size:10px;white-space:nowrap; }.ink-repack>strong { max-width:110px;margin-left:auto; }
 .ink-playback-line { display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:10px;gap:5px; }.ink-playback-line>span,.ink-playback-line>strong { padding:8px 0;border-bottom:2px solid #666;font-weight:400; }.ink-playback-line>strong { border-color:#bfd0ac;color:#dce8d0; }.ink-playback-line>small { grid-column:1/-1; }
 .ink-pipeline-footnote { color:#888;font-size:10px;line-height:1.8;margin:14px 0 0; }
-.ink-process-explanation h3 { font-size:16px;font-weight:400;margin:24px 0 12px; }.ink-process-explanation p { font-size:13px;color:#aaa;line-height:1.9; }
+.ink-process-explanation { grid-column:1/-1; }
+.ink-process-explanation h3 { font-size:16px;font-weight:400;margin:4px 0 12px; }.ink-process-explanation p { font-size:13px;color:#aaa;line-height:1.9; }
 .ink-process-explanation code { display:block;color:#bac7ac;background:#161616;font-size:11px;padding:16px;line-height:1.8;overflow-wrap:anywhere; }.ink-process-finish { margin-top:24px; }
 .ink-article { text-align:left;font-family:'JetBrains Mono','Courier New',monospace; }
 .ink-article-intro,.ink-article-closing { color:#b5b5b5;font-size:13px;line-height:1.95;max-width:70ch; }.ink-article-intro { margin:32px 0 0; }.ink-article-closing { margin:36px 0 64px; }
