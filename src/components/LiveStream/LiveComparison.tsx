@@ -6,6 +6,7 @@ export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
   baseUrl: string; editedVideo: RefObject<HTMLVideoElement>; editedHandle: RefObject<StreamHandle>
 }) {
   const [split, setSplit] = useState(50)
+  const [dragging, setDragging] = useState(false)
   const [synced, setSynced] = useState(false)
   const [error, setError] = useState('')
   const raw = useRef<HTMLVideoElement>(null)
@@ -53,14 +54,17 @@ export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
 
   return <>
     <video ref={raw} muted playsInline aria-label="Raw Abbey Road livestream" className="live-comparison-raw" style={{clipPath:`inset(0 ${100-split}% 0 0)`,opacity:synced?1:0}} />
-    <div className="live-comparison-divider" style={{left:`${split}%`}} role="slider" tabIndex={0}
+    <div className={`live-comparison-divider ${dragging ? 'is-dragging' : ''}`} style={{left:`${split}%`}} role="slider" tabIndex={0}
       aria-label="Raw camera versus drawing" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split)}
       aria-valuetext={`${Math.round(split)} percent raw camera`} aria-describedby="live-comparison-status"
       onKeyDown={event=>{
         const values: Record<string,number> = {ArrowLeft:split-1,ArrowDown:split-1,ArrowRight:split+1,ArrowUp:split+1,Home:0,End:100}
         if (event.key in values) {event.preventDefault();setSplit(Math.max(0,Math.min(100,values[event.key])))}
       }}
-      onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus()}}
+      onPointerDown={event=>{event.preventDefault();setDragging(true);event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.focus()}}
+      onPointerUp={()=>setDragging(false)}
+      onPointerCancel={()=>setDragging(false)}
+      onLostPointerCapture={()=>setDragging(false)}
       onPointerMove={event=>{
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
         const bounds=event.currentTarget.parentElement!.getBoundingClientRect()
