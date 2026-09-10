@@ -18,7 +18,7 @@ export function LondonClock({ active }: { active: boolean }) {
     return () => window.clearInterval(timer)
   }, [active])
 
-  return <div className="pointer-events-none absolute left-4 top-4 bg-black/60 px-3 py-2 text-left font-mono text-xs leading-relaxed text-white/80">
+  return <div className="pointer-events-none absolute left-4 bottom-14 bg-black/60 px-3 py-2 text-left font-mono text-xs leading-relaxed text-white/80">
     <span className="block text-[10px] tracking-widest text-white/50">ABBEY ROAD · LONDON NOW</span>
     <time dateTime={now.toISOString()} className="tabular-nums">{londonTime.format(now)}</time>
   </div>
