@@ -5,7 +5,7 @@ import './live-comparison.css'
 export function LiveComparison({ baseUrl, editedVideo, editedHandle }: {
   baseUrl: string; editedVideo: RefObject<HTMLVideoElement>; editedHandle: RefObject<StreamHandle>
 }) {
-  const [split, setSplit] = useState(50)
+  const [split, setSplit] = useState(25)
   const [dragging, setDragging] = useState(false)
   const [synced, setSynced] = useState(false)
   const [error, setError] = useState('')
