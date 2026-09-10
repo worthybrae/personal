@@ -12,7 +12,7 @@ describe('London clock', () => {
     vi.setSystemTime(new Date(instant))
     render(<LondonClock active />)
     expect(screen.getByText(expected)).toBeInTheDocument()
-    expect(screen.getByText('ABBEY ROAD · LONDON NOW')).toBeInTheDocument()
+    expect(screen.getByText('ABBEY ROAD · LONDON')).toBeInTheDocument()
   })
   it('ticks while visible, stops when inactive, and catches up on return', () => {
     vi.useFakeTimers()

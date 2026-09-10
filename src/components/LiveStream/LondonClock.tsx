@@ -20,11 +20,13 @@ export function LondonClock({ active, phase = 'fallback' }: { active: boolean; p
   }, [active])
 
   return <div className="pointer-events-none absolute left-4 bottom-4 bg-black/60 px-3 py-2 text-left font-mono text-xs leading-relaxed text-white/80">
-    {phase !== 'fallback' && <span aria-live="polite" className="mb-1 flex items-center gap-2 text-[10px] tracking-widest">
-      {phase === 'live' && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500 motion-safe:animate-pulse" />}
-      <span>{phase === 'live' ? 'LIVE' : phase === 'waking' || phase === 'buffering' ? 'STARTING LIVE FEED' : 'LIVE FEED UNAVAILABLE · RETRYING'}</span>
-    </span>}
-    <span className="block text-[10px] tracking-widest text-white/50">ABBEY ROAD · LONDON NOW</span>
-    <time dateTime={now.toISOString()} className="tabular-nums">{londonTime.format(now)}</time>
+    <span className="block text-[10px] tracking-widest text-white/50">ABBEY ROAD · LONDON</span>
+    <div className="flex items-center gap-3">
+      <time dateTime={now.toISOString()} className="shrink-0 tabular-nums">{londonTime.format(now)}</time>
+      {phase !== 'fallback' && <span aria-live="polite" className="flex items-center gap-2 text-[10px] tracking-widest">
+        {phase === 'live' && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-red-500 motion-safe:animate-pulse" />}
+        <span>{phase === 'live' ? 'LIVE' : phase === 'waking' || phase === 'buffering' ? 'STARTING LIVE FEED' : 'LIVE FEED UNAVAILABLE · RETRYING'}</span>
+      </span>}
+    </div>
   </div>
 }
