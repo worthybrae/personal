@@ -6,7 +6,7 @@ type Look = { id: string; name: string; description: string; params: Record<stri
 const lineworks: Look[] = looks.linework
 const motions: Look[] = looks.motion
 
-export function InkPlayground() {
+export function InkPlayground({ id = 'ink-playground' }: { id?: string }) {
   const [linework, setLinework] = useState(lineworks[1])
   const [motion, setMotion] = useState(motions[1])
   const [started, setStarted] = useState(false)
@@ -60,7 +60,7 @@ export function InkPlayground() {
     </fieldset>
   }
 
-  return <section id="ink-playground" className="ink-playground" aria-labelledby="ink-playground-title">
+  return <section id={id} className="ink-playground" aria-labelledby="ink-playground-title">
     <h2 id="ink-playground-title">Play with the painting</h2>
     <p className="ink-study-intro">One street, nine studies. Change the marks and the way they move.</p>
     <div ref={root} className="ink-study-picture">
