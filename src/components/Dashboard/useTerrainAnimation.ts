@@ -41,12 +41,12 @@ function terrainFontSize(innerWidth: number): number {
 // headings so every big word on the site carries the same stroke weight.
 const MENU_CONDENSE_FLOOR = 0.76;
 
-export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'contact';
+export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'art';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
+  { key: 'art', label: 'ART' },
   { key: 'portfolio', label: 'WORK' },
   { key: 'music', label: 'MUSIC' },
   { key: 'resume', label: 'RESUME' },
-  { key: 'contact', label: 'CONTACT' },
 ];
 
 export interface TerrainConfig {
@@ -802,8 +802,7 @@ export function useTerrainAnimation(
 
     // Heading for the generic feed — same helper, same metrics and position as
     // the contact heading above so the two pages' titles look identical; only
-    // the string differs. It mirrors the menu's first entry, so both change
-    // together.
+    // the string differs according to the active page.
     function buildFeedHeadingMask() {
       if (!canvas) return;
       const off = document.createElement('canvas');
@@ -813,7 +812,7 @@ export function useTerrainAnimation(
       o.fillStyle = '#000';
       o.fillRect(0, 0, off.width, off.height);
 
-      const h = drawPageHeading(o, off, MENU_ENTRIES[0].label);
+      const h = drawPageHeading(o, off, activeLabelRef?.current === 'art' ? 'ART' : 'WORK');
       feedHeadingGrid = new Uint8Array(cols * rows);
       bakeMaskGrid(feedHeadingGrid, h.mask);
       feedHeadingBottomRow = h.bottomRow;
@@ -1364,6 +1363,7 @@ export function useTerrainAnimation(
       if (feedItemsKey !== lastFeedItemsKey) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
+        buildFeedHeadingMask();
         setupFeedCards(
           feedItems,
           musicUIRef?.current ? (isMobile ? NP_BOTTOM_RESERVE_STACKED : NP_BOTTOM_RESERVE) : 0,
@@ -1537,12 +1537,9 @@ export function useTerrainAnimation(
           npBoxTop = Infinity;
         }
       }
-      // Persistent across pages: fully visible under the menu/contact
-      // overlays and on the music feed; on the home page it fades out as
-      // contentProgress increases. Hidden only on portfolio pages (the
-      // generic feed and detail pages — feedCards>0 / contentProgress→1)
-      // and during the melt transitions.
-      const npVisible = (np?.track && !feedToDetailMelt && !detailToFeedMelt)
+      // Keep listening information on its existing pages, but hide it for
+      // the entire menu overlay, including its opening/closing transition.
+      const npVisible = (np?.track && !menuOpenNow && !menuVisible && !feedToDetailMelt && !detailToFeedMelt)
         ? (overlayVisual || isMusicMode
             ? 1
             : feedCards.length === 0 ? Math.max(0, 1 - contentProgress * 3) : 0)

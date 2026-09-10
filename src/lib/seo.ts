@@ -95,6 +95,12 @@ export const STATIC_ROUTES: RouteMeta[] = [
     type: 'website',
   },
   {
+    path: '/art',
+    title: pageTitle('Art'),
+    description: 'Generative art by Worthy Rae — StyleGAN architecture and computer vision video work.',
+    type: 'website',
+  },
+  {
     path: '/music',
     title: pageTitle('Music'),
     description:
