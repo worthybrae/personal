@@ -8,6 +8,7 @@ const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.p
 const HEADINGS: Record<string, string> = {
   home: 'Worthy Rae',
   feed: 'Portfolio — Worthy Rae',
+  art: 'Art — Worthy Rae',
   music: 'Music — Worthy Rae',
 };
 
@@ -35,6 +36,7 @@ export default function SeoContent({ page }: { page: string }) {
           <li><Link to="/feed">Portfolio</Link></li>
           <li><Link to="/music">Music</Link></li>
           <li><a href={RESUME_URL}>Resume</a></li>
+          <li><Link to="/art">Art</Link></li>
         </ul>
       </nav>
 

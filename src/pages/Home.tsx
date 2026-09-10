@@ -17,10 +17,11 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 
-type Page = 'home' | 'feed' | 'music' | 'work-detail' | 'art-detail';
+type Page = 'home' | 'feed' | 'art' | 'music' | 'work-detail' | 'art-detail';
 
 function parseRoute(path: string): { page: Page; slug?: string } {
   if (path === '/feed') return { page: 'feed' };
+  if (path === '/art') return { page: 'art' };
   if (path === '/music') return { page: 'music' };
   if (path.startsWith('/work/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/work/'.length)) };
   if (path.startsWith('/art/')) return { page: 'art-detail', slug: decodeURIComponent(path.slice('/art/'.length)) };
@@ -62,7 +63,7 @@ export default function Home() {
   // While a card page (feed/music) closes back to home, remember WHICH page
   // is closing so its items keep rendering through the fade — falling back to
   // the feed's items mid-close flashed a portfolio list when leaving /music.
-  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'music'>(null);
+  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'art' | 'music'>(null);
 
   // Full-screen "+" menu overlay. React state drives the button's toggle and
   // the Esc handler; menuOpenRef mirrors it for the canvas draw loop (rAF
@@ -185,13 +186,13 @@ export default function Home() {
 
     if (prev === page) return;
 
-    if ((prev === 'feed' || prev === 'music') && page === 'home') {
+    if ((prev === 'feed' || prev === 'art' || prev === 'music') && page === 'home') {
       setFeedClosing(prev);
     }
-    if ((prev === 'feed' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
+    if ((prev === 'feed' || prev === 'art' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
       meltCompleteRef.current = false;
     }
-    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'music')) {
+    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'art' || page === 'music')) {
       detailToFeedRef.current = true;
       meltProgressRef.current = 0;
       setFadingDetail({ page: prev, slug: prevSlug ?? '' });
@@ -210,11 +211,12 @@ export default function Home() {
     }
   }, [feedClosing, isContent]);
 
-  const isCardPage = page === 'feed' || page === 'music';
+  const isCardPage = page === 'feed' || page === 'art' || page === 'music';
   const showFeed = isCardPage || feedClosing !== null;
   // The card page whose items should render right now: the live page, or the
   // one animating closed. Drives both the items memo and music-mode gating.
   const cardPage = isCardPage ? page : feedClosing;
+  activeLabelRef.current = cardPage === 'art' ? 'art' : isContent ? 'feed' : null;
 
   // Now-playing: fetch Spotify state and expose via ref for terrain canvas.
   // Local playback (below) owns the landing-style box on /music instead.
@@ -375,6 +377,8 @@ export default function Home() {
       icon: artIcons[a.slug] ?? '(~)',
     }));
 
+    if (cardPage === 'art') return artItems;
+
     const blogItems = (blogData?.posts ?? []).map((b) => ({
       text: b.title.toUpperCase(), url: `/blog/${b.slug}`,
       description: b.description.toUpperCase(),
@@ -384,7 +388,7 @@ export default function Home() {
     // MUSIC card removed from the feed — the full-screen "+" menu covers
     // navigation to /music now (see MENU_ENTRIES in useTerrainAnimation.ts).
     return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
-  }, [showFeed, page, blogData, musicCatalog, musicError, musicTracks]);
+  }, [showFeed, cardPage, blogData, musicCatalog, musicError, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
 
@@ -425,7 +429,7 @@ export default function Home() {
     contactCloseToHomeRef.current = false;
     setMenuOpen(false);
     if (entry === 'resume') { window.open(RESUME_URL, '_blank'); return; }
-    if (entry === 'portfolio' || entry === 'music') {
+    if (entry === 'portfolio' || entry === 'art' || entry === 'music') {
       // Snap the name-dissolve scroll to its end state so the WORTHY RAE
       // name never flashes between the menu words and the page content —
       // the route's scroll target is 1 anyway; only the slow lerp from 0
@@ -435,9 +439,8 @@ export default function Home() {
       menuCloseToContentRef.current = true;
       scrollProgressRef.current = 1;
       setContactOpen(false);
-      navigate(entry === 'portfolio' ? '/feed' : '/music');
+      navigate(entry === 'portfolio' ? '/feed' : entry === 'art' ? '/art' : '/music');
     }
-    else if (entry === 'contact') setContactOpen(true);
   }, [navigate]);
   const handleItemClick = useCallback(
     (url: string) => {
