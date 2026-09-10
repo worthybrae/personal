@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { LivePhase } from './liveStreamState'
 
-const londonTime = new Intl.DateTimeFormat('en-GB', {
+const londonTime = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Europe/London',
-  hour: '2-digit',
+  hour: 'numeric',
   minute: '2-digit',
   second: '2-digit',
-  hourCycle: 'h23',
-  timeZoneName: 'short',
+  hour12: true,
 })
 
 export function LondonClock({ active, phase = 'fallback' }: { active: boolean; phase?: LivePhase }) {
