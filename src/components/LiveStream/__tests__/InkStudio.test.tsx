@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InkStudio } from '../InkStudio'
 import definitions from '../inkParams.json'
-vi.mock('../useInkPreview', () => ({ useInkPreview: () => ({ video:{current:null},canvas:{current:null},region:{current:null},error:'',ready:false,playing:false,metrics:{fps:0,milliseconds:0},togglePlayback:vi.fn() }) }))
+import { useInkPreview } from '../useInkPreview'
+vi.mock('../useInkPreview', () => ({ useInkPreview: vi.fn(() => ({ video:{current:null},canvas:{current:null},region:{current:null},error:'',ready:false,playing:false,metrics:{fps:0,milliseconds:0},togglePlayback:vi.fn() })) }))
 afterEach(()=>{cleanup();localStorage.clear()})
 describe('full public studio',()=>{
   it('exposes every native parameter without loading the source before starting',()=>{
@@ -11,19 +12,14 @@ describe('full public studio',()=>{
     expect(container.querySelector('video')).toBeNull();
     fireEvent.change(screen.getByRole('slider',{name:/Flow amplitude/}),{target:{value:'0.027'}});
     expect(screen.getByRole('slider',{name:/Flow amplitude/})).toHaveValue('0.027');
-    fireEvent.click(screen.getByRole('button',{name:'Reset'}));
-    expect(screen.getByRole('slider',{name:/Flow amplitude/})).toHaveValue('0.012');
   });
-  it('saves and restores arbitrary values and rejects malformed saved settings',()=>{
+  it('uses a fixed 540p preview without settings management buttons',()=>{
     render(<InkStudio/>);
-    fireEvent.change(screen.getByRole('slider',{name:/Fine threshold/}),{target:{value:'31'}});
-    fireEvent.click(screen.getByRole('button',{name:'Save'}));
-    fireEvent.click(screen.getByRole('button',{name:'Reset'}));
-    fireEvent.click(screen.getByRole('button',{name:'Restore'}));
-    expect(screen.getByRole('slider',{name:/Fine threshold/})).toHaveValue('31');
-    localStorage.setItem('public-ink-settings','{"fine_threshold":999}');
-    fireEvent.click(screen.getByRole('button',{name:'Restore'}));
-    expect(screen.getByRole('status')).toHaveTextContent('No valid saved settings');
-    expect(screen.getByRole('slider',{name:/Fine threshold/})).toHaveValue('31');
+    expect(useInkPreview).toHaveBeenLastCalledWith(false,960,expect.any(Object));
+    expect(screen.getByText(/Recorded sample · 960 × 540/)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    for (const name of ['Reset','Save','Restore','Download settings']) {
+      expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
+    }
   });
 })

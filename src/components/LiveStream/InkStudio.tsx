@@ -26,26 +26,10 @@ const help: Record<string, string> = {
 export function InkStudio() {
   const [params, setParams] = useState<Params>(initial)
   const [enabled, setEnabled] = useState(false)
-  const [width, setWidth] = useState(1920)
+  const width = 960
   const [camera, setCamera] = useState(false)
   const [message, setMessage] = useState('Start the studio to try any combination of settings.')
   const preview = useInkPreview(enabled, width, params)
-  function save() {
-    try { localStorage.setItem('public-ink-settings', JSON.stringify(params)); setMessage('Settings saved in this browser.') }
-    catch { setMessage('Browser storage is unavailable. Download the settings instead.') }
-  }
-  function load() {
-    try {
-      const stored = JSON.parse(localStorage.getItem('public-ink-settings') || 'null')
-      if (!stored || !definitions.every(p => Number.isFinite(stored[p.id]) && stored[p.id]>=p.min && stored[p.id]<=p.max)) throw new Error()
-      setParams(Object.fromEntries(definitions.map(p=>[p.id,stored[p.id]]))); setMessage('Saved settings restored.')
-    } catch { setMessage('No valid saved settings found in this browser.') }
-  }
-  function download() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(params,null,2)], {type:'application/json'}))
-    const link = document.createElement('a'); link.href=url;link.download='living-ink-settings.json';link.click()
-    setTimeout(()=>URL.revokeObjectURL(url),1000)
-  }
   function update(id: string, value: number) { setParams(previous=>({...previous,[id]:value})) }
   return <section className="public-ink-studio" id="ink-playground" aria-labelledby="public-ink-title">
     <header><h2 id="public-ink-title">Shape the drawing</h2><p>The drawing step is where the image changes. Try it on this recorded sample: adjust the contours, contrast, or distortion and see how an individual frame is transformed before it would be encoded back into video.</p></header>
@@ -67,12 +51,10 @@ export function InkStudio() {
           <div className="public-ink-playback">
             <button disabled={!preview.ready || !!preview.error} onClick={preview.togglePlayback}>{preview.playing?'Pause':'Play'}</button>
             <button disabled={!enabled} aria-pressed={camera} onClick={()=>setCamera(!camera)}>{camera?'Show drawing':'Show camera'}</button>
-            <label>Preview size<select value={width} onChange={e=>setWidth(Number(e.target.value))}><option value={1920}>1080p</option><option value={1280}>720p</option><option value={960}>540p</option></select></label>
           </div>
           <p className="public-ink-metrics">Recorded sample · {width} × {Math.round(width*9/16)}{preview.ready && <> · {preview.metrics.milliseconds.toFixed(1)} ms/render{preview.playing && <> · {preview.metrics.fps.toFixed(1)} preview fps</>}</>}</p>
           <p className="public-ink-notice" role="status">{preview.error || preview.playbackError || message}</p>
-          <p className="public-ink-note">Pause to study a detail; the sliders still redraw the frame. Playback speed depends on your device. Try 720p if it feels slow.</p>
-          <div className="public-ink-actions"><button onClick={()=>{setParams({...initial});setMessage('Live-look defaults restored.')}}>Reset</button><button onClick={save}>Save</button><button onClick={load}>Restore</button><button onClick={download}>Download settings</button></div>
+          <p className="public-ink-note">Pause to study a detail; the sliders still redraw the frame. The preview runs at 540p to keep drawing responsive. Playback speed depends on your device.</p>
         </div>
       </div>
       <aside className="public-ink-controls" aria-label="Drawing parameters">
