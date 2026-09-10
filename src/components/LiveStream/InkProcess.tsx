@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import './ink-process.css'
 
 const stages = [
-  { name: 'Light', title: 'Start with light, not color.', description: 'Every camera pixel becomes a brightness value. Color falls away, leaving the differences in light that will become the drawing.', equation: 'L = 0.299R + 0.587G + 0.114B' },
+  { name: 'Light', title: 'Find the light.', description: 'Every camera pixel becomes a brightness value. Color falls away, leaving the differences in light that will become the drawing.', equation: 'L = 0.299R + 0.587G + 0.114B' },
   { name: 'Smooth', title: 'Quiet the small distractions.', description: 'A small neighborhood average softens camera noise before finding edges. Increasing the smoothing radius quiets texture, but can also remove small details.', equation: 'S = box_average(L, radius)' },
   { name: 'Contours', title: 'Keep the crest of each edge.', description: 'The renderer measures how quickly brightness changes. Thresholds reject weak changes; thinning keeps the strongest part of each edge. Subpixel coverage shares a stroke between neighboring pixels for smoother placement.', equation: 'line = thin(gradient(S), threshold)' },
   { name: 'Memory', title: 'Let a departed line fade.', description: 'Optional memory catches marks where a moving outline used to be. Strength controls their visibility. Half-life is the time it takes a mark to lose half its intensity. The live look starts with memory off.', equation: 'memory = max(departed_line, memory × 2^(−Δt / half_life))' },
@@ -28,8 +28,8 @@ export function InkProcess() {
   }, [])
   const item = stages[stage]
   return <section ref={root} className={`ink-process ${animate && visible && pageVisible ? 'ink-process-animating' : ''}`} aria-labelledby="ink-process-title">
-    <h2 id="ink-process-title">How a street becomes a drawing</h2>
-    <p className="ink-process-intro">Follow a single edge through the renderer.</p>
+    <h2 id="ink-process-title">From light to line</h2>
+    <p className="ink-process-intro">The drawing begins with changes in brightness. Each stage keeps something useful from the camera image and lets the rest fall away. Follow an edge through the steps below.</p>
     <div className="ink-process-path" aria-label="Drawing stages">{stages.map((entry, i) => <button key={entry.name} type="button" aria-pressed={stage === i} onClick={() => setStage(i)}>
       {entry.name}{i < stages.length - 1 && <span aria-hidden="true">→</span>}
     </button>)}</div>
@@ -64,6 +64,6 @@ export function InkProcess() {
       </div>
       <div className="ink-process-explanation"><h3>{item.title}</h3><p>{item.description}</p><code>{item.equation}</code></div>
     </div>
-    <p className="ink-process-finish">Line coverage mixes the charcoal and highlight values before flow bends the finished drawing. The live stream encodes the result as video.</p>
+    <p className="ink-process-finish">The strength of each mark determines how much highlight appears against the charcoal background. Flow then bends the finished drawing. Together, these choices set the character of the piece.</p>
   </section>
 }

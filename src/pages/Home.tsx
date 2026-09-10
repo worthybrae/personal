@@ -770,21 +770,21 @@ export default function Home() {
                 <ArtMedia piece={displayArtPiece} />
               </div>
             )}
-            <div
-              className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-              style={{ fontFamily: monoFont }}
-            >
-              SUMMARY
-            </div>
-            <PretextSummary text={displayArtPiece.summary} />
-            {displayArtPiece.slug === 'livestream-art' && <><InkStudio /><InkProcess /></>}
-            <div
-              className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-              style={{ fontFamily: monoFont }}
-            >
-              TOOLS
-            </div>
-            <TechTags tags={displayArtPiece.tech} />
+            {displayArtPiece.slug === 'livestream-art' ? (
+              <article className="ink-article" aria-label="About the live painting">
+                <p className="ink-article-intro">{displayArtPiece.summary}</p>
+                <InkProcess />
+                <InkStudio />
+                <p className="ink-article-closing">The live version above is drawn in Rust, encoded with FFmpeg, and delivered as a shared video stream. It runs on demand at 1080p and follows the camera’s 29.97 fps cadence. Here, the same drawing code runs in your browser on a short recording, so you can explore the process without changing what everyone else sees.</p>
+              </article>
+            ) : (
+              <>
+                <div className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left" style={{ fontFamily: monoFont }}>SUMMARY</div>
+                <PretextSummary text={displayArtPiece.summary} />
+                <div className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left" style={{ fontFamily: monoFont }}>TOOLS</div>
+                <TechTags tags={displayArtPiece.tech} />
+              </>
+            )}
           </LivestreamArtScrollRegion>
         </DetailOverlay>
       )}

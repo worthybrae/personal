@@ -29,7 +29,6 @@ export function InkStudio() {
   const [width, setWidth] = useState(1920)
   const [camera, setCamera] = useState(false)
   const [message, setMessage] = useState('Start the studio to try any combination of settings.')
-  const [fallback, setFallback] = useState(false)
   const preview = useInkPreview(enabled, width, params)
   function save() {
     try { localStorage.setItem('public-ink-settings', JSON.stringify(params)); setMessage('Settings saved in this browser.') }
@@ -49,7 +48,7 @@ export function InkStudio() {
   }
   function update(id: string, value: number) { setParams(previous=>({...previous,[id]:value})) }
   return <section className="public-ink-studio" id="ink-playground" aria-labelledby="public-ink-title">
-    <header><h2 id="public-ink-title">The drawing desk</h2><p>Every mark has a reason. Change it, watch it, find your own version.</p></header>
+    <header><h2 id="public-ink-title">Shape the drawing</h2><p>Those stages become the controls below. Start with the live look, then change a threshold, soften a stroke, or let an old outline linger. The recorded moment stays the same, making each change easier to see.</p></header>
     <div className="public-ink-workspace">
       <div className="public-ink-preview-column">
         <div className="public-ink-preview-sticky">
@@ -72,11 +71,8 @@ export function InkStudio() {
           </div>
           <p className="public-ink-metrics">Recorded sample · {width} × {Math.round(width*9/16)}{preview.ready && <> · {preview.metrics.milliseconds.toFixed(1)} ms/render{preview.playing && <> · {preview.metrics.fps.toFixed(1)} preview fps</>}</>}</p>
           <p className="public-ink-notice" role="status">{preview.error || preview.playbackError || message}</p>
-          <p className="public-ink-note">This recorded sample is drawn on your device by the same Rust effect code as the live stream. Preview speed depends on your device and settings. The live painting above keeps its own settings.</p>
+          <p className="public-ink-note">Pause to study a detail; the sliders still redraw the frame. Playback speed depends on your device. Try 720p if it feels slow.</p>
           <div className="public-ink-actions"><button onClick={()=>{setParams({...initial});setMessage('Live-look defaults restored.')}}>Reset</button><button onClick={save}>Save</button><button onClick={load}>Restore</button><button onClick={download}>Download settings</button></div>
-          <button className="public-ink-fallback-toggle" onClick={()=>document.getElementById("ink-process-title")?.scrollIntoView({block:"start"})}>See how the drawing works ↓</button>
-          <p className="public-ink-note">Pause on a frame to study a detail. Sliders still update the drawing while paused. Try 720p if playback feels slow.</p>
-          <button className="public-ink-fallback-toggle" aria-expanded={fallback} onClick={()=>setFallback(!fallback)}>{fallback?'Hide':'Show'} lightweight recorded studies</button>
         </div>
       </div>
       <aside className="public-ink-controls" aria-label="Drawing parameters">
@@ -95,6 +91,6 @@ export function InkStudio() {
         })}</fieldset>)}
       </aside>
     </div>
-    {(fallback || !!preview.error) && <InkPlayground id="ink-recorded-studies"/>}
+    {!!preview.error && <InkPlayground id="ink-recorded-studies"/>}
   </section>
 }

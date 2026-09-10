@@ -24,3 +24,9 @@
 @keyframes ink-wave { from { transform:translateX(0); } to { transform:translateX(-160px); } }
 @keyframes ink-memory { to { opacity:0.03; } }
 @media(prefers-reduced-motion:reduce) { .ink-process * { animation:none!important; }.ink-process-scan { display:none!important; } }
+
+.ink-article { text-align:left;font-family:'JetBrains Mono','Courier New',monospace; }
+.ink-article-intro,.ink-article-closing { color:#b5b5b5;font-size:13px;line-height:1.95;max-width:70ch; }
+.ink-article-intro { margin:32px 0 0; }.ink-article-closing { margin:36px 0 64px; }
+.ink-article .ink-process { margin:40px 0; }.ink-article .ink-process-intro { max-width:70ch; }
+.ink-article .public-ink-studio header p { max-width:70ch; }

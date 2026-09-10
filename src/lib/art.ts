@@ -23,7 +23,7 @@ export const ART_PIECES: ArtPiece[] = [
     slug: 'livestream-art',
     name: 'LIVESTREAM ART',
     description: 'COMPUTER VISION VIDEO TRANSFORMATIONS',
-    summary: 'Abbey Road becomes a living drawing: fine white and gray contours on charcoal, with precise outlines flowing through a gently distorted street. A native Rust renderer transforms the live camera feed and sends the finished artwork to this page. The renderer runs on demand, preserving the source cadence while keeping the stream small. The studio uses the same renderer to explore line weight, contrast, and the movement of the drawing.',
+    summary: 'At Abbey Road, cars and pedestrians pass through a drawing that never quite settles. The camera image becomes fine white contours on charcoal, and a slow distortion bends the street as it moves. The crossing stays recognizable while its outlines take on a movement of their own.',
     videoUrl: '/media/abbey-road-ink.mp4',
     githubUrl: 'https://github.com/worthybrae/livestream-morphing',
     tech: ['Rust', 'FFmpeg', 'HLS', 'React'],
