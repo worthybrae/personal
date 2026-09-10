@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { LondonClock } from './LondonClock'
 import { attachHls, type StreamHandle } from './hlsAdapter'
 import { parseLiveStatus, retryDelay, type LivePhase } from './liveStreamState'
 
@@ -315,6 +316,7 @@ export function LiveStreamPlayer({
         />
       )}
 
+      <LondonClock active={visible} />
       {baseUrl && visible && phase === 'live' && <EngineTelemetry baseUrl={baseUrl} />}
       {baseUrl && phase !== 'fallback' && (
         <div
