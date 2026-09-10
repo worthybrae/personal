@@ -348,7 +348,7 @@ function EngineTelemetry({ baseUrl }: { baseUrl: string }) {
   }, [baseUrl])
   if (!data || !data.engine.width) return null
   const e = data.engine
-  return <div className="absolute right-4 bottom-4 max-w-[70%] bg-black/70 px-2 py-1 text-right font-mono text-[10px] text-white/60">
+  return <div className="absolute right-4 bottom-4 hidden max-w-[70%] bg-black/70 px-2 py-1 text-right font-mono text-[10px] text-white/60 sm:block">
     ENGINE · FRAME {e.rendered_frames.toLocaleString()} · {e.width}×{e.height}<br />
     P50 / P95 {e.frame_p50_ms.toFixed(1)} / {e.frame_p95_ms.toFixed(1)} MS · {data.buffer_count} SEGMENTS
   </div>
