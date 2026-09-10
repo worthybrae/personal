@@ -48,6 +48,7 @@ describe('LiveStreamPlayer', () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn())
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -144,6 +145,7 @@ describe('LiveStreamPlayer', () => {
 
     await vi.advanceTimersByTimeAsync(1)
     expect(screen.getByText('LIVE')).toBeInTheDocument()
+    expect(vi.mocked(HTMLMediaElement.prototype.pause).mock.contexts).toContain(screen.getByTestId('fallback-video'))
     expect(screen.queryByText('STARTING LIVE FEED')).not.toBeInTheDocument()
   })
 

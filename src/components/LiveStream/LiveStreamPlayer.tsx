@@ -38,6 +38,19 @@ export function LiveStreamPlayer({
   const visible = pageVisible && onScreen
   const [liveVideoVisible, setLiveVideoVisible] = useState(false)
   const liveVideoRef = useRef<HTMLVideoElement>(null)
+  const fallbackVideoRef = useRef<HTMLVideoElement>(null)
+  const fallbackPaused = useRef(false)
+  useEffect(() => {
+    const fallback = fallbackVideoRef.current
+    if (!fallback) return
+    if (!visible || phase === 'live') {
+      fallback.pause()
+      fallbackPaused.current = true
+    } else if (fallbackPaused.current) {
+      fallbackPaused.current = false
+      void fallback.play()?.catch(() => {})
+    }
+  }, [visible, phase])
   const onCanPlayRef = useRef<() => void>(() => undefined)
 
   useEffect(() => {
@@ -279,6 +292,7 @@ export function LiveStreamPlayer({
       className={`relative overflow-hidden bg-black ${fill ? 'h-full w-full' : 'aspect-video'}`}
     >
       <video
+        ref={fallbackVideoRef}
         data-testid="fallback-video"
         src={fallbackUrl}
         autoPlay

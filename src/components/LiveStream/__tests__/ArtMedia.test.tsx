@@ -28,7 +28,7 @@ describe('ArtMedia', () => {
 
     expect(screen.getByTestId('mock-live-player')).toHaveAttribute(
       'data-fallback',
-      'https://portfolio-worthy.s3.us-east-1.amazonaws.com/abbey_road_best.mp4',
+      '/media/abbey-road-ink.mp4',
     )
   })
 
