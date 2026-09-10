@@ -316,19 +316,9 @@ export function LiveStreamPlayer({
         />
       )}
 
-      <LondonClock active={visible} />
+      <LondonClock active={visible} phase={phase} />
       {baseUrl && visible && phase === 'live' && <EngineTelemetry baseUrl={baseUrl} />}
-      {baseUrl && phase !== 'fallback' && (
-        <div
-          aria-live="polite"
-          className="absolute left-4 bottom-4 bg-black/70 px-2 py-1 font-mono text-xs tracking-widest text-white"
-        >
-          {phase === 'live' && 'LIVE'}
-          {(phase === 'waking' || phase === 'buffering') && 'STARTING LIVE FEED'}
-          {(phase === 'recovering' || phase === 'unavailable') &&
-            'LIVE FEED UNAVAILABLE · RETRYING'}
-        </div>
-      )}
+
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { LivePhase } from './liveStreamState'
 
 const londonTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/London',
@@ -9,7 +10,7 @@ const londonTime = new Intl.DateTimeFormat('en-GB', {
   timeZoneName: 'short',
 })
 
-export function LondonClock({ active }: { active: boolean }) {
+export function LondonClock({ active, phase = 'fallback' }: { active: boolean; phase?: LivePhase }) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     if (!active) return
@@ -18,7 +19,11 @@ export function LondonClock({ active }: { active: boolean }) {
     return () => window.clearInterval(timer)
   }, [active])
 
-  return <div className="pointer-events-none absolute left-4 bottom-14 bg-black/60 px-3 py-2 text-left font-mono text-xs leading-relaxed text-white/80">
+  return <div className="pointer-events-none absolute left-4 bottom-4 bg-black/60 px-3 py-2 text-left font-mono text-xs leading-relaxed text-white/80">
+    {phase !== 'fallback' && <span aria-live="polite" className="mb-1 flex items-center gap-2 text-[10px] tracking-widest">
+      {phase === 'live' && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500 motion-safe:animate-pulse" />}
+      <span>{phase === 'live' ? 'LIVE' : phase === 'waking' || phase === 'buffering' ? 'STARTING LIVE FEED' : 'LIVE FEED UNAVAILABLE · RETRYING'}</span>
+    </span>}
     <span className="block text-[10px] tracking-widest text-white/50">ABBEY ROAD · LONDON NOW</span>
     <time dateTime={now.toISOString()} className="tabular-nums">{londonTime.format(now)}</time>
   </div>
