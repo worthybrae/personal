@@ -809,25 +809,27 @@ function ArtGallery() {
       className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       style={{ top: '100px', overscrollBehavior: 'contain' }}
     >
-      {ART_PIECES.map((piece) => (
-        <section key={piece.slug}>
-          <Link
-            to={`/art/${piece.slug}`}
-            aria-label={`View ${piece.name}`}
-            className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <video
-              className="pointer-events-none block h-auto w-full"
-              src={piece.videoUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            />
-          </Link>
-        </section>
-      ))}
+      <div className="mx-auto w-full max-w-[720px]">
+        {ART_PIECES.map((piece) => (
+          <section key={piece.slug}>
+            <Link
+              to={`/art/${piece.slug}`}
+              aria-label={`View ${piece.name}`}
+              className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <video
+                className="pointer-events-none block h-auto w-full"
+                src={piece.videoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+              />
+            </Link>
+          </section>
+        ))}
+      </div>
     </main>
   );
 }
