@@ -28,7 +28,7 @@ describe('ArtMedia', () => {
 
     expect(screen.getByTestId('mock-live-player')).toHaveAttribute(
       'data-fallback',
-      '/media/abbey-road-ink.mp4',
+      '/media/abbey-road-loaded-bristle.mp4',
     )
   })
 

@@ -809,7 +809,7 @@ function ArtGallery() {
       className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       style={{ top: '100px', overscrollBehavior: 'contain' }}
     >
-      <div className="mx-auto w-full max-w-[720px]">
+      <div className="mx-auto w-full max-w-lg space-y-12 md:space-y-16">
         {ART_PIECES.map((piece) => (
           <section key={piece.slug}>
             <Link
