@@ -1452,6 +1452,7 @@ export function useTerrainAnimation(
 
       // Scale character colors: dim during feed→home close, or during detail→feed brightness fade
       const feedActive = feedCards.length > 0 || wasFeedMode;
+      const isArtGallery = activeLabelRef?.current === 'art';
       const isClosing = contentTarget === 0 && contentProgress > 0;
       // During reverse melt: main canvas at FULL brightness — it's hidden behind the
       // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
@@ -1774,7 +1775,7 @@ export function useTerrainAnimation(
           // Pinned "PORTFOLIO" heading (generic feed only): cutout silhouette
           // in the exact style of the contact page's CONTACT heading, hash-
           // gated so it scatter-reveals with the cards and whites out on exit.
-          if (!overlayVisual && !isMusicMode && contentTitleFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
+          if (!isArtGallery && !overlayVisual && !isMusicMode && contentTitleFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
             let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
             hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
             const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
@@ -1789,7 +1790,7 @@ export function useTerrainAnimation(
           // arithmetic — O(1) per cell (2D: row-block × column). Rows above
           // feedContentTopRow are excluded so scrolled content never swallows
           // the W/+/header band (or the pinned PORTFOLIO heading on the feed).
-          if (!overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
+          if (!isArtGallery && !overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
             const scrolledR = r + drawScroll;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -2014,7 +2015,7 @@ export function useTerrainAnimation(
       }
 
       // --- Feed card / music tile content ---
-      if (!overlayVisual && contentTitleFade > 0 && feedCards.length > 0) {
+      if (!isArtGallery && !overlayVisual && contentTitleFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -2548,7 +2549,7 @@ export function useTerrainAnimation(
       }
 
       // Sub-items — only when content title is revealed
-      if (contentTitleVis > 0.3) {
+      if (activeLabelRef?.current !== 'art' && contentTitleVis > 0.3) {
         const sBounds = subItemBoundsRef.current;
         for (let i = 0; i < sBounds.length; i++) {
           const b = sBounds[i];

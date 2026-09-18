@@ -1,5 +1,5 @@
 import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation';
 import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
@@ -806,37 +806,43 @@ function ArtGallery() {
       tabIndex={0}
       onClick={(event) => event.stopPropagation()}
       onMouseMove={(event) => event.stopPropagation()}
-      className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto bg-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+      className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       style={{ top: '100px', overscrollBehavior: 'contain' }}
     >
       <div className="mx-auto max-w-3xl px-6 pb-24 pt-8 md:pt-12">
-        <h1 className="mb-10 text-left text-2xl tracking-wider md:text-3xl" style={{ fontFamily: monoFont }}>
+        <h1 className="mb-10 w-fit bg-black/80 px-3 py-2 text-left text-2xl tracking-wider md:text-3xl" style={{ fontFamily: monoFont }}>
           Art
         </h1>
         <div className="space-y-14 md:space-y-20">
           {ART_PIECES.map((piece) => (
             <section key={piece.slug} aria-labelledby={`art-${piece.slug}`}>
-              <video
-                className="block aspect-video w-full bg-black object-contain"
-                src={piece.videoUrl}
-                aria-label={piece.name}
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                preload="metadata"
-              />
-              <h2
-                id={`art-${piece.slug}`}
-                className="mt-5 text-left text-lg tracking-wide md:text-xl"
-                style={{ fontFamily: monoFont }}
+              <Link
+                to={`/art/${piece.slug}`}
+                aria-label={`View ${piece.name}`}
+                className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
-                {piece.name}
-              </h2>
-              <p className="mt-1 text-left text-xs tracking-wider text-white/50 md:text-sm" style={{ fontFamily: monoFont }}>
-                {piece.description}
-              </p>
+                <video
+                  className="pointer-events-none block aspect-video w-full bg-black object-contain"
+                  src={piece.videoUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                />
+              </Link>
+              <div className="mt-4 w-fit max-w-full bg-black/80 px-3 py-2">
+                <h2
+                  id={`art-${piece.slug}`}
+                  className="text-left text-lg tracking-wide md:text-xl"
+                  style={{ fontFamily: monoFont }}
+                >
+                  {piece.name}
+                </h2>
+                <p className="mt-1 text-left text-xs tracking-wider text-white/60 md:text-sm" style={{ fontFamily: monoFont }}>
+                  {piece.description}
+                </p>
+              </div>
             </section>
           ))}
         </div>
