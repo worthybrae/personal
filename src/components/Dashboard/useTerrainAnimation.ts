@@ -508,7 +508,7 @@ export function useTerrainAnimation(
     // mask handles it).
     let feedHeadingGrid: Uint8Array = new Uint8Array(0);
     let feedHeadingBottomRow = 0;
-    let feedCols = 1;         // number of grid columns (1 mobile, 2 feeds, 6-8 music desktop tiles)
+    let feedCols = 1;         // number of grid columns (1 for feeds, 6-8 music desktop tiles)
     let feedColWidth = 0;     // grid-col width of a single card/tile, uniform across columns
     const feedColGap = 4;     // grid cols between columns — a deliberate terrain band, not a sliver
     let feedGridLeft = 0;     // grid col where the centered grid begins
@@ -545,9 +545,6 @@ export function useTerrainAnimation(
     // forward melt has dissolved them (instead of vanishing the frame the
     // route changes, leaving bare terrain before the melt starts).
     let f2dHeldCards = false;
-    // Last frame's isArtGallery: the gallery's cards are never drawn on the
-    // canvas (the DOM gallery shows instead), so they're not held.
-    let prevArtGallery = false;
     let detailToFeedMelt = false;
     let d2fContentReset = false;
     let d2fMeltProgress = 0;
@@ -949,12 +946,8 @@ export function useTerrainAnimation(
       const cappedTextChars = Math.floor(cappedTextCols / textScale);
       feedColWidth = 1 + padH + cappedContentCols + padH + 1;
 
-      // --- Column count: how many content-width cards fit side by side, clamped
-      // to 2 columns. Mobile is always a single column — checked live (not the
-      // mount-time isMobile) so shrinking the window also collapses to 1. ---
-      const maxCols = 2;
-      const nFit = Math.floor((cols - 4 + feedColGap) / (feedColWidth + feedColGap));
-      const n = window.innerWidth < 768 ? 1 : Math.max(1, Math.min(nFit, maxCols));
+      // --- Single column on every screen size: the list reads top to bottom. ---
+      const n = 1;
 
       feedCols = n;
       feedGridLeft = Math.floor((cols - (n * feedColWidth + (n - 1) * feedColGap)) / 2);
@@ -1392,7 +1385,7 @@ export function useTerrainAnimation(
         contentProgress = 0;
         contentProgressRef.current = 0;
         feedToDetailMelt = true;
-        f2dHeldCards = !prevArtGallery;
+        f2dHeldCards = true;
       }
       if (f2dHeldCards && !feedToDetailMelt) f2dHeldCards = false;
       if (feedItemsKey !== lastFeedItemsKey && !f2dHeldCards) {
@@ -1464,7 +1457,12 @@ export function useTerrainAnimation(
       // Also lifts while the menu is on screen at all (its words are cutouts
       // that need terrain around them) and as soon as /music starts closing,
       // so the terrain returns while the tiles dissolve rather than after.
-      const musicBlackTarget = isMusicMode && !overlayVisual && !menuVisible && contentTarget === 1 ? 1 : 0;
+      // A menu entry landing on /music is the exception: the black dissolve
+      // runs under the leaving words instead of waiting for them to finish,
+      // so the page arrives in one motion rather than menu-out, then black.
+      const menuLeavingToContent = menuOverContentLive && xfadeFrom === 'menu';
+      const musicBlackTarget = isMusicMode && !overlayVisual && (!menuVisible || menuLeavingToContent) &&
+        contentTarget === 1 ? 1 : 0;
       musicBlackness += (musicBlackTarget - musicBlackness) * 0.09;
       if (Math.abs(musicBlackTarget - musicBlackness) < 0.001) musicBlackness = musicBlackTarget;
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
@@ -1485,8 +1483,6 @@ export function useTerrainAnimation(
 
       // Scale character colors: dim during feed→home close, or during detail→feed brightness fade
       const feedActive = feedCards.length > 0 || wasFeedMode;
-      const isArtGallery = activeLabelRef?.current === 'art';
-      prevArtGallery = isArtGallery;
       const isClosing = contentTarget === 0 && contentProgress > 0;
       // During reverse melt: main canvas at FULL brightness — it's hidden behind the
       // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
@@ -1822,7 +1818,7 @@ export function useTerrainAnimation(
           // Pinned "PORTFOLIO" heading (generic feed only): cutout silhouette
           // in the exact style of the contact page's CONTACT heading, hash-
           // gated so it scatter-reveals with the cards and whites out on exit.
-          if (!isArtGallery && !overlayVisual && !isMusicMode && cardFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
+          if (!overlayVisual && !isMusicMode && cardFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
             let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
             hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
             const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
@@ -1838,7 +1834,7 @@ export function useTerrainAnimation(
           // arithmetic — O(1) per cell (2D: row-block × column). Rows above
           // feedContentTopRow are excluded so scrolled content never swallows
           // the W/+/header band (or the pinned PORTFOLIO heading on the feed).
-          if (!isArtGallery && !overlayVisual && cardFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
+          if (!overlayVisual && cardFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
             const scrolledR = r + drawScroll;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -2093,7 +2089,7 @@ export function useTerrainAnimation(
       }
 
       // --- Feed card / music tile content ---
-      if (!isArtGallery && !overlayVisual && cardFade > 0 && feedCards.length > 0) {
+      if (!overlayVisual && cardFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -2415,9 +2411,10 @@ export function useTerrainAnimation(
       // now-playing box itself is drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
       // Fades with the page (in on open, out on close, out under an opening
-      // menu) instead of popping at the contentProgress threshold.
+      // menu, back in under a closing one) instead of popping at the
+      // contentProgress threshold.
       const musicChromeAlpha = Math.min(1, (contentProgress - 0.6) / 0.4) *
-        (xfadeMenuOverContent && xfadeTo === 'menu' ? 1 - menuReveal : 1);
+        (menuOverContentLive ? 1 - menuReveal : 1);
       if (!overlayVisual && musicUI && feedCards.length > 0 && musicChromeAlpha > 0) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
         ctx.save();
@@ -2666,7 +2663,7 @@ export function useTerrainAnimation(
       }
 
       // Sub-items — only when content title is revealed
-      if (activeLabelRef?.current !== 'art' && contentTitleVis > 0.3) {
+      if (contentTitleVis > 0.3) {
         const sBounds = subItemBoundsRef.current;
         for (let i = 0; i < sBounds.length; i++) {
           const b = sBounds[i];

@@ -1,5 +1,5 @@
 import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect, startTransition } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation';
 import { PROJECTS } from '@/lib/projects';
 import { getProject } from '@/lib/projects';
@@ -101,16 +101,6 @@ export default function Home() {
   // Set when a menu entry navigates: the menu's terrain already covers the
   // page being left, so a detail page drops at once instead of reverse-melting.
   const menuNavRef = useRef(false);
-  // Art gallery stays mounted briefly while it fades out after leaving /art
-  // (over the melt into a detail page, or the terrain on the way home). On the
-  // commit where the route changes, before this is set, prevPageRef still says
-  // 'art' and keeps the same element mounted.
-  const [galleryExiting, setGalleryExiting] = useState(false);
-  useEffect(() => {
-    if (!galleryExiting) return;
-    const id = setTimeout(() => setGalleryExiting(false), 450);
-    return () => clearTimeout(id);
-  }, [galleryExiting]);
 
   // Canvas-native contact mode — built into the terrain like the "+" menu
   // above (contactOpenRef mirrors contactOpen the same way menuOpenRef
@@ -218,7 +208,6 @@ export default function Home() {
     const viaMenu = menuNavRef.current;
     menuNavRef.current = false;
 
-    if (prev === 'art') setGalleryExiting(true);
     if ((prev === 'feed' || prev === 'art' || prev === 'music') && page === 'home') {
       setFeedClosing(prev);
     }
@@ -418,9 +407,10 @@ export default function Home() {
       icon: '>>>',
     }));
 
-    // MUSIC card removed from the feed — the full-screen "+" menu covers
-    // navigation to /music now (see MENU_ENTRIES in useTerrainAnimation.ts).
-    return [artItems[0], workItems[1], artItems[1], workItems[0], ...blogItems].filter(Boolean);
+    // MUSIC and art cards stay off the work feed — the full-screen "+" menu
+    // covers navigation to /music and /art (see MENU_ENTRIES in
+    // useTerrainAnimation.ts).
+    return [workItems[1], workItems[0], ...blogItems].filter(Boolean);
   }, [showFeed, cardPage, blogData, musicCatalog, musicError, musicTracks]);
 
   contentSubItemsRef.current = feedSubItems;
@@ -655,7 +645,7 @@ export default function Home() {
   const displayArtPiece = artPiece || fadingArtPiece;
   const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
   const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
-  const canvasOverPage = (menuOpen || contactOpen || menuVeil) && page !== 'art';
+  const canvasOverPage = menuOpen || contactOpen || menuVeil;
 
   return (
     <div>
@@ -664,8 +654,7 @@ export default function Home() {
       {/* z-25 while the menu or contact mode is open (and through the menu's
           close back onto a detail page): both draw on this canvas and must
           sit above DetailOverlay (z-10) and the melt cover canvas (z-20) so
-          they're visible over detail pages too. The art gallery instead fades
-          its videos out over the canvas (ArtGallery `hidden`). */}
+          they're visible over detail pages too. */}
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: canvasOverPage ? 25 : liveArtRef.current ? 15 : 0, clipPath: liveArtRef.current && !canvasOverPage ? 'inset(0 0 calc(100% - 100px) 0)' : undefined }} />
 
       {page === 'music' && (
@@ -724,10 +713,6 @@ export default function Home() {
             style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, zIndex: 5, fontSize: 16 }}
           />
         </>
-      )}
-
-      {(page === 'art' || galleryExiting || prevPageRef.current === 'art') && (
-        <ArtGallery hidden={menuOpen} exiting={page !== 'art'} />
       )}
 
       {showWork && displayProject && (
@@ -841,62 +826,6 @@ export default function Home() {
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
     </div>
-  );
-}
-
-// Fades in on arrival, out under the menu (in step with its 900ms crossfade,
-// so the words dissolve on the canvas beneath), and out over the melt into a
-// detail page (`exiting`, lifted above the melt cover canvas).
-function ArtGallery({ hidden, exiting }: { hidden: boolean; exiting: boolean }) {
-  const [arrived, setArrived] = useState(false);
-  useEffect(() => {
-    // Two frames so the first paint lands at opacity 0 and the fade runs.
-    let id = requestAnimationFrame(() => { id = requestAnimationFrame(() => setArrived(true)); });
-    return () => cancelAnimationFrame(id);
-  }, []);
-  const visible = arrived && !hidden && !exiting;
-  return (
-    <main
-      aria-label="Artwork videos"
-      tabIndex={0}
-      onClick={(event) => event.stopPropagation()}
-      onMouseMove={(event) => event.stopPropagation()}
-      className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-      style={{
-        top: '100px',
-        overscrollBehavior: 'contain',
-        opacity: visible ? 1 : 0,
-        transition: `opacity ${exiting ? 450 : 900}ms ease`,
-        pointerEvents: visible ? undefined : 'none',
-        zIndex: exiting ? 21 : undefined,
-      }}
-    >
-      <div className="space-y-12 pb-24 md:space-y-16">
-        {ART_PIECES.map((piece) => (
-          <section
-            key={piece.slug}
-            className={`mx-auto w-full ${piece.slug === 'livestream-art' ? 'max-w-lg' : 'max-w-md'}`}
-          >
-            <Link
-              to={`/art/${piece.slug}`}
-              aria-label={`View ${piece.name}`}
-              className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              <video
-                className="pointer-events-none block h-auto w-full"
-                style={{ aspectRatio: piece.videoAspect }}
-                src={piece.videoUrl}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
-            </Link>
-          </section>
-        ))}
-      </div>
-    </main>
   );
 }
 
