@@ -33,6 +33,12 @@ function parseRoute(path: string): { page: Page; slug?: string } {
 }
 
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
+const EXIT_FADE_MS = 450;
+
+function isDetailPage(page: Page): boolean {
+  return page === 'work-detail' || page === 'art-detail';
+}
+
 const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
 
 export default function Home() {
@@ -40,39 +46,6 @@ export default function Home() {
   const coverCanvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { page, slug } = parseRoute(location.pathname);
-
-  // Canvas draws everything a human sees; this keeps the document head in sync
-  // for anything that reads the page instead of looking at it.
-  useSeo({ path: location.pathname });
-
-  const isContent = page !== 'home';
-  const liveArtRef = useRef(false);
-  liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
-  const domPageRef = useRef(false);
-  domPageRef.current = page === 'work-detail' || page === 'art-detail';
-
-  // Delay contentOpen going false until feed content has faded out
-  const contentOpenRef = useRef(isContent);
-  if (isContent) contentOpenRef.current = true;
-
-  const activeLabelRef = useRef<string | null>(isContent ? 'feed' : null);
-  activeLabelRef.current = isContent ? 'feed' : null;
-
-  const scrollTargetRef = useRef(page === 'home' ? 0 : 1);
-  scrollTargetRef.current = page === 'home' ? 0 : 1;
-
-  const scrollProgressRef = useRef(page === 'home' ? 0 : 1);
-  const meltCompleteRef = useRef(page !== 'home');
-  const meltProgressRef = useRef(page !== 'home' ? 1 : 0);
-  const detailToFeedRef = useRef(false);
-
-  // Track feed closing animation
-  // While a card page (feed/music) closes back to home, remember WHICH page
-  // is closing so its items keep rendering through the fade — falling back to
-  // the feed's items mid-close flashed a portfolio list when leaving /music.
-  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'art' | 'music'>(null);
-
   // Full-screen "+" menu overlay. React state drives the button's toggle and
   // the Esc handler; menuOpenRef mirrors it for the canvas draw loop (rAF
   // reads .current every frame — a plain boolean ref sync in render is fine
@@ -109,6 +82,70 @@ export default function Home() {
   const contactOpenRef = useRef(false);
   contactOpenRef.current = contactOpen;
   const contactCloseToHomeRef = useRef(false);
+
+  const route = parseRoute(location.pathname);
+
+  // Leaving a detail page (W, back) for anywhere but the work list: hold the
+  // detail page for EXIT_FADE_MS while its media fades to black, then let
+  // the route through, so the background comes in from black instead of the
+  // videos snapping away. The work list keeps its own melt; the menu and
+  // contact screens already cover the page they leave.
+  const [lastPath, setLastPath] = useState(location.pathname);
+  const [exitingFrom, setExitingFrom] = useState<{ page: Page; slug?: string } | null>(null);
+  // Set as the hold ends: the page left is already black, so the next page
+  // change must not melt it back in (the layout effect below consumes it).
+  const exitFadedRef = useRef(false);
+  if (location.pathname !== lastPath) {
+    const prev = parseRoute(lastPath);
+    setLastPath(location.pathname);
+    const leavingDetail = isDetailPage(prev.page) && !isDetailPage(route.page) && route.page !== 'feed';
+    // W closes an open menu or contact screen in the same commit as the
+    // navigation; the close-to-home refs say one was covering the page.
+    const covered = menuNavRef.current || menuOpen || contactOpen ||
+      menuCloseToHomeRef.current || contactCloseToHomeRef.current;
+    setExitingFrom(leavingDetail && !covered ? prev : null);
+  }
+  useEffect(() => {
+    if (!exitingFrom) return;
+    const timer = setTimeout(() => {
+      exitFadedRef.current = true;
+      setExitingFrom(null);
+    }, EXIT_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [exitingFrom]);
+  const { page, slug } = exitingFrom ?? route;
+
+  // Canvas draws everything a human sees; this keeps the document head in sync
+  // for anything that reads the page instead of looking at it.
+  useSeo({ path: location.pathname });
+
+  const isContent = page !== 'home';
+  const liveArtRef = useRef(false);
+  liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
+  const domPageRef = useRef(false);
+  domPageRef.current = page === 'work-detail' || page === 'art-detail';
+
+  // Delay contentOpen going false until feed content has faded out
+  const contentOpenRef = useRef(isContent);
+  if (isContent) contentOpenRef.current = true;
+
+  const activeLabelRef = useRef<string | null>(isContent ? 'feed' : null);
+  activeLabelRef.current = isContent ? 'feed' : null;
+
+  const scrollTargetRef = useRef(page === 'home' ? 0 : 1);
+  scrollTargetRef.current = page === 'home' ? 0 : 1;
+
+  const scrollProgressRef = useRef(page === 'home' ? 0 : 1);
+  const meltCompleteRef = useRef(page !== 'home');
+  const meltProgressRef = useRef(page !== 'home' ? 1 : 0);
+  const detailToFeedRef = useRef(false);
+
+  // Track feed closing animation
+  // While a card page (feed/music) closes back to home, remember WHICH page
+  // is closing so its items keep rendering through the fade — falling back to
+  // the feed's items mid-close flashed a portfolio list when leaving /music.
+  const [feedClosing, setFeedClosing] = useState<null | 'feed' | 'art' | 'music'>(null);
+
 
   // Form fields + UI state. Plain useState is the source of truth (so the
   // hidden <input>/<textarea> below stay normal controlled elements); each
@@ -205,6 +242,11 @@ export default function Home() {
     prevSlugRef.current = slug;
 
     if (prev === page) return;
+    if (exitFadedRef.current) {
+      exitFadedRef.current = false;
+      menuNavRef.current = false;
+      return;
+    }
     const viaMenu = menuNavRef.current;
     menuNavRef.current = false;
 
@@ -716,7 +758,7 @@ export default function Home() {
       )}
 
       {showWork && displayProject && (
-        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
           <div className="flex items-start justify-between gap-4">
             <div className="text-left">
               <h1
@@ -765,7 +807,7 @@ export default function Home() {
       )}
 
       {showArt && displayArtPiece && (
-        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
           {displayArtPiece.slug === 'livestream-art' && (
             <LivestreamArtHero piece={displayArtPiece} />
           )}
@@ -843,8 +885,10 @@ function TechTags({ tags }: { tags: string[] }) {
   );
 }
 
-function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeComplete, fullBleed = false }: {
+function DetailOverlay({ children, meltProgressRef, fadeOut = false, exitFade = false, onFadeComplete, fullBleed = false }: {
   fullBleed?: boolean;
+  /** Fade the page (and its videos) to black before the route lets go of it. */
+  exitFade?: boolean;
   children: React.ReactNode;
   meltProgressRef: React.MutableRefObject<number>;
   fadeOut?: boolean;
@@ -884,11 +928,14 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeCompl
         top: fullBleed ? '0px' : '100px',
         paddingTop: fullBleed ? '0px' : '20px',
         paddingBottom: '120px',
-        pointerEvents: fadeOut ? 'none' : 'auto',
+        pointerEvents: fadeOut || exitFade ? 'none' : 'auto',
         backgroundColor: '#000',
       }}
     >
-      <div className="max-w-2xl mx-auto px-6 text-center">
+      <div
+        className="max-w-2xl mx-auto px-6 text-center"
+        style={{ opacity: exitFade ? 0 : 1, transition: exitFade ? `opacity ${EXIT_FADE_MS}ms linear` : undefined }}
+      >
         {children}
       </div>
     </div>
