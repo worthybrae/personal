@@ -3,11 +3,10 @@ import { PROJECTS } from '@/lib/projects';
 import { ART_PIECES } from '@/lib/art';
 import { SITE, humanize } from '@/lib/seo';
 
-const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
-
 const HEADINGS: Record<string, string> = {
   home: 'Worthy Rae',
-  feed: 'Portfolio — Worthy Rae',
+  feed: 'Code — Worthy Rae',
+  about: 'About — Worthy Rae',
   art: 'Art — Worthy Rae',
   music: 'Music — Worthy Rae',
 };
@@ -34,9 +33,9 @@ export default function SeoContent({ page }: { page: string }) {
         <ul>
           <li><Link to="/">Home</Link></li>
           <li><Link to="/art">Art</Link></li>
-          <li><Link to="/feed">Portfolio</Link></li>
+          <li><Link to="/code">Code</Link></li>
           <li><Link to="/music">Music</Link></li>
-          <li><a href={RESUME_URL}>Resume</a></li>
+          <li><Link to="/about">About</Link></li>
         </ul>
       </nav>
 
@@ -44,7 +43,7 @@ export default function SeoContent({ page }: { page: string }) {
       <ul>
         {PROJECTS.map((p) => (
           <li key={p.slug}>
-            <Link to={`/work/${p.slug}`}>{humanize(p.name)}</Link>
+            <Link to={`/code/${p.slug}`}>{humanize(p.name)}</Link>
             {' — '}
             {humanize(p.description)}
           </li>

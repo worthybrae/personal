@@ -153,6 +153,18 @@ async def sitemap():
     )
 
 
+# The work list and project pages moved from /feed and /work/* to /code.
+# Permanent redirects keep old links and search results working.
+@app.get("/feed")
+async def legacy_feed():
+    return RedirectResponse("/code", status_code=301)
+
+
+@app.get("/work/{slug:path}")
+async def legacy_work(slug: str):
+    return RedirectResponse(f"/code/{slug.strip('/')}", status_code=301)
+
+
 # Serve frontend static files (JS, CSS, assets)
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")

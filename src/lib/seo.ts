@@ -88,10 +88,10 @@ export const STATIC_ROUTES: RouteMeta[] = [
     type: 'website',
   },
   {
-    path: '/feed',
-    title: pageTitle('Portfolio'),
+    path: '/code',
+    title: pageTitle('Code'),
     description:
-      'Software projects and generative art by Worthy Rae — AI hiring tools, streaming analytics, StyleGAN architecture, and computer vision video work.',
+      'Software projects by Worthy Rae — StreamClout, a streaming analytics dashboard, and Coderview, AI-powered tools for technical careers.',
     type: 'website',
   },
   {
@@ -107,6 +107,13 @@ export const STATIC_ROUTES: RouteMeta[] = [
       'Original music written and recorded by Worthy Rae, streamable in the browser.',
     type: 'website',
   },
+  {
+    path: '/about',
+    title: pageTitle('About'),
+    description:
+      'Worthy Rae is an AI product engineer in New York who builds data and AI products, makes generative art, and writes music.',
+    type: 'website',
+  },
 ];
 
 /** Every statically known route, with its per-route metadata. */
@@ -114,7 +121,7 @@ export function allRoutes(): RouteMeta[] {
   return [
     ...STATIC_ROUTES,
     ...PROJECTS.map<RouteMeta>((p) => ({
-      path: `/work/${p.slug}`,
+      path: `/code/${p.slug}`,
       title: `${humanize(p.name)} — ${humanize(p.description)}`,
       description: clamp(p.summary),
       type: 'article',

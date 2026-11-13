@@ -20,14 +20,19 @@ import { ArtMedia } from '@/components/LiveStream/ArtMedia';
 import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
+import { AboutArticle, RESUME_URL } from '@/components/About/AboutArticle';
 
-type Page = 'home' | 'feed' | 'art' | 'music' | 'work-detail' | 'art-detail';
+// 'feed' is the code list at /code and 'work-detail' a project under it; the
+// internal names predate the rename. Old /feed and /work/* links redirect
+// (see App.tsx and backend/main.py).
+type Page = 'home' | 'feed' | 'art' | 'music' | 'about' | 'work-detail' | 'art-detail';
 
 function parseRoute(path: string): { page: Page; slug?: string } {
-  if (path === '/feed') return { page: 'feed' };
+  if (path === '/code') return { page: 'feed' };
   if (path === '/art') return { page: 'art' };
   if (path === '/music') return { page: 'music' };
-  if (path.startsWith('/work/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/work/'.length)) };
+  if (path === '/about') return { page: 'about' };
+  if (path.startsWith('/code/')) return { page: 'work-detail', slug: decodeURIComponent(path.slice('/code/'.length)) };
   if (path.startsWith('/art/')) return { page: 'art-detail', slug: decodeURIComponent(path.slice('/art/'.length)) };
   return { page: 'home' };
 }
@@ -35,11 +40,10 @@ function parseRoute(path: string): { page: Page; slug?: string } {
 const monoFont = "'JetBrains Mono', 'Courier New', monospace";
 const EXIT_FADE_MS = 450;
 
+/** Pages drawn in the DOM over a melted-away canvas, rather than on the canvas. */
 function isDetailPage(page: Page): boolean {
-  return page === 'work-detail' || page === 'art-detail';
+  return page === 'work-detail' || page === 'art-detail' || page === 'about';
 }
-
-const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,7 +127,7 @@ export default function Home() {
   const liveArtRef = useRef(false);
   liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
   const domPageRef = useRef(false);
-  domPageRef.current = page === 'work-detail' || page === 'art-detail';
+  domPageRef.current = isDetailPage(page);
 
   // Delay contentOpen going false until feed content has faded out
   const contentOpenRef = useRef(isContent);
@@ -230,7 +234,7 @@ export default function Home() {
   // Track detail→feed fade-out: keep old detail overlay mounted during transition
   const prevPageRef = useRef(page);
   const prevSlugRef = useRef(slug);
-  const [fadingDetail, setFadingDetail] = useState<{ page: 'work-detail' | 'art-detail'; slug: string } | null>(null);
+  const [fadingDetail, setFadingDetail] = useState<{ page: 'work-detail' | 'art-detail' | 'about'; slug: string } | null>(null);
 
   // Detect page transitions in useLayoutEffect (not during render) to avoid
   // StrictMode double-render discarding the setState-during-render call.
@@ -253,10 +257,10 @@ export default function Home() {
     if ((prev === 'feed' || prev === 'art' || prev === 'music') && page === 'home') {
       setFeedClosing(prev);
     }
-    if ((prev === 'feed' || prev === 'art' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
+    if ((prev === 'feed' || prev === 'art' || prev === 'music') && isDetailPage(page)) {
       meltCompleteRef.current = false;
     }
-    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'art' || page === 'music') && !viaMenu) {
+    if ((prev === 'work-detail' || prev === 'art-detail' || prev === 'about') && (page === 'feed' || page === 'art' || page === 'music') && !viaMenu) {
       detailToFeedRef.current = true;
       meltProgressRef.current = 0;
       setFadingDetail({ page: prev, slug: prevSlug ?? '' });
@@ -422,7 +426,7 @@ export default function Home() {
       streamclout: '40T+ SPOTIFY STREAMS',
     };
     const workItems = PROJECTS.map((p) => ({
-      text: p.name, url: `/work/${p.slug}`,
+      text: p.name, url: `/code/${p.slug}`,
       description: projectDescs[p.slug] ?? p.description,
       icon: projectIcons[p.slug] ?? '</>',
     }));
@@ -476,6 +480,7 @@ export default function Home() {
     });
     navigate('/');
   }, [navigate, menuOpen, contactOpen]);
+  const handleNameClick = useCallback(() => navigate('/about'), [navigate]);
   const handleMenuClick = useCallback(() => {
     if (menuOpen) {
       if (page === 'home') {
@@ -488,7 +493,7 @@ export default function Home() {
         // live content instead of navigating to the landing.
         menuCloseToContentRef.current = true;
         setMenuOpen(false);
-        if (page === 'work-detail' || page === 'art-detail') setMenuVeil(true);
+        if (isDetailPage(page)) setMenuVeil(true);
       }
     } else {
       // Opens over contact mode without closing it — contact stays open
@@ -499,25 +504,29 @@ export default function Home() {
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
     contactCloseToHomeRef.current = false;
-    if (entry === 'resume') { setMenuOpen(false); window.open(RESUME_URL, '_blank'); return; }
-    if (entry === 'portfolio' || entry === 'art' || entry === 'music') {
-      // Snap the name-dissolve scroll to its end state so the WORTHY RAE
-      // name never flashes between the menu words and the page content —
-      // the route's scroll target is 1 anyway; only the slow lerp from 0
-      // made the name reappear mid-transition. menuCloseToContentRef makes
-      // the menu words scatter-dissolve over the incoming page instead of
-      // vanishing instantly (consumed by the draw loop's close edge).
-      const target = entry === 'portfolio' ? 'feed' : entry;
-      menuCloseToContentRef.current = true;
-      // Only consumed by the layout effect when the page actually changes.
-      menuNavRef.current = target !== page;
-      scrollProgressRef.current = 1;
-      startTransition(() => {
-        setMenuOpen(false);
-        setContactOpen(false);
-      });
-      navigate(`/${target}`);
-    }
+    // Snap the name-dissolve scroll to its end state so the WORTHY RAE
+    // name never flashes between the menu words and the page content —
+    // the route's scroll target is 1 anyway; only the slow lerp from 0
+    // made the name reappear mid-transition. menuCloseToContentRef makes
+    // the menu words scatter-dissolve over the incoming page instead of
+    // vanishing instantly (consumed by the draw loop's close edge).
+    const target: Page = entry === 'code' ? 'feed' : entry;
+    menuCloseToContentRef.current = true;
+    // Only consumed by the layout effect when the page actually changes.
+    menuNavRef.current = target !== page;
+    // The target too: until React commits the route, the draw loop would
+    // otherwise keep easing the scroll back toward the landing's 0 and
+    // let the name re-form under the closing menu.
+    scrollProgressRef.current = 1;
+    scrollTargetRef.current = 1;
+    startTransition(() => {
+      setMenuOpen(false);
+      setContactOpen(false);
+      // About is a DOM page: keep the canvas above it while the menu
+      // words dissolve off it, as when closing the menu over a detail page.
+      if (isDetailPage(target)) setMenuVeil(true);
+    });
+    navigate(`/${entry}`);
   }, [navigate, page]);
   const handleItemClick = useCallback(
     (url: string) => {
@@ -541,6 +550,7 @@ export default function Home() {
     () => ({
       liveArtRef,
       onLogoClick: handleLogoClick,
+      onNameClick: handleNameClick,
       onMenuClick: handleMenuClick,
       onSubItemClick: handleItemClick,
       menuOpenRef,
@@ -564,7 +574,7 @@ export default function Home() {
       contactUIRef,
       onContactControl: handleContactControl,
     }),
-    [handleLogoClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef, contactUIRef, handleContactControl],
+    [handleLogoClick, handleNameClick, handleMenuClick, handleMenuSelect, handleItemClick, handleMusicControl, nowPlayingRef, contactUIRef, handleContactControl],
   );
 
   useTerrainAnimation(canvasRef, scrollProgressRef, config);
@@ -686,6 +696,7 @@ export default function Home() {
   const displayProject = project || fadingProject;
   const displayArtPiece = artPiece || fadingArtPiece;
   const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
+  const showAbout = page === 'about' || fadingDetail?.page === 'about';
   const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
   const canvasOverPage = menuOpen || contactOpen || menuVeil;
 
@@ -803,6 +814,38 @@ export default function Home() {
           </div>
           <TechTags tags={displayProject.tech} />
           <ProjectAnalyticsSection slug={displayProject.slug} />
+        </DetailOverlay>
+      )}
+
+      {showAbout && (
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-left">
+              <h1
+                className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
+                style={{ fontFamily: monoFont }}
+              >
+                WORTHY RAE
+              </h1>
+              <div
+                className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
+                style={{ fontFamily: monoFont }}
+              >
+                AI PRODUCT ENGINEER · NEW YORK
+              </div>
+            </div>
+            <a
+              href={RESUME_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
+              style={{ fontFamily: monoFont }}
+            >
+              <ExternalLink size={12} />
+              Resume
+            </a>
+          </div>
+          <AboutArticle />
         </DetailOverlay>
       )}
 

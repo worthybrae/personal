@@ -20,7 +20,7 @@ describe('humanize', () => {
 describe('allRoutes', () => {
   it('covers every project and art piece', () => {
     const paths = allRoutes().map((r) => r.path);
-    for (const p of PROJECTS) expect(paths).toContain(`/work/${p.slug}`);
+    for (const p of PROJECTS) expect(paths).toContain(`/code/${p.slug}`);
     for (const a of ART_PIECES) expect(paths).toContain(`/art/${a.slug}`);
   });
 
@@ -40,8 +40,8 @@ describe('allRoutes', () => {
 
 describe('routeMeta', () => {
   it('ignores a trailing slash', () => {
-    expect(routeMeta('/work/coderview/').path).toBe('/work/coderview');
-    expect(routeMeta('/work/coderview/').title).toBe(routeMeta('/work/coderview').title);
+    expect(routeMeta('/code/coderview/').path).toBe('/code/coderview');
+    expect(routeMeta('/code/coderview/').title).toBe(routeMeta('/code/coderview').title);
   });
 
   it('falls back to the site defaults for unknown paths', () => {

@@ -41,12 +41,13 @@ function terrainFontSize(innerWidth: number): number {
 // headings so every big word on the site carries the same stroke weight.
 const MENU_CONDENSE_FLOOR = 0.76;
 
-export type MenuEntryKey = 'portfolio' | 'music' | 'resume' | 'art';
+/** Each key is also the route the entry opens (/code, /art, /music, /about). */
+export type MenuEntryKey = 'code' | 'music' | 'about' | 'art';
 const MENU_ENTRIES: { key: MenuEntryKey; label: string }[] = [
   { key: 'art', label: 'ART' },
-  { key: 'portfolio', label: 'WORK' },
+  { key: 'code', label: 'CODE' },
   { key: 'music', label: 'MUSIC' },
-  { key: 'resume', label: 'RESUME' },
+  { key: 'about', label: 'ABOUT' },
 ];
 
 export interface TerrainConfig {
@@ -55,6 +56,8 @@ export interface TerrainConfig {
   showNameMask?: boolean;
   contrast?: number;
   onLogoClick?: () => void;
+  /** The WORTHY RAE name on the landing: white on hover, opens /about. */
+  onNameClick?: () => void;
   onMenuClick?: () => void;
   onSubItemClick?: (url: string) => void;
   menuOpenRef?: React.RefObject<boolean>;
@@ -99,7 +102,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -108,6 +111,8 @@ export function useTerrainAnimation(
   const onMenuClickRef = useRef(onMenuClick);
   const onSubItemClickRef = useRef(onSubItemClick);
   onLogoClickRef.current = onLogoClick;
+  const onNameClickRef = useRef(onNameClick);
+  onNameClickRef.current = onNameClick;
   onMenuClickRef.current = onMenuClick;
   onSubItemClickRef.current = onSubItemClick;
   const onMusicControlRef = useRef(onMusicControl);
@@ -142,6 +147,8 @@ export function useTerrainAnimation(
   } | null>(null);
 
   const wLogoBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  // One box per line of the landing name (WORTHY, RAE), canvas pixels.
+  const nameBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
   const menuBoundsRef = useRef<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
   const mouseRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
   const subItemBoundsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([]);
@@ -172,10 +179,18 @@ export function useTerrainAnimation(
         o.textAlign = 'center';
         o.textBaseline = 'middle';
         const maxW = off.width * 0.9;
-        o.font = `900 ${lineH}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        o.fillText('WORTHY', off.width / 2, centerY - lineH * 0.6, maxW);
-        o.font = `900 ${lineH * 0.85}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
-        o.fillText('RAE', off.width / 2, centerY + lineH * 0.6, maxW);
+        const lines: [string, number, number][] = [
+          ['WORTHY', lineH, centerY - lineH * 0.6],
+          ['RAE', lineH * 0.85, centerY + lineH * 0.6],
+        ];
+        nameBoundsRef.current = lines.map(([text, size, y]) => {
+          o.font = `900 ${size}px 'Arial Black','Impact','Helvetica Neue',sans-serif`;
+          o.fillText(text, off.width / 2, y, maxW);
+          const w = Math.min(o.measureText(text).width, maxW);
+          return { x: off.width / 2 - w / 2, y: y - size * 0.45, w, h: size * 0.9 };
+        });
+      } else {
+        nameBoundsRef.current = [];
       }
 
       nameMaskRef.current = {
@@ -435,6 +450,11 @@ export function useTerrainAnimation(
     // throughout so a transition can always be cancelled/reversed). Written
     // once per frame near the top of draw(), read by hitTest() below.
     let menuInteractive = false;
+    // The landing name is a link only while it's fully formed and alone on
+    // screen: no menu, contact form or content page, and not mid-dissolve.
+    let nameInteractive = false;
+    const inName = (px: number, py: number) =>
+      nameBoundsRef.current.some((b) => px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h);
     let contactInteractive = false;
     let contactLayoutCache: ContactLayout | null = null;
     let contactLayoutKey = '';
@@ -823,7 +843,7 @@ export function useTerrainAnimation(
       o.fillStyle = '#000';
       o.fillRect(0, 0, off.width, off.height);
 
-      const h = drawPageHeading(o, off, activeLabelRef?.current === 'art' ? 'ART' : 'WORK');
+      const h = drawPageHeading(o, off, activeLabelRef?.current === 'art' ? 'ART' : 'CODE');
       feedHeadingGrid = new Uint8Array(cols * rows);
       bakeMaskGrid(feedHeadingGrid, h.mask);
       feedHeadingBottomRow = h.bottomRow;
@@ -1355,6 +1375,8 @@ export function useTerrainAnimation(
       if (overlayVisual && contentTarget === 0) contentProgress = 0;
       if (feedToDetailMelt && contentProgress >= 1) feedToDetailMelt = false;
       contentProgressRef.current = contentProgress;
+      nameInteractive = currentLayer === 'name' && xfadeFrom === null && introProgress >= 1 &&
+        scroll < 0.001 && contentTarget === 0 && contentProgress === 0;
 
       // Detail → feed: start reverse melt and feed content simultaneously
       if (detailToFeedRef?.current) {
@@ -1613,6 +1635,7 @@ export function useTerrainAnimation(
       const wHovered = !isMobile && mx >= wb.x && mx < wb.x + wb.w && my >= wb.y && my < wb.y + wb.h;
       const mb = menuBoundsRef.current;
       const menuHovered = !isMobile && mx >= mb.x && mx < mb.x + mb.w && my >= mb.y && my < mb.y + mb.h;
+      const nameHovered = !isMobile && nameInteractive && inName(mx, my);
 
       // --- Full-screen menu entry hover detection (word cutouts). Hover
       // highlights the entry's cells with a white bg, same convention as
@@ -1775,7 +1798,10 @@ export function useTerrainAnimation(
             if (nameXfadeActive) {
               if (nameXfadeReveal > hash) gridSkip[idx] = 1;
             } else if (currentLayer === 'name') {
-              if (introProgress > hash && hash > nameFade) gridSkip[idx] = 1;
+              if (introProgress > hash && hash > nameFade) {
+                gridSkip[idx] = 1;
+                if (nameHovered) gridBg[idx] = 1;
+              }
             }
           }
 
@@ -2642,6 +2668,8 @@ export function useTerrainAnimation(
         if (px >= mb.x && px < mb.x + mb.w && py >= mb.y && py < mb.y + mb.h) return 'menu';
       }
 
+      if (nameInteractive && inName(px, py)) return 'name';
+
       // Music control zones — must win over sub-item card bounds since the search
       // row draws opaquely OVER cards; checking sub-items first could resolve clicks
       // on the visible search row to a hidden card underneath.
@@ -2684,6 +2712,8 @@ export function useTerrainAnimation(
       const hit = hitTest(e.clientX, e.clientY);
       if (hit === 'logo') {
         onLogoClickRef.current?.();
+      } else if (hit === 'name') {
+        onNameClickRef.current?.();
       } else if (hit === 'menu') {
         onMenuClickRef.current?.();
       } else if (typeof hit === 'string' && hit.startsWith('menuitem:')) {

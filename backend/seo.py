@@ -59,7 +59,7 @@ def _site() -> dict:
 
 
 def normalize_path(path: str) -> str:
-    """'work/coderview' and '/work/coderview/' both become '/work/coderview'."""
+    """'code/coderview' and '/code/coderview/' both become '/code/coderview'."""
     path = "/" + path.strip("/")
     return path
 
@@ -153,7 +153,7 @@ def _page_jsonld(meta: dict, url: str) -> dict | None:
             node["keywords"] = ", ".join(meta["tags"])
         return node
 
-    if path.startswith("/work/") or path.startswith("/art/"):
+    if path.startswith("/code/") or path.startswith("/art/"):
         return {
             "@context": "https://schema.org",
             "@type": "CreativeWork",

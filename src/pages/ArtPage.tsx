@@ -15,7 +15,7 @@ export default function ArtPage() {
   const noScroll = useRef(0);
   const contentOpenRef = useRef(true);
   const handleLogoClick = useCallback(() => navigate('/'), [navigate]);
-  const handleMenuClick = useCallback(() => navigate('/feed'), [navigate]);
+  const handleMenuClick = useCallback(() => navigate('/code'), [navigate]);
 
   useTerrainAnimation(canvasRef, noScroll, {
     speedDivisor: 8000,
