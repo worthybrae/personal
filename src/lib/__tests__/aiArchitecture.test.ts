@@ -14,7 +14,7 @@ describe('aiArchitecture', () => {
   it('uses each loop once', () => {
     const ids = ALL.map((w) => w.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(42);
+    expect(ids).toHaveLength(40);
   });
 
   it('ships a poster for every loop', () => {

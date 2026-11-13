@@ -103,8 +103,6 @@ export const SEED_LOOPS: LatentWalk[] = [
   circle(800, 477, 29.2),
   circle(800, 507, 60),
   { id: 'circ-1', kind: 'circular', seeds: [], seconds: 13.4 },
-  { id: 'circ-2', kind: 'circular', seeds: [], seconds: 13.4 },
-  { id: 'circ-3', kind: 'circular', seeds: [], seconds: 13.4 },
 ];
 
 export const SEED_PREVIEW_COUNT = 6;
