@@ -17,8 +17,7 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 import { ArtMedia } from '@/components/LiveStream/ArtMedia';
-import { InkProcess } from '@/components/LiveStream/InkProcess';
-import { InkStudio } from '@/components/LiveStream/InkStudio';
+import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 
@@ -810,12 +809,7 @@ export default function Home() {
             {displayArtPiece.slug === 'ai-architecture' ? (
               <AiArchitectureArticle tech={displayArtPiece.tech} />
             ) : displayArtPiece.slug === 'livestream-art' ? (
-              <article className="ink-article" aria-label="About the live painting">
-                <p className="ink-article-intro">{displayArtPiece.summary}</p>
-                <InkProcess />
-                <InkStudio />
-                <p className="ink-article-closing">The live version above is drawn in Rust, encoded with FFmpeg, and delivered as a shared video stream. It runs on demand at 1080p and follows the camera’s 29.97 fps cadence. Here, the same drawing code runs in your browser on a short recording, so you can explore the process without changing what everyone else sees.</p>
-              </article>
+              <LivestreamArticle summary={displayArtPiece.summary} tech={displayArtPiece.tech} />
             ) : (
               <>
                 <div className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left" style={{ fontFamily: monoFont }}>SUMMARY</div>

@@ -1,0 +1,52 @@
+/* Shared look for the art detail pages (AI Architecture, Livestream Art):
+   small spaced-out section labels, grey body copy, muted clip captions. */
+.art-hero { margin:0 0 28px; }
+.art-hero video { display:block;width:100%;aspect-ratio:1;object-fit:cover;background:#0a0a0a; }
+.art-hero figcaption,
+.art-clip figcaption { font-family:'JetBrains Mono','Courier New',monospace;font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.3);text-align:left;margin-top:7px; }
+
+.art-article { text-align:left;font-family:'JetBrains Mono','Courier New',monospace; }
+.art-article p { color:#b5b5b5;font-size:13px;line-height:1.95;max-width:70ch;margin:0; }
+.art-intro { margin-top:28px !important; }
+.art-label { font-size:12px;letter-spacing:.3em;color:rgba(255,255,255,.4);margin:44px 0 12px; }
+
+.art-clip { margin:0; }
+.art-clip video { display:block;width:100%;aspect-ratio:1;object-fit:cover;background:#0a0a0a;cursor:pointer; }
+.art-clip-wide video { aspect-ratio:16/9; }
+
+.art-grid { display:grid;gap:10px;margin-top:18px; }
+.art-grid-2 { grid-template-columns:repeat(2,1fr); }
+.art-grid-3 { grid-template-columns:repeat(3,1fr); }
+.art-grid-4 { grid-template-columns:repeat(4,1fr); }
+
+.art-diameters { display:flex;align-items:center;gap:20px; }
+.art-diameters .art-grid { flex:1;min-width:0; }
+.art-rings { flex:none;width:96px;height:96px;margin-top:4px;fill:none;stroke:rgba(255,255,255,.45); }
+.art-rings-seed { fill:#fff;stroke:none; }
+
+/* A clip beside its explanation. */
+.art-aside { display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start;margin-top:4px; }
+
+/* Numbered one-line steps. */
+.art-steps { list-style:none;margin:18px 0 0;padding:0;border-top:1px solid rgba(255,255,255,.1); }
+.art-steps li { display:grid;grid-template-columns:28px 92px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.6; }
+.art-steps li span:nth-child(1) { color:rgba(255,255,255,.3); }
+.art-steps li span:nth-child(2) { letter-spacing:.14em;color:#fff; }
+.art-steps li span:nth-child(3) { color:#9a9a9a; }
+
+.art-more { display:block;margin:16px auto 0;padding:6px 12px;background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.55);font:inherit;font-size:11px;letter-spacing:.14em;cursor:pointer; }
+.art-more:hover { color:rgba(255,255,255,.9);border-color:rgba(255,255,255,.5); }
+
+.art-tags { display:flex;flex-wrap:wrap;gap:8px; }
+.art-tags span { font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:4px 12px; }
+
+@media (max-width:560px) {
+  .art-rings { display:none; }
+  .art-grid-3,.art-grid-4 { grid-template-columns:repeat(2,1fr); }
+  .art-grid-2 { grid-template-columns:1fr; }
+  .art-clip figcaption { letter-spacing:.04em; }
+  .art-aside { grid-template-columns:1fr; }
+  .art-aside .art-clip { max-width:240px; }
+  .art-steps li { grid-template-columns:22px 1fr;row-gap:2px; }
+  .art-steps li span:nth-child(3) { grid-column:2; }
+}
