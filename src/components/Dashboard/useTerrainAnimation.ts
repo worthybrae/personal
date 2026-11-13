@@ -83,6 +83,10 @@ export interface TerrainConfig {
   meltCompleteRef?: React.MutableRefObject<boolean>;
   meltProgressRef?: React.MutableRefObject<number>;
   detailToFeedRef?: React.MutableRefObject<boolean>;
+  // True while a DOM detail page (work/art detail) is the live route. The
+  // canvas sits under that page's opaque overlay, so the menu has to veil it
+  // in and out cell by cell instead of covering it in one frame.
+  domPageRef?: React.RefObject<boolean>;
   nowPlayingRef?: React.RefObject<{ track: string; artist: string; isPlaying: boolean; playedAt?: string } | null>;
   coverCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   skipIntro?: boolean;
@@ -95,7 +99,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -375,6 +379,9 @@ export function useTerrainAnimation(
     let gridColors: Uint8Array = new Uint8Array(0);
     let gridSkip: Uint8Array = new Uint8Array(0);
     let gridBg: Uint8Array = new Uint8Array(0);
+    // Cells covered by a feed card or the feed heading this frame — lets the
+    // feed→detail melt dissolve the held cards along with the terrain.
+    let gridCard: Uint8Array = new Uint8Array(0);
     const colorLUT: string[] = new Array(COLOR_LEVELS);
 
     // Pre-baked grid-resolution mask lookups (avoid per-frame pixel lookups)
@@ -534,6 +541,13 @@ export function useTerrainAnimation(
     // after the veil and is never dimmed by it.
     let musicBlackness = 0;
     let feedToDetailMelt = false;
+    // Feed → detail: the outgoing cards stay on screen, frozen, until the
+    // forward melt has dissolved them (instead of vanishing the frame the
+    // route changes, leaving bare terrain before the melt starts).
+    let f2dHeldCards = false;
+    // Last frame's isArtGallery: the gallery's cards are never drawn on the
+    // canvas (the DOM gallery shows instead), so they're not held.
+    let prevArtGallery = false;
     let detailToFeedMelt = false;
     let d2fContentReset = false;
     let d2fMeltProgress = 0;
@@ -1142,6 +1156,7 @@ export function useTerrainAnimation(
       gridColors = new Uint8Array(size);
       gridSkip = new Uint8Array(size);
       gridBg = new Uint8Array(size);
+      gridCard = new Uint8Array(size);
 
       // Bake mask lookups to grid resolution (avoids per-pixel checks in draw)
       nameMaskGrid = new Uint8Array(size);
@@ -1246,7 +1261,10 @@ export function useTerrainAnimation(
             xfadeFrom = currentLayer;
             xfadeTo = 'name';
             xfadeStart = ts;
-            xfadeMenuOverContent = toContent;
+            // Closing back onto a DOM detail page: the canvas has nothing of
+            // that page to fade in beneath the words, so the menu keeps
+            // covering it and the veil below dissolves it away instead.
+            xfadeMenuOverContent = toContent && !domPageRef?.current;
           } else {
             xfadeFrom = null;
             xfadeTo = null;
@@ -1258,15 +1276,14 @@ export function useTerrainAnimation(
           xfadeFrom = currentLayer;
           xfadeTo = requestedLayer;
           xfadeStart = ts;
-          // Opening the menu over the live feed page (canvas-drawn cards):
-          // render the scattering words over the page while it dissolves
-          // out beneath them (mirror of the close-to-content leg). Only the
-          // feed qualifies — music's full-black background and the melted-
-          // black canvas under DOM detail pages both give the cutout words
-          // nothing to read against, so those keep the instant takeover
-          // (bright menu terrain from frame one) instead of a black gap.
-          if (requestedLayer === 'menu' && !!contentOpenRef?.current && !musicUIRef?.current &&
-              feedCards.length > 0) {
+          // Opening the menu over a canvas-drawn page (feed cards / music
+          // tiles): render the scattering words over the page while it
+          // dissolves out beneath them (mirror of the close-to-content leg).
+          // Music's black backdrop scatters back to terrain meanwhile (see
+          // musicBlackTarget) so the cutout words have something to read
+          // against. DOM detail pages have no cards here; the veil near the
+          // end of draw() handles those.
+          if (requestedLayer === 'menu' && !!contentOpenRef?.current && feedCards.length > 0) {
             xfadeMenuOverContent = true;
           }
         }
@@ -1339,6 +1356,10 @@ export function useTerrainAnimation(
       const contentLerp = contentTarget === 0 ? 0.033 : feedToDetailMelt ? 0.055 : 0.104;
       contentProgress += (contentTarget - contentProgress) * contentLerp;
       if (Math.abs(contentProgress - contentTarget) < 0.001) contentProgress = contentTarget;
+      // Leaving a page while the menu covers it: nothing of the close is
+      // visible, so finish it now rather than letting the tail of the melt
+      // show once the menu words have dissolved.
+      if (overlayVisual && contentTarget === 0) contentProgress = 0;
       if (feedToDetailMelt && contentProgress >= 1) feedToDetailMelt = false;
       contentProgressRef.current = contentProgress;
 
@@ -1360,7 +1381,21 @@ export function useTerrainAnimation(
         cachedSubItemsKey = feedItems.map(s => `${s.text}:${s.description || ''}:${s.mau || ''}`).join('|');
       }
       const feedItemsKey = cachedFeedItemsKey;
-      if (feedItemsKey !== lastFeedItemsKey) {
+      // Feed → detail: start the melt but keep the old cards until it has
+      // dissolved them. Coming back before it finishes just drops the hold.
+      if (f2dHeldCards && feedItemsKey === lastFeedItemsKey) {
+        f2dHeldCards = false;
+        feedToDetailMelt = false;
+      }
+      if (feedItemsKey !== lastFeedItemsKey && !f2dHeldCards && feedCards.length > 0 &&
+          feedItems.length === 0 && contentTarget === 1) {
+        contentProgress = 0;
+        contentProgressRef.current = 0;
+        feedToDetailMelt = true;
+        f2dHeldCards = !prevArtGallery;
+      }
+      if (f2dHeldCards && !feedToDetailMelt) f2dHeldCards = false;
+      if (feedItemsKey !== lastFeedItemsKey && !f2dHeldCards) {
         const hadFeedCards = feedCards.length > 0;
         lastFeedItemsKey = feedItemsKey;
         buildFeedHeadingMask();
@@ -1370,17 +1405,13 @@ export function useTerrainAnimation(
         );
         feedScrollTarget = 0;
         feedScrollOffset = 0;
-        // Feed → detail: restart melt animation so terrain transitions to black
-        if (hadFeedCards && feedCards.length === 0 && contentTarget === 1) {
-          contentProgress = 0;
-          contentProgressRef.current = 0;
-          feedToDetailMelt = true;
-        }
         // Detail → feed (old path): only when NOT using reverse melt
         if (!hadFeedCards && feedCards.length > 0 && contentProgress > 0.3 && !detailToFeedMelt) {
           contentProgress = 0;
           contentProgressRef.current = 0;
-          detailToFeedBrightness = 0;
+          // Arriving through the menu: its terrain is already at full
+          // brightness under the dissolving words — only the cards scatter in.
+          if (!menuVisible) detailToFeedBrightness = 0;
         }
       }
       // Reset scroll when feed closes
@@ -1425,15 +1456,17 @@ export function useTerrainAnimation(
       // Suppressed while the menu/contact overlay is showing — the frame
       // renders as plain full-brightness terrain regardless of the page
       // beneath (overlayVisual).
-      // Ease toward black instead of snapping: musicFullBlack (terrain fully
-      // suppressed) only engages once the veil below has finished fading in.
+      // Ease toward black instead of snapping (the W/+ letters flip to
+      // terrain-filled cell by cell in step, so they never go dark mid-way).
       // Starts the moment music mode engages — waiting for the melt to fully
       // settle (contentProgress >= 1) left seconds of idle terrain before the
       // dissolve began.
-      const musicBlackTarget = isMusicMode && !overlayVisual ? 1 : 0;
+      // Also lifts while the menu is on screen at all (its words are cutouts
+      // that need terrain around them) and as soon as /music starts closing,
+      // so the terrain returns while the tiles dissolve rather than after.
+      const musicBlackTarget = isMusicMode && !overlayVisual && !menuVisible && contentTarget === 1 ? 1 : 0;
       musicBlackness += (musicBlackTarget - musicBlackness) * 0.09;
       if (Math.abs(musicBlackTarget - musicBlackness) < 0.001) musicBlackness = musicBlackTarget;
-      const musicFullBlack = musicBlackness >= 0.999;
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
       // and the intro block all scroll UNDER this boundary, never over it.
       // On the generic feed the boundary extends to below the pinned
@@ -1453,6 +1486,7 @@ export function useTerrainAnimation(
       // Scale character colors: dim during feed→home close, or during detail→feed brightness fade
       const feedActive = feedCards.length > 0 || wasFeedMode;
       const isArtGallery = activeLabelRef?.current === 'art';
+      prevArtGallery = isArtGallery;
       const isClosing = contentTarget === 0 && contentProgress > 0;
       // During reverse melt: main canvas at FULL brightness — it's hidden behind the
       // overlay's opaque bg anyway, and needs to match the cover canvas when cover dissolves.
@@ -1496,15 +1530,27 @@ export function useTerrainAnimation(
       // scatter in, so the page hits zero exactly when the crossfade ends and
       // overlayVisual takes over the suppression.
       if (xfadeMenuOverContent && xfadeTo === 'menu') contentTitleFade *= 1 - menuReveal;
+      // Feed cards + heading. Held cards stay whole until the melt dissolves
+      // them; on the way back from a detail page the incoming cards wait for
+      // the reforming terrain instead of landing on the detail page ahead of it.
+      let cardFade = f2dHeldCards ? 1 : contentTitleFade;
+      if (detailToFeedMelt) cardFade = Math.min(cardFade, Math.max(0, (d2fMeltProgress - 0.45) / 0.4));
       const currentLabel = activeLabelRef?.current ?? null;
       const subItemsKey = cachedSubItemsKey;
       const detail = config.detailRef?.current;
       const detailKey = detail ? `${detail.name}|${detail.mau}` : '';
       if (currentLabel !== lastContentLabel || subItemsKey !== lastSubItemsKey || detailKey !== lastDetailKey) {
-        if (lastContentLabel !== null && contentTitleFade > 0.5 && currentLabel !== null) {
+        if (lastContentLabel !== null && contentTitleFade > 0.5 && currentLabel !== null && !menuVisible) {
           maskOpacityTarget = 0;
           pendingMaskRebuild = true;
         } else {
+          // Swapped under the menu (e.g. MUSIC → WORK): the old page is
+          // already hidden, so skip its fade-out and scatter the new one in.
+          if (menuVisible && lastContentLabel !== null && currentLabel !== null) {
+            maskOpacity = 0;
+            maskOpacityTarget = 1;
+            pendingMaskRebuild = false;
+          }
           lastContentLabel = currentLabel;
           lastSubItemsKey = subItemsKey;
           lastDetailKey = detailKey;
@@ -1538,9 +1584,9 @@ export function useTerrainAnimation(
           npBoxTop = Infinity;
         }
       }
-      // Keep listening information on its existing pages, but hide it for
-      // the entire menu overlay, including its opening/closing transition.
-      const npVisible = (np?.track && !menuOpenNow && !menuVisible && !feedToDetailMelt && !detailToFeedMelt)
+      // Keep listening information on its existing pages, but hide it under
+      // the menu — scattering out/in with the words rather than popping.
+      const npVisible = (np?.track && menuReveal < 1 && !feedToDetailMelt && !detailToFeedMelt)
         ? (overlayVisual || isMusicMode
             ? 1
             : feedCards.length === 0 ? Math.max(0, 1 - contentProgress * 3) : 0)
@@ -1562,7 +1608,7 @@ export function useTerrainAnimation(
         npReentryScatter = Math.max(0, Math.min(1, (ts - npReentryStart) / 1200));
         if (npReentryScatter >= 1) npReentryStart = -1;
       }
-      const npScatter = Math.min(npIntro, npReentryScatter);
+      const npScatter = Math.min(npIntro, npReentryScatter, 1 - menuReveal);
 
       // --- Hovered label / W logo detection ---
       const mx = mouseRef.current.x;
@@ -1598,6 +1644,7 @@ export function useTerrainAnimation(
       // --- Compute terrain grid (reuse pre-allocated buffers) ---
       gridSkip.fill(0);
       gridBg.fill(0);
+      gridCard.fill(0);
 
       const rampLen = RAMP.length;
 
@@ -1701,7 +1748,7 @@ export function useTerrainAnimation(
               if (wHovered) {
                 gridBg[idx] = 1;
               }
-              gridSkip[idx] = musicFullBlack ? 0 : 1;
+              gridSkip[idx] = musicBlackness > logoHash ? 0 : 1;
             }
           }
 
@@ -1714,7 +1761,7 @@ export function useTerrainAnimation(
               if (menuHovered) {
                 gridBg[idx] = 1;
               }
-              gridSkip[idx] = musicFullBlack ? 0 : 1;
+              gridSkip[idx] = musicBlackness > menuHash ? 0 : 1;
             }
           }
 
@@ -1775,13 +1822,14 @@ export function useTerrainAnimation(
           // Pinned "PORTFOLIO" heading (generic feed only): cutout silhouette
           // in the exact style of the contact page's CONTACT heading, hash-
           // gated so it scatter-reveals with the cards and whites out on exit.
-          if (!isArtGallery && !overlayVisual && !isMusicMode && contentTitleFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
+          if (!isArtGallery && !overlayVisual && !isMusicMode && cardFade > 0 && feedCards.length > 0 && feedHeadingGrid[idx]) {
             let hh = ((c + 29) * 374761393 + (r + 53) * 668265263) | 0;
             hh = ((hh ^ (hh >>> 13)) * 1274126177) | 0;
             const headingHash = ((hh ^ (hh >>> 16)) & 0x7fff) / 0x7fff;
-            if (contentTitleFade * maskOpacity >= headingHash) {
+            if (cardFade * maskOpacity >= headingHash) {
               if (contentTarget === 0 && !feedActive) gridColors[idx] = COLOR_LEVELS;
               else gridSkip[idx] = 1;
+              gridCard[idx] = 1;
             }
           }
 
@@ -1790,7 +1838,7 @@ export function useTerrainAnimation(
           // arithmetic — O(1) per cell (2D: row-block × column). Rows above
           // feedContentTopRow are excluded so scrolled content never swallows
           // the W/+/header band (or the pinned PORTFOLIO heading on the feed).
-          if (!isArtGallery && !overlayVisual && contentTitleFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
+          if (!isArtGallery && !overlayVisual && cardFade > 0 && feedCards.length > 0 && r >= feedContentTopRow) {
             const scrolledR = r + drawScroll;
             const rel = scrolledR - feedStartRow;
             const period = feedCardHeight + feedCardGap;
@@ -1815,7 +1863,8 @@ export function useTerrainAnimation(
               let hf = ((c + 7) * 374761393 + (r + 13) * 668265263) | 0;
               hf = ((hf ^ (hf >>> 13)) * 1274126177) | 0;
               const feedHash = ((hf ^ (hf >>> 16)) & 0x7fff) / 0x7fff;
-              if (contentTitleFade * maskOpacity >= feedHash) {
+              if (cardFade * maskOpacity >= feedHash) {
+                gridCard[idx] = 1;
                 if (isMusicMode) {
                   // Art square (top artRows) vs the 2 text rows beneath. A square
                   // with no loaded image (missing has_art, still loading, or a
@@ -1890,7 +1939,7 @@ export function useTerrainAnimation(
 
       // --- Terrain melt: scatter-dissolve terrain to black, reveal masks as terrain ---
       // Skip melt when feed is showing or was just showing (prevents black flash on feed→home)
-      const isFeedMode = feedCards.length > 0;
+      const isFeedMode = feedCards.length > 0 && !f2dHeldCards;
       if (isFeedMode) wasFeedMode = true;
       if (contentProgress < 0.01 || contentTarget === 1) wasFeedMode = false;
       if (!overlayVisual && contentProgress > 0 && !isFeedMode && !wasFeedMode) {
@@ -1914,8 +1963,10 @@ export function useTerrainAnimation(
           if (gridSkip[i] === 0) {
             // Terrain cell — dissolve to black
             if (contentProgress > dHash) gridSkip[i] = 1;
-          } else if (!isClosing && (wLogoMaskGrid[i] || menuMaskGrid[i])) {
-            // W/+ cells — scatter-reveal using same hash pattern as terrain dissolve
+          } else if (wLogoMaskGrid[i] || menuMaskGrid[i]) {
+            // W/+ cells — scatter-reveal using same hash pattern as terrain dissolve.
+            // Runs on close too, so the letters flip back to cutouts as the
+            // terrain returns around them instead of going dark for the whole close.
             const reveal = Math.max(0, (contentProgress - 0.15) / 0.55);
             if (reveal > dHash) {
               gridSkip[i] = 0;
@@ -1943,20 +1994,47 @@ export function useTerrainAnimation(
       if (!overlayVisual && detailToFeedMelt && d2fMeltProgress > 0) {
         const totalCells = rows * cols;
         for (let i = 0; i < totalCells; i++) {
-          // W/+ cells keep their normal mask state
-          if (wLogoMaskGrid[i] || menuMaskGrid[i]) continue;
-
           const cr = Math.floor(i / cols);
           const cc = i % cols;
           let hd = (cc * 271828183 + cr * 314159265) | 0;
           hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
           const dHash = ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
 
-          // Reverse of forward melt: cells reform as progress increases
-          // Last to dissolve (high hash) are first to reform
-          if (gridSkip[i] === 0 && (1 - d2fMeltProgress) > dHash) {
+          // W/+ cells stay terrain-filled (their detail-page look) until the
+          // terrain around them has reformed, then flip back to cutouts.
+          if (wLogoMaskGrid[i] || menuMaskGrid[i]) {
+            if (gridBg[i] === 0 && d2fMeltProgress < dHash * 0.7) gridSkip[i] = 0;
+            continue;
+          }
+
+          // Cells reform in the same order the cover canvas below copies
+          // them over the detail page (appear = hash * 0.7), so every cell it
+          // copies is already terrain rather than an unformed dark cell.
+          if (gridSkip[i] === 0 && d2fMeltProgress < dHash * 0.7) {
             gridSkip[i] = 1; // still dissolved
           }
+        }
+      }
+
+      // --- Menu veil over a DOM detail page ---
+      // The canvas sits above the detail page while the menu is on screen
+      // (Home raises it). Cells the menu hasn't reached yet are cleared so the
+      // page shows through, letting terrain + words scatter in over it and
+      // back out on close, on the same hash order as the detail melt. At rest
+      // (no menu) every cell is veiled, which matches the melted look: W/+
+      // stay terrain-filled and everything else is black or see-through.
+      const veilReveal = Math.max(menuReveal, contactReveal);
+      const veilDom = !!domPageRef?.current && contentProgress >= 1 &&
+        !feedToDetailMelt && !detailToFeedMelt && veilReveal < 1;
+      const veilHash = (c: number, r: number) => {
+        let hv = (c * 271828183 + r * 314159265) | 0;
+        hv = ((hv ^ (hv >>> 13)) * 1274126177) | 0;
+        return ((hv ^ (hv >>> 16)) & 0x7fff) / 0x7fff;
+      };
+      if (veilDom) {
+        for (let i = 0; i < rows * cols; i++) {
+          if (!(wLogoMaskGrid[i] || menuMaskGrid[i]) || gridBg[i] === 1) continue;
+          if (veilHash(i % cols, Math.floor(i / cols)) >= veilReveal) gridSkip[i] = 0;
         }
       }
 
@@ -2015,7 +2093,7 @@ export function useTerrainAnimation(
       }
 
       // --- Feed card / music tile content ---
-      if (!isArtGallery && !overlayVisual && contentTitleFade > 0 && feedCards.length > 0) {
+      if (!isArtGallery && !overlayVisual && cardFade > 0 && feedCards.length > 0) {
         // Note: canDraw is the same helper as in the now-playing section.
         const canDraw = (r: number, c: number) => {
           if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
@@ -2336,8 +2414,14 @@ export function useTerrainAnimation(
       // --- Music chrome: pinned intro panel with title/blurb/search (the
       // now-playing box itself is drawn by the shared np pipeline above) ---
       const musicUI = musicUIRef?.current;
-      if (!overlayVisual && musicUI && feedCards.length > 0 && contentProgress > 0.6) {
+      // Fades with the page (in on open, out on close, out under an opening
+      // menu) instead of popping at the contentProgress threshold.
+      const musicChromeAlpha = Math.min(1, (contentProgress - 0.6) / 0.4) *
+        (xfadeMenuOverContent && xfadeTo === 'menu' ? 1 - menuReveal : 1);
+      if (!overlayVisual && musicUI && feedCards.length > 0 && musicChromeAlpha > 0) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
+        ctx.save();
+        ctx.globalAlpha = musicChromeAlpha;
         musicControlZones = drawMusicChrome(
           ctx,
           { cols, rows, charW, charH, fontSize, headerRows: Math.ceil(100 * canvasDpr / charH) },
@@ -2346,6 +2430,7 @@ export function useTerrainAnimation(
           `rgb(${clearBgR},${clearBgG},${clearBgB})`,
           (tc, tr) => colorLUT[gridColors[Math.min(rows - 1, Math.max(0, tr)) * cols + Math.min(cols - 1, Math.max(0, tc))]],
         );
+        ctx.restore();
       } else {
         musicControlZones = [];
       }
@@ -2401,6 +2486,29 @@ export function useTerrainAnimation(
       // detection are all computed early in draw() (menuOpenNow / menuReveal
       // / menuEntryHoverIdx above).
 
+      // Veil, second half: clear the not-yet-reached cells now that everything
+      // is drawn. Header cells go black instead of see-through (that's how the
+      // melted header looks) unless the live-art hero sits behind them.
+      if (veilDom) {
+        const headerRows = Math.ceil(100 * canvasDpr / charH);
+        ctx.fillStyle = '#000';
+        for (let r = 0; r < rows; r++) {
+          const toBlack = r < headerRows && !liveArtRef?.current;
+          const rowOff = r * cols;
+          let runS = -1;
+          for (let c = 0; c <= cols; c++) {
+            const veiled = c < cols && !wLogoMaskGrid[rowOff + c] && !menuMaskGrid[rowOff + c] &&
+              veilHash(c, r) >= veilReveal;
+            if (veiled && runS < 0) runS = c;
+            else if (!veiled && runS >= 0) {
+              if (toBlack) ctx.fillRect(runS * charW, r * charH, (c - runS) * charW, charH);
+              else ctx.clearRect(runS * charW, r * charH, (c - runS) * charW, charH);
+              runS = -1;
+            }
+          }
+        }
+      }
+
       // --- Cover canvas: copy from main canvas with scatter mask ---
       // Placed AFTER all main canvas rendering so drawImage captures everything:
       // terrain, W logo, + icon, feed cards, now-playing.
@@ -2427,7 +2535,16 @@ export function useTerrainAnimation(
               let runS = -1;
               for (let c = 0; c <= cols; c++) {
                 const idx = rowOff + c;
-                const draw = c < cols && gridSkip[idx] === 0;
+                let draw = c < cols && gridSkip[idx] === 0;
+                if (c < cols && f2dHeldCards && gridCard[idx]) {
+                  // Held feed card cell: covers the detail page until the melt
+                  // reaches it, on the same hash as the terrain around it but
+                  // at 1.5x pace — the melt's long tail reads as stray bright
+                  // card fragments, where on terrain it's just a few dim cells.
+                  let hd = (c * 271828183 + r * 314159265) | 0;
+                  hd = ((hd ^ (hd >>> 13)) * 1274126177) | 0;
+                  draw = contentProgress * 1.5 <= ((hd ^ (hd >>> 16)) & 0x7fff) / 0x7fff;
+                }
                 if (draw && runS < 0) { runS = c; }
                 else if (!draw && runS >= 0) {
                   const sx = runS * charW, w = (c - runS) * charW;

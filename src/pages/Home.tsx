@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect } from 'react';
+import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect, startTransition } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTerrainAnimation } from '@/components/Dashboard/useTerrainAnimation';
 import { PROJECTS } from '@/lib/projects';
@@ -49,6 +49,8 @@ export default function Home() {
   const isContent = page !== 'home';
   const liveArtRef = useRef(false);
   liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
+  const domPageRef = useRef(false);
+  domPageRef.current = page === 'work-detail' || page === 'art-detail';
 
   // Delay contentOpen going false until feed content has faded out
   const contentOpenRef = useRef(isContent);
@@ -87,6 +89,28 @@ export default function Home() {
   // music): the draw loop dissolves the menu words over the incoming page
   // instead of dropping them instantly. Consumed (reset) by the draw loop.
   const menuCloseToContentRef = useRef(false);
+  // Keeps the canvas above a detail page for the length of the menu's close
+  // crossfade (900ms in useTerrainAnimation), so the words and terrain veil
+  // back off the page instead of dropping behind it in one frame.
+  const [menuVeil, setMenuVeil] = useState(false);
+  useEffect(() => {
+    if (!menuVeil) return;
+    const id = setTimeout(() => setMenuVeil(false), 1000);
+    return () => clearTimeout(id);
+  }, [menuVeil]);
+  // Set when a menu entry navigates: the menu's terrain already covers the
+  // page being left, so a detail page drops at once instead of reverse-melting.
+  const menuNavRef = useRef(false);
+  // Art gallery stays mounted briefly while it fades out after leaving /art
+  // (over the melt into a detail page, or the terrain on the way home). On the
+  // commit where the route changes, before this is set, prevPageRef still says
+  // 'art' and keeps the same element mounted.
+  const [galleryExiting, setGalleryExiting] = useState(false);
+  useEffect(() => {
+    if (!galleryExiting) return;
+    const id = setTimeout(() => setGalleryExiting(false), 450);
+    return () => clearTimeout(id);
+  }, [galleryExiting]);
 
   // Canvas-native contact mode — built into the terrain like the "+" menu
   // above (contactOpenRef mirrors contactOpen the same way menuOpenRef
@@ -191,14 +215,17 @@ export default function Home() {
     prevSlugRef.current = slug;
 
     if (prev === page) return;
+    const viaMenu = menuNavRef.current;
+    menuNavRef.current = false;
 
+    if (prev === 'art') setGalleryExiting(true);
     if ((prev === 'feed' || prev === 'art' || prev === 'music') && page === 'home') {
       setFeedClosing(prev);
     }
     if ((prev === 'feed' || prev === 'art' || prev === 'music') && (page === 'work-detail' || page === 'art-detail')) {
       meltCompleteRef.current = false;
     }
-    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'art' || page === 'music')) {
+    if ((prev === 'work-detail' || prev === 'art-detail') && (page === 'feed' || page === 'art' || page === 'music') && !viaMenu) {
       detailToFeedRef.current = true;
       meltProgressRef.current = 0;
       setFadingDetail({ page: prev, slug: prevSlug ?? '' });
@@ -398,24 +425,30 @@ export default function Home() {
 
   contentSubItemsRef.current = feedSubItems;
 
+  // React Router commits navigations inside startTransition. Overlay state
+  // that changes together with a navigation goes in a transition too, so
+  // both land in the same commit — otherwise the menu closes a frame early
+  // and the page being left flashes under it.
   const handleLogoClick = useCallback(() => {
-    if (menuOpen) {
-      menuCloseToHomeRef.current = true;
-      setMenuOpen(false);
-    }
-    // W always goes home, animated — closes contact mode the same way it
-    // closes the menu, regardless of whether the menu was open over it.
-    if (contactOpen) {
-      contactCloseToHomeRef.current = true;
-      setContactOpen(false);
-    }
+    startTransition(() => {
+      if (menuOpen) {
+        menuCloseToHomeRef.current = true;
+        setMenuOpen(false);
+      }
+      // W always goes home, animated — closes contact mode the same way it
+      // closes the menu, regardless of whether the menu was open over it.
+      if (contactOpen) {
+        contactCloseToHomeRef.current = true;
+        setContactOpen(false);
+      }
+    });
     navigate('/');
   }, [navigate, menuOpen, contactOpen]);
   const handleMenuClick = useCallback(() => {
     if (menuOpen) {
       if (page === 'home') {
         menuCloseToHomeRef.current = true;
-        setMenuOpen(false);
+        startTransition(() => setMenuOpen(false));
         navigate('/');
       } else {
         // Close back to the page the menu was opened over (portfolio/music/
@@ -423,6 +456,7 @@ export default function Home() {
         // live content instead of navigating to the landing.
         menuCloseToContentRef.current = true;
         setMenuOpen(false);
+        if (page === 'work-detail' || page === 'art-detail') setMenuVeil(true);
       }
     } else {
       // Opens over contact mode without closing it — contact stays open
@@ -433,8 +467,7 @@ export default function Home() {
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
     contactCloseToHomeRef.current = false;
-    setMenuOpen(false);
-    if (entry === 'resume') { window.open(RESUME_URL, '_blank'); return; }
+    if (entry === 'resume') { setMenuOpen(false); window.open(RESUME_URL, '_blank'); return; }
     if (entry === 'portfolio' || entry === 'art' || entry === 'music') {
       // Snap the name-dissolve scroll to its end state so the WORTHY RAE
       // name never flashes between the menu words and the page content —
@@ -442,12 +475,18 @@ export default function Home() {
       // made the name reappear mid-transition. menuCloseToContentRef makes
       // the menu words scatter-dissolve over the incoming page instead of
       // vanishing instantly (consumed by the draw loop's close edge).
+      const target = entry === 'portfolio' ? 'feed' : entry;
       menuCloseToContentRef.current = true;
+      // Only consumed by the layout effect when the page actually changes.
+      menuNavRef.current = target !== page;
       scrollProgressRef.current = 1;
-      setContactOpen(false);
-      navigate(entry === 'portfolio' ? '/feed' : entry === 'art' ? '/art' : '/music');
+      startTransition(() => {
+        setMenuOpen(false);
+        setContactOpen(false);
+      });
+      navigate(`/${target}`);
     }
-  }, [navigate]);
+  }, [navigate, page]);
   const handleItemClick = useCallback(
     (url: string) => {
       if (url === 'music:radio') { player.playShuffled(); return; }
@@ -483,6 +522,7 @@ export default function Home() {
       meltCompleteRef,
       meltProgressRef,
       detailToFeedRef,
+      domPageRef,
       nowPlayingRef,
       coverCanvasRef,
       musicUIRef,
@@ -615,15 +655,18 @@ export default function Home() {
   const displayArtPiece = artPiece || fadingArtPiece;
   const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
   const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
+  const canvasOverPage = (menuOpen || contactOpen || menuVeil) && page !== 'art';
 
   return (
     <div>
       <SeoContent page={page} />
 
-      {/* z-25 while the menu or contact mode is open: both draw on this
-          canvas and must sit above DetailOverlay (z-10) and the melt cover
-          canvas (z-20) so they're visible over detail pages too. */}
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: (menuOpen || contactOpen) ? 25 : liveArtRef.current ? 15 : 0, clipPath: liveArtRef.current && !menuOpen && !contactOpen ? 'inset(0 0 calc(100% - 100px) 0)' : undefined }} />
+      {/* z-25 while the menu or contact mode is open (and through the menu's
+          close back onto a detail page): both draw on this canvas and must
+          sit above DetailOverlay (z-10) and the melt cover canvas (z-20) so
+          they're visible over detail pages too. The art gallery instead fades
+          its videos out over the canvas (ArtGallery `hidden`). */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: canvasOverPage ? 25 : liveArtRef.current ? 15 : 0, clipPath: liveArtRef.current && !canvasOverPage ? 'inset(0 0 calc(100% - 100px) 0)' : undefined }} />
 
       {page === 'music' && (
         <input
@@ -683,7 +726,9 @@ export default function Home() {
         </>
       )}
 
-      {page === 'art' && <ArtGallery />}
+      {(page === 'art' || galleryExiting || prevPageRef.current === 'art') && (
+        <ArtGallery hidden={menuOpen} exiting={page !== 'art'} />
+      )}
 
       {showWork && displayProject && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} onFadeComplete={handleFadeComplete}>
@@ -799,7 +844,17 @@ export default function Home() {
   );
 }
 
-function ArtGallery() {
+// Fades in on arrival, out under the menu (in step with its 900ms crossfade,
+// so the words dissolve on the canvas beneath), and out over the melt into a
+// detail page (`exiting`, lifted above the melt cover canvas).
+function ArtGallery({ hidden, exiting }: { hidden: boolean; exiting: boolean }) {
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => {
+    // Two frames so the first paint lands at opacity 0 and the fade runs.
+    let id = requestAnimationFrame(() => { id = requestAnimationFrame(() => setArrived(true)); });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const visible = arrived && !hidden && !exiting;
   return (
     <main
       aria-label="Artwork videos"
@@ -807,7 +862,14 @@ function ArtGallery() {
       onClick={(event) => event.stopPropagation()}
       onMouseMove={(event) => event.stopPropagation()}
       className="fixed inset-x-0 bottom-0 z-10 overflow-y-auto text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-      style={{ top: '100px', overscrollBehavior: 'contain' }}
+      style={{
+        top: '100px',
+        overscrollBehavior: 'contain',
+        opacity: visible ? 1 : 0,
+        transition: `opacity ${exiting ? 450 : 900}ms ease`,
+        pointerEvents: visible ? undefined : 'none',
+        zIndex: exiting ? 21 : undefined,
+      }}
     >
       <div className="space-y-12 pb-24 md:space-y-16">
         {ART_PIECES.map((piece) => (
@@ -822,6 +884,7 @@ function ArtGallery() {
             >
               <video
                 className="pointer-events-none block h-auto w-full"
+                style={{ aspectRatio: piece.videoAspect }}
                 src={piece.videoUrl}
                 autoPlay
                 muted
@@ -888,8 +951,11 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, onFadeCompl
       ref={overlayRef}
       className="fixed left-0 right-0 bottom-0 z-10 overflow-y-auto"
       style={{
-        top: fullBleed || fadeOut ? '0px' : '100px',
-        paddingTop: fullBleed ? '0px' : fadeOut ? '120px' : '20px',
+        // Stays below the header band while fading out too: the reverse melt
+        // reforms the header on the main canvas in step with the cover canvas,
+        // so covering it only made W/+ flicker through the cover's scatter.
+        top: fullBleed ? '0px' : '100px',
+        paddingTop: fullBleed ? '0px' : '20px',
         paddingBottom: '120px',
         pointerEvents: fadeOut ? 'none' : 'auto',
         backgroundColor: '#000',
