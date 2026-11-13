@@ -20,6 +20,7 @@ import { ArtMedia } from '@/components/LiveStream/ArtMedia';
 import { InkProcess } from '@/components/LiveStream/InkProcess';
 import { InkStudio } from '@/components/LiveStream/InkStudio';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
+import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 
 type Page = 'home' | 'feed' | 'art' | 'music' | 'work-detail' | 'art-detail';
 
@@ -770,6 +771,7 @@ export default function Home() {
             <LivestreamArtHero piece={displayArtPiece} />
           )}
           <LivestreamArtScrollRegion active={displayArtPiece.slug === 'livestream-art'}>
+            {displayArtPiece.slug === 'ai-architecture' && <AiArchitectureHero />}
             <div className={`flex items-start justify-between gap-4 ${
               displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
             }`}>
@@ -800,12 +802,14 @@ export default function Home() {
                 </a>
               )}
             </div>
-            {displayArtPiece.slug !== 'livestream-art' && (
+            {displayArtPiece.slug !== 'livestream-art' && displayArtPiece.slug !== 'ai-architecture' && (
               <div className="mt-8">
                 <ArtMedia piece={displayArtPiece} />
               </div>
             )}
-            {displayArtPiece.slug === 'livestream-art' ? (
+            {displayArtPiece.slug === 'ai-architecture' ? (
+              <AiArchitectureArticle tech={displayArtPiece.tech} />
+            ) : displayArtPiece.slug === 'livestream-art' ? (
               <article className="ink-article" aria-label="About the live painting">
                 <p className="ink-article-intro">{displayArtPiece.summary}</p>
                 <InkProcess />
