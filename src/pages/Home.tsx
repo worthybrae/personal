@@ -99,6 +99,12 @@ export default function Home() {
   // Set as the hold ends: the page left is already black, so the next page
   // change must not melt it back in (the layout effect below consumes it).
   const exitFadedRef = useRef(false);
+  // Opening an item from the code or art list runs the same fade the other
+  // way: a black veil dims the list out while the route is held, then lifts
+  // off the detail page. The canvas skips its melt (instantDetailRef).
+  const [enteringFrom, setEnteringFrom] = useState<{ page: Page; slug?: string } | null>(null);
+  const [veilDown, setVeilDown] = useState(false);
+  const instantDetailRef = useRef(false);
   if (location.pathname !== lastPath) {
     const prev = parseRoute(lastPath);
     setLastPath(location.pathname);
@@ -108,6 +114,10 @@ export default function Home() {
     const covered = menuNavRef.current || menuOpen || contactOpen ||
       menuCloseToHomeRef.current || contactCloseToHomeRef.current;
     setExitingFrom(leavingDetail && !covered ? prev : null);
+    const enteringDetail = (prev.page === 'feed' || prev.page === 'art') &&
+      (route.page === 'work-detail' || route.page === 'art-detail') && !covered;
+    setEnteringFrom(enteringDetail ? prev : null);
+    setVeilDown(enteringDetail);
   }
   useEffect(() => {
     if (!exitingFrom) return;
@@ -117,7 +127,16 @@ export default function Home() {
     }, EXIT_FADE_MS);
     return () => clearTimeout(timer);
   }, [exitingFrom]);
-  const { page, slug } = exitingFrom ?? route;
+  useEffect(() => {
+    if (!enteringFrom) return;
+    const timer = setTimeout(() => {
+      instantDetailRef.current = true;
+      setEnteringFrom(null);
+      setVeilDown(false);
+    }, EXIT_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [enteringFrom]);
+  const { page, slug } = exitingFrom ?? enteringFrom ?? route;
 
   // Canvas draws everything a human sees; this keeps the document head in sync
   // for anything that reads the page instead of looking at it.
@@ -564,6 +583,7 @@ export default function Home() {
       meltCompleteRef,
       meltProgressRef,
       detailToFeedRef,
+      instantDetailRef,
       domPageRef,
       nowPlayingRef,
       coverCanvasRef,
@@ -797,7 +817,7 @@ export default function Home() {
             </a>
           </div>
           <div className="mt-8">
-            <MediaBlock videoUrl={displayProject.videoUrl} imageUrl={displayProject.imageUrl} />
+            <MediaBlock videoUrl={displayProject.videoUrl} posterUrl={displayProject.posterUrl} imageUrl={displayProject.imageUrl} />
           </div>
           <div
             className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
@@ -908,6 +928,14 @@ export default function Home() {
       )}
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
+
+      {/* Veil for opening a detail page from a list: above the page and the
+          canvas, below the menu canvas (z-25). */}
+      <div
+        aria-hidden
+        className="fixed inset-0"
+        style={{ zIndex: 12, background: '#000', pointerEvents: 'none', opacity: veilDown ? 1 : 0, transition: `opacity ${EXIT_FADE_MS}ms linear` }}
+      />
     </div>
   );
 }
@@ -985,7 +1013,7 @@ function DetailOverlay({ children, meltProgressRef, fadeOut = false, exitFade = 
   );
 }
 
-function MediaBlock({ videoUrl, imageUrl }: { videoUrl?: string; imageUrl?: string }) {
+function MediaBlock({ videoUrl, posterUrl, imageUrl }: { videoUrl?: string; posterUrl?: string; imageUrl?: string }) {
   if (videoUrl) {
     return videoUrl.includes('youtube.com') ? (
       <iframe
@@ -999,6 +1027,7 @@ function MediaBlock({ videoUrl, imageUrl }: { videoUrl?: string; imageUrl?: stri
       <video
         className="w-full rounded-lg shadow-lg shadow-black/30"
         src={videoUrl}
+        poster={posterUrl}
         autoPlay
         muted
         loop

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  AI_ARCH_HERO_POSTER,
   AI_ARCH_HERO_URL,
   DIAMETER_STUDY,
   LINEAR_WALKS,
@@ -16,7 +17,7 @@ import { ArtLabel as Label, ArtTags, InViewClip } from './ArtArticleParts';
 export function AiArchitectureHero() {
   return (
     <figure className="art-hero">
-      <video src={AI_ARCH_HERO_URL} autoPlay muted loop playsInline aria-label="Flesh digression, a curved walk through the model's latent space" />
+      <video src={AI_ARCH_HERO_URL} poster={AI_ARCH_HERO_POSTER} autoPlay muted loop playsInline aria-label="Flesh digression, a curved walk through the model's latent space" />
       <figcaption>FLESH DIGRESSION · A CURVED WALK THROUGH LATENT SPACE</figcaption>
     </figure>
   );

@@ -8,6 +8,8 @@ const MEDIA_BASE: string =
 const POSTER_BASE = '/media/ai-architecture/';
 
 export const AI_ARCH_HERO_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/flesh_digression.mp4';
+/** First frame of the hero, shown while the video loads. */
+export const AI_ARCH_HERO_POSTER = `${POSTER_BASE}hero.jpg`;
 
 export type WalkKind = 'circular' | 'linear';
 

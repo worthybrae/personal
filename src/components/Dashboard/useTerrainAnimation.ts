@@ -86,6 +86,10 @@ export interface TerrainConfig {
   meltCompleteRef?: React.MutableRefObject<boolean>;
   meltProgressRef?: React.MutableRefObject<number>;
   detailToFeedRef?: React.MutableRefObject<boolean>;
+  // Set by Home when a list page has already been faded to black under a
+  // veil: the next list -> detail change lands melted at once instead of
+  // melting. Consumed by draw().
+  instantDetailRef?: React.MutableRefObject<boolean>;
   // True while a DOM detail page (work/art detail) is the live route. The
   // canvas sits under that page's opaque overlay, so the menu has to veil it
   // in and out cell by cell instead of covering it in one frame.
@@ -102,7 +106,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, instantDetailRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -1405,12 +1409,19 @@ export function useTerrainAnimation(
         f2dHeldCards = false;
         feedToDetailMelt = false;
       }
+      if (contentTarget === 0 && instantDetailRef) instantDetailRef.current = false;
       if (feedItemsKey !== lastFeedItemsKey && !f2dHeldCards && feedCards.length > 0 &&
           feedItems.length === 0 && contentTarget === 1) {
-        contentProgress = 0;
-        contentProgressRef.current = 0;
-        feedToDetailMelt = true;
-        f2dHeldCards = true;
+        if (instantDetailRef?.current) {
+          instantDetailRef.current = false;
+          contentProgress = 1;
+          contentProgressRef.current = 1;
+        } else {
+          contentProgress = 0;
+          contentProgressRef.current = 0;
+          feedToDetailMelt = true;
+          f2dHeldCards = true;
+        }
       }
       if (f2dHeldCards && !feedToDetailMelt) f2dHeldCards = false;
       if (feedItemsKey !== lastFeedItemsKey && !f2dHeldCards) {
