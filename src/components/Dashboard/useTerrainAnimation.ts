@@ -1398,7 +1398,10 @@ export function useTerrainAnimation(
       const feedItemsKey = cachedFeedItemsKey;
       // Feed → detail: start the melt but keep the old cards until it has
       // dissolved them. Coming back before it finishes just drops the hold.
-      if (f2dHeldCards && feedItemsKey === lastFeedItemsKey) {
+      // Leaving for the landing (W) before it finishes drops it too: the melt
+      // only ends once content is fully open, which it never will be now, so
+      // the held cards would otherwise stay on the landing for good.
+      if (f2dHeldCards && (feedItemsKey === lastFeedItemsKey || contentTarget === 0)) {
         f2dHeldCards = false;
         feedToDetailMelt = false;
       }
@@ -1553,6 +1556,10 @@ export function useTerrainAnimation(
       // the reforming terrain instead of landing on the detail page ahead of it.
       let cardFade = f2dHeldCards ? 1 : contentTitleFade;
       if (detailToFeedMelt) cardFade = Math.min(cardFade, Math.max(0, (d2fMeltProgress - 0.45) / 0.4));
+      // Menu closing onto a list page: the heading and cards come in as the
+      // menu words go out, instead of landing whole among them (CODE's
+      // heading sits where the ART word was and read as a pop).
+      if (xfadeMenuOverContent && xfadeFrom === 'menu') cardFade = Math.min(cardFade, 1 - menuReveal);
       const currentLabel = activeLabelRef?.current ?? null;
       const subItemsKey = cachedSubItemsKey;
       const detail = config.detailRef?.current;
@@ -1650,8 +1657,10 @@ export function useTerrainAnimation(
       }
 
       // --- Sub-item hover detection ---
+      // Only once the cards are fully in: a pointer resting where a card
+      // lands would otherwise flash its white hover box ahead of the card.
       let hoveredSubItem = -1;
-      const subBounds = subItemBoundsRef.current;
+      const subBounds = cardFade >= 1 ? subItemBoundsRef.current : [];
       for (let i = 0; i < subBounds.length; i++) {
         const b = subBounds[i];
         if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
