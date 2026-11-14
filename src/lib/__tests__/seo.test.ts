@@ -10,7 +10,7 @@ describe('humanize', () => {
 
   it('keeps acronyms and brand casing', () => {
     expect(humanize('AI-POWERED HIRING TOOLS')).toBe('AI-Powered Hiring Tools');
-    expect(humanize('STREAMCLOUT')).toBe('StreamClout');
+    expect(humanize('STREAMCLOUT.IO')).toBe('streamclout.io');
     expect(humanize('STYLEGAN-GENERATED ARCHITECTURAL SPACES')).toBe(
       'StyleGAN-Generated Architectural Spaces'
     );

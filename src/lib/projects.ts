@@ -24,9 +24,9 @@ export const PROJECTS: ProjectMeta[] = [
   },
   {
     slug: 'streamclout',
-    name: 'STREAMCLOUT',
+    name: 'STREAMCLOUT.IO',
     description: 'STREAMING ANALYTICS DASHBOARD',
-    summary: 'StreamClout tracks the play count of every song on Spotify, every day, numbers Spotify\'s public API doesn\'t offer. Each night it refreshes the whole catalog, and the daily history runs back to January 2026. Fitting that into one night has taken a year of rewrites, from a Python crawler to a Rust ingestion engine and a columnar build pipeline. In November 2026 the API server was switched off entirely, and the site is now served from the edge.',
+    summary: 'streamclout.io tracks the play count of every song on Spotify, every day, numbers Spotify\'s public API doesn\'t offer. Each night it refreshes the whole catalog, and the daily history runs back to January 2026. Fitting that into one night has taken a year of rewrites, from a Python crawler to a Rust ingestion engine and a columnar build pipeline. In November 2026 the API server was switched off entirely, and the site is now served from the edge.',
     url: 'https://streamclout.io',
     tech: ['Rust', 'Python', 'DuckDB', 'Cloudflare', 'React', 'TypeScript'],
   },

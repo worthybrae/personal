@@ -6,7 +6,7 @@ export const SITE = {
   name: 'Worthy Rae',
   title: 'Worthy Rae — Software Engineer & Generative Artist',
   description:
-    'Worthy Rae builds AI and data products like Coderview and StreamClout, makes generative art with StyleGAN and computer vision, and writes music. Portfolio, projects, and current listening.',
+    'Worthy Rae builds AI and data products like Coderview and streamclout.io, makes generative art with StyleGAN and computer vision, and writes music. Portfolio, projects, and current listening.',
   image: '/logo.png',
   locale: 'en_US',
   author: 'Worthy Rae',
@@ -44,7 +44,7 @@ const CASING: Record<string, string> = {
   '3D': '3D',
   STYLEGAN: 'StyleGAN',
   STYLEGAN2: 'StyleGAN2',
-  STREAMCLOUT: 'StreamClout',
+  'STREAMCLOUT.IO': 'streamclout.io',
   OPENCV: 'OpenCV',
   OPENAI: 'OpenAI',
   FFMPEG: 'FFmpeg',
@@ -91,7 +91,7 @@ export const STATIC_ROUTES: RouteMeta[] = [
     path: '/code',
     title: pageTitle('Code'),
     description:
-      'Software projects by Worthy Rae — StreamClout, a streaming analytics dashboard, and Coderview, AI-powered tools for technical careers.',
+      'Software projects by Worthy Rae — streamclout.io, a streaming analytics dashboard, and Coderview, AI-powered tools for technical careers.',
     type: 'website',
   },
   {

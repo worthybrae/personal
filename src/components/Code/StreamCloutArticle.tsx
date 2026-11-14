@@ -163,21 +163,21 @@ function AlbumFigure() {
  *  still sits behind it in case the site can't be framed. */
 export function StreamCloutHero() {
   return (
-    <section className="sc-hero" aria-label="StreamClout's charts page">
+    <section className="sc-hero" aria-label="streamclout.io's charts page">
       <iframe
         src="https://streamclout.io/charts"
-        title="StreamClout's charts page, live"
+        title="streamclout.io's charts page, live"
         tabIndex={-1}
         referrerPolicy="no-referrer"
       />
-      <a href="https://streamclout.io/charts" target="_blank" rel="noopener noreferrer" aria-label="Open StreamClout's charts" />
+      <a href="https://streamclout.io/charts" target="_blank" rel="noopener noreferrer" aria-label="Open streamclout.io's charts" />
     </section>
   );
 }
 
 export function StreamCloutArticle({ summary, tech }: { summary: string; tech: string[] }) {
   return (
-    <article className="art-article" aria-label="About StreamClout">
+    <article className="art-article" aria-label="About streamclout.io">
       <AlbumFigure />
 
       <p className="art-intro">{summary}</p>

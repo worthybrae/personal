@@ -11,10 +11,10 @@ const PROJECT_META: Record<string, { name: string; description: string; url: str
     displayUrl: 'coderview.io',
   },
   streamclout: {
-    name: 'StreamClout',
+    name: 'streamclout.io',
     description: 'Real-time Spotify streaming analytics',
     url: 'https://github.com/worthybrae/streamclout',
-    displayUrl: 'streamclout.com',
+    displayUrl: 'streamclout.io',
   },
 };
 
