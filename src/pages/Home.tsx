@@ -21,7 +21,7 @@ import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 import { AboutArticle } from '@/components/About/AboutArticle';
-import { StreamCloutArticle } from '@/components/Code/StreamCloutArticle';
+import { StreamCloutArticle, StreamCloutHero } from '@/components/Code/StreamCloutArticle';
 import { AboutPortrait } from '@/components/About/AboutPortrait';
 import { markLoaded } from '@/lib/fadeIn';
 
@@ -879,8 +879,9 @@ export default function Home() {
       )}
 
       {showWork && displayProject && (
-        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
-          <div className="flex items-start justify-between gap-4">
+        <DetailOverlay fullBleed={displayProject.slug === 'streamclout'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
+          {displayProject.slug === 'streamclout' && <StreamCloutHero />}
+          <div className={`flex items-start justify-between gap-4 ${displayProject.slug === 'streamclout' ? 'mt-16' : ''}`}>
             <div className="text-left">
               <h1
                 className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"

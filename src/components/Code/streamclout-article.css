@@ -1,26 +1,31 @@
-/* StreamClout's code page: a still of the site, the catalog in numbers, and
-   the rewrites as dated before/after rows. Builds on art-article.css. */
-.sc-still { margin:28px 0 0; }
-.sc-still img { display:block;width:100%;height:auto;aspect-ratio:16/10;border-radius:8px;background:#0a0a0a;box-shadow:0 10px 15px -3px rgba(0,0,0,.3); }
-.sc-still figcaption { font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.3);margin-top:7px; }
+/* StreamClout's code page: a full-width still of the site, the catalog in
+   four columns, then a night's operations with ASCII bars. Builds on
+   art-article.css. */
+/* Full screen width out of the centred column, like the Livestream Art hero. */
+.sc-hero { position:relative;left:50%;width:100vw;transform:translateX(-50%);height:min(100dvh,62.5vw);overflow:hidden;background:#0a0a0a; }
+.sc-hero img { display:block;width:100%;height:100%;object-fit:cover;object-position:top center; }
 
 /* dt follows dd visually: the number sits above its label. */
-.sc-stats { display:grid;grid-template-columns:repeat(4,1fr);margin:32px 0 0;border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1); }
-.sc-stats > div { display:flex;flex-direction:column-reverse;gap:4px;padding:16px 0; }
-.sc-stats dd { margin:0;font-size:26px;font-weight:300;letter-spacing:.02em;color:#fff; }
-.sc-stats dt { font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.4); }
-.sc-stats-note { font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.3);margin-top:9px; }
+.sc-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:28px 0 0; }
+.sc-stats > div { display:flex;flex-direction:column-reverse;gap:3px; }
+.sc-stats dd { margin:0;font-size:18px;color:#fff; }
+.sc-stats dt { font-size:10px;letter-spacing:.18em;color:rgba(255,255,255,.4); }
 
-/* Dated rows, like the Livestream Art steps with a date in front. */
-.sc-rewrites { list-style:none;margin:18px 0 0;padding:0;border-top:1px solid rgba(255,255,255,.1); }
-.sc-rewrites li { display:grid;grid-template-columns:64px 160px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.6; }
-.sc-rewrites li span:nth-child(1) { color:rgba(255,255,255,.3); }
-.sc-rewrites li span:nth-child(2) { letter-spacing:.14em;color:#fff; }
-.sc-rewrites li span:nth-child(3) { color:#9a9a9a; }
+/* One operation a row: name, detail, time, and a bar the width of the list. */
+.sc-night { position:relative;margin:14px 0 0; }
+.sc-night ol { list-style:none;margin:0;padding:0; }
+.sc-night li { display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1.4fr) minmax(0,.55fr);column-gap:10px;row-gap:6px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;line-height:1.5;align-items:baseline; }
+.sc-night li:last-child { border-bottom:none; }
+.sc-night-name { letter-spacing:.12em;color:#fff; }
+.sc-night-detail { color:#9a9a9a; }
+.sc-night-time { color:#fff;text-align:right; }
+.sc-bar { grid-column:1 / -1;font-size:12px;line-height:1;letter-spacing:0;white-space:nowrap;overflow:hidden;color:rgba(255,255,255,.14); }
+.sc-bar > span { color:rgba(255,255,255,.72); }
+.sc-probe { position:absolute;visibility:hidden;pointer-events:none; }
 
 @media (max-width:560px) {
-  .sc-stats { grid-template-columns:repeat(2,1fr); }
-  .sc-stats dd { font-size:22px; }
-  .sc-rewrites li { grid-template-columns:64px 1fr;row-gap:2px; }
-  .sc-rewrites li span:nth-child(3) { grid-column:2; }
+  .sc-stats dd { font-size:16px; }
+  .sc-stats dt { letter-spacing:.12em; }
+  .sc-night li { grid-template-columns:minmax(0,1fr) auto; }
+  .sc-night-detail { grid-column:1 / -1;grid-row:2; }
 }
