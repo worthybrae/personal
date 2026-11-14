@@ -178,11 +178,6 @@ export function StreamCloutHero() {
 export function StreamCloutArticle({ summary, tech }: { summary: string; tech: string[] }) {
   return (
     <article className="art-article" aria-label="About StreamClout">
-      <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
-      <p className="sc-explain">
-        Each line is one album&apos;s new streams a day, as a share of what it drew a day in its
-        first week. A typical 2026 album is under 40% a month in and about 15% by six months.
-      </p>
       <AlbumFigure />
 
       <p className="art-intro">{summary}</p>
