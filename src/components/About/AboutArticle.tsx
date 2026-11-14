@@ -2,6 +2,7 @@ import { ArtLabel } from '@/components/Art/ArtArticleParts';
 import { SHELVES } from '@/lib/about';
 import { SITE } from '@/lib/seo';
 import { GithubActivity } from './GithubActivity';
+import { PosterStrip } from './PosterStrip';
 import './about.css';
 
 export const RESUME_URL = 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/resume.pdf';
@@ -24,21 +25,7 @@ export function AboutArticle() {
       {shelves.map((shelf) => (
         <section key={shelf.label}>
           <ArtLabel>{shelf.label}</ArtLabel>
-          {shelf.items.length > 0 && (
-            <ol className="art-steps about-shelf">
-              {shelf.items.slice(0, 5).map((item, i) => (
-                <li key={item.title}>
-                  <span>{i + 1}</span>
-                  <span>
-                    {item.url
-                      ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
-                      : item.title}
-                  </span>
-                  <span>{item.by}</span>
-                </li>
-              ))}
-            </ol>
-          )}
+          <PosterStrip items={shelf.items.slice(0, 5)} />
           {shelf.allUrl && (
             <a className="about-all" href={shelf.allUrl} target="_blank" rel="noopener noreferrer">
               {shelf.allLabel ?? 'SEE ALL'} →
