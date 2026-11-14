@@ -1,14 +1,18 @@
 import { useEffect, useRef } from 'react';
-import { fbm, warpedTerrain } from '@/components/Dashboard/noise';
+import { warpedTerrain } from '@/components/Dashboard/noise';
 import { getDuotoneColor, scurve } from '@/components/Dashboard/color';
 import { RAMP } from '@/components/Dashboard/ramp';
 
 // A round portrait drawn the way the site background is drawn: glyphs from
 // "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped
-// photo: red holds brightness, green holds a heavily blurred person mask
-// (from macOS Vision). The person is full brightness and holds still, with a
-// little terrain moving through them; the scene around them is dimmer and
-// drifts more. The mask is soft and the rim fades out, so nothing has an edge.
+// headshot: red holds brightness, green holds the person mask (from macOS
+// Vision), blue holds warmth (red minus blue in the photo, stretched).
+//
+// Behind the person is the site's own terrain, dimmed. In the person,
+// brightness picks the glyph and how lit it is, and warmth picks where on the
+// palette's two colours it sits, so skin and hair land on the warm end and
+// the shirt on the cool end instead of everything following brightness. The
+// rim fades out, so the circle has no hard edge.
 
 const MAP_URL = '/media/about/portrait-map.png';
 const MAP_SIZE = 256;
@@ -18,17 +22,20 @@ const FONT_PX = 5;
 // the circle runs through the palettes in step with the page behind it.
 const SPEED_DIVISOR = 6750;
 const FRAME_MS = 1000 / 24;
-const LEVELS = 48;
-// How much the terrain shows through the person and through the wall, and
-// how bright the wall is allowed to get, so the face stays the brightest thing.
-const TERRAIN_IN_PERSON = 0.12;
-const TERRAIN_IN_WALL = 0.2;
-const WALL_LEVEL = 0.5;
-// The glyphs fade out over this band at the rim, so the circle has no edge.
-const RIM_FADE_START = 0.38;
 const NOISE_SCALE = 2.4;
+// Colour lookup: palette position x brightness, rebuilt each frame.
+const HUES = 16;
+const LEVELS = 32;
+// How lit the terrain behind the person is, so the face stays brightest.
+const BG_LEVEL = 0.42;
+// How much terrain moves through the person.
+const TERRAIN_IN_PERSON = 0.12;
+// How much warmth, rather than brightness, sets the person's palette position.
+const WARMTH_WEIGHT = 0.7;
+// The glyphs fade out over this band at the rim.
+const RIM_FADE_START = 0.38;
 
-interface PortraitMap { lum: Float32Array; mask: Float32Array }
+interface PortraitMap { lum: Float32Array; mask: Float32Array; warm: Float32Array }
 
 function loadMap(): Promise<PortraitMap> {
   return new Promise((resolve, reject) => {
@@ -41,13 +48,16 @@ function loadMap(): Promise<PortraitMap> {
       if (!g) return reject(new Error('no 2d context'));
       g.drawImage(img, 0, 0, MAP_SIZE, MAP_SIZE);
       const px = g.getImageData(0, 0, MAP_SIZE, MAP_SIZE).data;
-      const lum = new Float32Array(MAP_SIZE * MAP_SIZE);
-      const mask = new Float32Array(MAP_SIZE * MAP_SIZE);
-      for (let i = 0; i < lum.length; i++) {
+      const n = MAP_SIZE * MAP_SIZE;
+      const lum = new Float32Array(n);
+      const mask = new Float32Array(n);
+      const warm = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
         lum[i] = px[i * 4] / 255;
         mask[i] = px[i * 4 + 1] / 255;
+        warm[i] = px[i * 4 + 2] / 255;
       }
-      resolve({ lum, mask });
+      resolve({ lum, mask, warm });
     };
     img.onerror = reject;
     img.src = MAP_URL;
@@ -84,7 +94,7 @@ export function AboutPortrait() {
     const charH = fontSize;
     const cols = Math.ceil(W / charW);
     const rows = Math.ceil(W / charH);
-    const lut: string[] = new Array(LEVELS);
+    const lut: string[] = new Array(HUES * LEVELS);
 
     let map: PortraitMap | null = null;
     let raf = 0;
@@ -99,22 +109,23 @@ export function AboutPortrait() {
       const bgR = Math.floor(bg.bgR);
       const bgG = Math.floor(bg.bgG);
       const bgB = Math.floor(bg.bgB);
-      for (let i = 0; i < LEVELS; i++) {
-        const val = i / (LEVELS - 1);
-        const col = getDuotoneColor(val, t);
-        const dim = 0.22 + val * 1.28;
-        const r = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
-        const g = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
-        const b = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
-        lut[i] = `rgb(${r},${g},${b})`;
+      // Same colour-then-dim rule as the background terrain, but with the
+      // palette position and the brightness as separate axes.
+      for (let h = 0; h < HUES; h++) {
+        const col = getDuotoneColor(0.05 + 0.95 * (h / (HUES - 1)), t);
+        for (let l = 0; l < LEVELS; l++) {
+          const dim = 0.22 + (l / (LEVELS - 1)) * 1.28;
+          const r = Math.min(255, Math.max(bgR + 10, Math.floor(col.r * dim)));
+          const g = Math.min(255, Math.max(bgG + 10, Math.floor(col.g * dim)));
+          const b = Math.min(255, Math.max(bgB + 10, Math.floor(col.b * dim)));
+          lut[h * LEVELS + l] = `rgb(${r},${g},${b})`;
+        }
       }
 
       ctx.clearRect(0, 0, W, W);
       ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       ctx.textBaseline = 'top';
 
-      // Slow liquid drift for where the photo is sampled.
-      const ft = t * 0.5;
       for (let r = 0; r < rows; r++) {
         const v = (r + 0.5) * charH / W;
         for (let c = 0; c < cols; c++) {
@@ -125,27 +136,29 @@ export function AboutPortrait() {
           if (d > 0.5) continue;
 
           let terrain = (warpedTerrain(u * NOISE_SCALE, v * NOISE_SCALE, t) + 0.5) / 1.8;
-          terrain = Math.max(0, Math.min(1, terrain));
-          // Before the map loads: the background terrain's curve, dimmed.
-          let val = scurve(terrain, 8) * WALL_LEVEL;
+          terrain = scurve(Math.max(0, Math.min(1, terrain)), 8);
+          // Background: the site's terrain, palette position as on the site,
+          // brightness dimmed.
+          let hue = terrain;
+          let val = terrain * BG_LEVEL;
           if (map) {
-            // The mask is heavily blurred, so the person blends into the
-            // scene rather than sitting on it as a cutout.
             const m = sampleMap(map.mask, u, v);
-            // The scene drifts a little, like it's under water; the person
-            // holds still so the face stays put.
-            const drift = 0.015 * (1 - m);
-            const su = u + fbm(u * 2.5 + 1.7, v * 2.5 + ft, 3) * drift;
-            const sv = v + fbm(u * 2.5 + 9.2 + ft, v * 2.5, 3) * drift;
-            const terrainMix = TERRAIN_IN_WALL + (TERRAIN_IN_PERSON - TERRAIN_IN_WALL) * m;
-            const level = WALL_LEVEL + (1 - WALL_LEVEL) * m;
-            val = scurve(sampleMap(map.lum, su, sv) + (terrain - 0.45) * terrainMix, 5.5) * level;
+            if (m > 0.01) {
+              // A gentler curve than the terrain's, pulled down a little, so the
+              // skin doesn't clip and the eyes and mouth keep their shape.
+              const lit = scurve(sampleMap(map.lum, u, v) - 0.06 + (terrain - 0.5) * TERRAIN_IN_PERSON, 4);
+              const warmHue = lit + (sampleMap(map.warm, u, v) - lit) * WARMTH_WEIGHT;
+              val += (lit - val) * m;
+              hue += (warmHue - hue) * m;
+            }
           }
           if (d > RIM_FADE_START) {
             const k = 1 - (d - RIM_FADE_START) / (0.5 - RIM_FADE_START);
             val *= k * k * (3 - 2 * k);
           }
-          ctx.fillStyle = lut[Math.min(LEVELS - 1, (val * LEVELS) | 0)];
+          const hi = Math.min(HUES - 1, Math.max(0, (hue * HUES) | 0));
+          const li = Math.min(LEVELS - 1, (val * LEVELS) | 0);
+          ctx.fillStyle = lut[hi * LEVELS + li];
           ctx.fillText(RAMP[Math.min(RAMP.length - 1, (val * (RAMP.length - 1)) | 0)], c * charW, r * charH);
         }
       }
