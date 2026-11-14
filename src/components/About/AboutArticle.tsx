@@ -11,8 +11,8 @@ export function AboutArticle() {
     <article className="art-article" aria-label="About Worthy Rae">
       <p className="art-intro about-intro">
         I live in New York and I love building things with code. I'm really passionate about music streaming
-        analytics and living art, both digital and physical. I'm always trying to
-        learn something new.
+        analytics and living art, both digital and physical. Consumer of thriller films, sci-fi TV shows, books
+        about aliens, psychedelic rap, and eggnog.
       </p>
 
       {shelves.map((shelf) => (
