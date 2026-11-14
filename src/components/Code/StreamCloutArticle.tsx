@@ -109,8 +109,8 @@ function NightsWork() {
   );
 }
 
-/** streamclout.io's charts page, live, across the whole screen under the
- *  header band, like Livestream Art's hero. It is a view, not a second
+/** streamclout.io's charts page, live, across the whole screen with W and +
+ *  over it, like Livestream Art's hero. It is a view, not a second
  *  browser: a click opens the site, and scrolling stays with this page. The
  *  still sits behind it in case the site can't be framed. */
 export function StreamCloutHero() {
