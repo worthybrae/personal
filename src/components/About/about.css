@@ -14,10 +14,6 @@
 .about-poster:hover img, .about-poster:focus-visible img { opacity:1; }
 @media (max-width:560px) { .about-posters { gap:6px; } }
 
-.about-links { display:flex;flex-wrap:wrap;gap:8px; }
-.about-links a { font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;text-decoration:none;transition:color .15s,border-color .15s; }
-.about-links a:hover { color:#fff;border-color:rgba(255,255,255,.6); }
-
 /* Article paragraphs are capped at 70ch and pinned left; centre the box too. */
 .art-article p.about-intro { text-align:center;margin-left:auto;margin-right:auto; }
 .about-portrait { display:block;margin:0 auto 28px; }

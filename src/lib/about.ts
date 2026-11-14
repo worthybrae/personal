@@ -58,14 +58,14 @@ export const SHELVES: Shelf[] = [
   {
     // Photos are from each restaurant's own website, saved small and square
     // under public/ (Gymkhana's image host refuses requests from other sites).
-    label: 'RESTAURANTS',
+    label: 'FOOD',
     cover: 'square',
     items: [
       { title: 'Oleana', by: 'Cambridge, MA', url: 'https://www.oleanarestaurant.com', image: '/media/about/restaurants/oleana.jpg' },
       { title: 'Gymkhana', by: 'London', url: 'https://gymkhanalondon.com', image: '/media/about/restaurants/gymkhana.jpg' },
       { title: 'Quintonil', by: 'Mexico City', url: 'https://quintonil.com', image: '/media/about/restaurants/quintonil.jpg' },
       { title: 'Francie', by: 'New York', url: 'https://www.franciebrooklyn.com', image: '/media/about/restaurants/francie.jpg' },
-      { title: '4 Charles Prime Rib', by: 'New York', url: 'https://www.nycprimerib.com', image: '/media/about/restaurants/4-charles.jpg' },
+      { title: 'Luthun', by: 'New York', url: 'https://www.luthun.com', image: '/media/about/restaurants/luthun.jpg' },
     ],
   },
 ];
