@@ -1,9 +1,10 @@
 // src/components/Dashboard/musicView.ts
 // Music-page chrome: a pinned (sticky) intro band across the top, centered,
-// holding the UNRELEASED LIBRARY title, the collection blurb, the search input
-// and the plays stat. The tile grid renders below it, centered, and pages
-// through its rows independently; the band never moves. The now-playing box is drawn by the
-// shared landing pipeline in useTerrainAnimation.ts, not here.
+// holding the UNRELEASED LIBRARY title, the collection blurb (desktop only),
+// the search input and the plays stat. The tile grid renders below it,
+// centered, and pages through its rows independently; the band never moves.
+// The now-playing box is drawn by the shared landing pipeline in
+// useTerrainAnimation.ts, not here.
 // Layout is exported (musicPanelLayout) so the tile-grid setup in
 // useTerrainAnimation.ts can carve its region around the panel, and pure
 // drawing writes directly to the terrain canvas with an opaque background so
@@ -85,7 +86,7 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
   };
 
   // Desktop: 3x title, 2x blurb at a ~80-char measure, 40-char search line.
-  // Mobile: 2x title, 1x blurb across the band, search across the band.
+  // Mobile: 2x title and the search across the band, no blurb.
   const margin = isMobile ? 3 : 5;
   const titleScale = isMobile ? 2 : 3;
   const blurbScale = isMobile ? 1 : 2;
@@ -97,10 +98,15 @@ export function musicPanelLayout(geom: MusicChromeGeom, isMobile: boolean): Musi
   const top = geom.headerRows + (isMobile ? 2 : 1);
   pushCentered(TITLE, top, titleScale, 0.95, true);
   let row = top + titleScale + (isMobile ? 1 : 2);
-  for (const l of wrapText(BLURB, measure)) {
-    pushCentered(l, row, blurbScale, 0.55);
-    // Desktop gets a row of leading; the 2x lines otherwise touch.
-    row += blurbScale + (isMobile ? 0 : 1);
+  // Phones skip the blurb: at 1x it is a 7px wall of text that pushes the
+  // albums down to two rows, and the page there is for browsing. Desktop
+  // keeps it.
+  if (!isMobile) {
+    for (const l of wrapText(BLURB, measure)) {
+      pushCentered(l, row, blurbScale, 0.55);
+      // A row of leading; the 2x lines otherwise touch.
+      row += blurbScale + 1;
+    }
   }
 
   const searchRow = row + (isMobile ? 1 : 2);

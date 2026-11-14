@@ -44,6 +44,13 @@ describe('musicPanelLayout', () => {
     for (const l of L.lines) expect(Math.abs(lineCenter(l) - g.cols / 2)).toBeLessThanOrEqual(1.5);
     expect(L.tilesTopRow).toBeGreaterThan(L.statRow);
   });
+
+  it('mobile: drops the blurb so only the title sits above the search', () => {
+    const L = musicPanelLayout({ ...geom, cols: 60 }, true);
+    expect(L.lines).toHaveLength(1);
+    expect(L.lines[0].str).toBe('UNRELEASED LIBRARY');
+    expect(L.searchRow).toBeLessThan(L.panelTop + 8);
+  });
 });
 
 describe('drawMusicChrome', () => {
