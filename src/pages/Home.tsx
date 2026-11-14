@@ -115,8 +115,11 @@ export default function Home() {
     const covered = menuNavRef.current || menuOpen || contactOpen ||
       menuCloseToHomeRef.current || contactCloseToHomeRef.current;
     setExitingFrom(leavingDetail && !covered ? prev : null);
-    const enteringDetail = (prev.page === 'feed' || prev.page === 'art') &&
-      (route.page === 'work-detail' || route.page === 'art-detail') && !covered;
+    // About gets the same fade from anywhere that isn't another detail page,
+    // the menu included: the menu's words dissolve under the veil.
+    const enteringDetail = ((prev.page === 'feed' || prev.page === 'art') &&
+      (route.page === 'work-detail' || route.page === 'art-detail') && !covered) ||
+      (route.page === 'about' && !isDetailPage(prev.page));
     setEnteringFrom(enteringDetail ? prev : null);
     setVeilDown(enteringDetail);
   }
@@ -132,6 +135,10 @@ export default function Home() {
     if (!enteringFrom) return;
     const timer = setTimeout(() => {
       instantDetailRef.current = true;
+      // Open the content now rather than at the commit: from the landing the
+      // draw loop would otherwise see a closed page for a frame and drop
+      // instantDetailRef before the route lands.
+      contentOpenRef.current = true;
       setEnteringFrom(null);
       setVeilDown(false);
     }, EXIT_FADE_MS);
@@ -156,8 +163,11 @@ export default function Home() {
   const activeLabelRef = useRef<string | null>(isContent ? 'feed' : null);
   activeLabelRef.current = isContent ? 'feed' : null;
 
-  const scrollTargetRef = useRef(page === 'home' ? 0 : 1);
-  scrollTargetRef.current = page === 'home' ? 0 : 1;
+  // While a page is held for the entry fade, the header already heads for
+  // where the incoming page wants it, so it doesn't move once the veil lifts.
+  const scrollPage = enteringFrom ? route.page : page;
+  const scrollTargetRef = useRef(scrollPage === 'home' ? 0 : 1);
+  scrollTargetRef.current = scrollPage === 'home' ? 0 : 1;
 
   const scrollProgressRef = useRef(page === 'home' ? 0 : 1);
   const meltCompleteRef = useRef(page !== 'home');
@@ -544,7 +554,8 @@ export default function Home() {
       setContactOpen(false);
       // About is a DOM page: keep the canvas above it while the menu
       // words dissolve off it, as when closing the menu over a detail page.
-      if (isDetailPage(target)) setMenuVeil(true);
+      // About from a non-detail page fades in through the black veil instead.
+      if (isDetailPage(target) && !(target === 'about' && !isDetailPage(page))) setMenuVeil(true);
     });
     navigate(`/${entry}`);
   }, [navigate, page]);

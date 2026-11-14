@@ -1378,6 +1378,13 @@ export function useTerrainAnimation(
       // show once the menu words have dissolved.
       if (overlayVisual && contentTarget === 0) contentProgress = 0;
       if (feedToDetailMelt && contentProgress >= 1) feedToDetailMelt = false;
+      // A page opened behind the black veil (About from the landing) has no
+      // list to melt away, so it opens at once; the feed-card path below
+      // handles the same flag when coming from a list.
+      if (instantDetailRef?.current && contentTarget === 1 && feedCards.length === 0 && !f2dHeldCards) {
+        instantDetailRef.current = false;
+        contentProgress = 1;
+      }
       contentProgressRef.current = contentProgress;
       nameInteractive = currentLayer === 'name' && xfadeFrom === null && introProgress >= 1 &&
         scroll < 0.001 && contentTarget === 0 && contentProgress === 0;
