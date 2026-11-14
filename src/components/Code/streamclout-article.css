@@ -1,5 +1,5 @@
 /* StreamClout's code page: the live site full screen, a headline row of
-   numbers and 40 real album curves you can hover. Builds on
+   numbers and real album curves you can hover, named, with covers. Builds on
    art-article.css. */
 
 /* Full screen width out of the centred column and the full height of the
@@ -20,7 +20,8 @@
 /* Wider than the text column, up to 960px, centred on it. */
 .sc-lines { position:relative;left:50%;transform:translateX(-50%);width:min(960px,calc(100vw - 32px));height:440px;cursor:crosshair;touch-action:pan-y; }
 .sc-lines svg { display:block;overflow:visible; }
-.sc-line { fill:none;stroke:rgba(255,255,255,.16);stroke-width:1; }
+.sc-line-bg { fill:none;stroke:rgba(255,255,255,.07);stroke-width:1; }
+.sc-line { fill:none;stroke:rgba(255,255,255,.28);stroke-width:1.1; }
 .sc-line-on { stroke:rgba(255,255,255,.85);stroke-width:1.4; }
 .sc-line-median { fill:none;stroke:#fff;stroke-width:2; }
 .sc-lines-ref { stroke:rgba(255,255,255,.12);stroke-dasharray:2 4; }
@@ -28,8 +29,13 @@
 .sc-lines-axis { font-size:10px;letter-spacing:.12em;fill:rgba(255,255,255,.3); }
 .sc-dot-median { fill:#fff; }
 .sc-dot-on { fill:#000;stroke:#fff;stroke-width:1.4; }
-.sc-tip { position:absolute;width:190px;padding:10px 12px;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.14);font-size:10px;letter-spacing:.14em;line-height:1.9;color:rgba(255,255,255,.45);pointer-events:none; }
+.sc-tip { position:absolute;width:220px;padding:10px 12px;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.14);font-size:10px;letter-spacing:.14em;line-height:1.9;color:rgba(255,255,255,.45);pointer-events:none; }
 .sc-tip span { display:inline-block;min-width:34px;font-size:13px;letter-spacing:0;color:#fff; }
+.sc-tip-album { display:flex;gap:10px;align-items:center;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1); }
+.sc-tip-album img { flex:none;display:block;width:44px;height:44px;object-fit:cover;background:rgba(255,255,255,.06); }
+.sc-tip-album > div { min-width:0; }
+.sc-tip-name { font-size:12px;letter-spacing:.02em;line-height:1.35;color:#fff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; }
+.sc-tip-artist { line-height:1.5;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .sc-tip-day { color:#fff;letter-spacing:.2em; }
 .sc-tip-note { color:rgba(255,255,255,.25);margin-top:2px; }
 

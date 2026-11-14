@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
-import { ALBUM_CURVES } from './albumCurves';
-import { linePath, medianByDay, nearestSeries } from './figures';
+import { ALBUM_CURVES, LAUNCH_COUNT, LAUNCH_MEDIAN, NAMED_ALBUMS } from './albumCurves';
+import { linePath, nearestSeries } from './figures';
 import './streamclout-article.css';
 
 /** Daily play counts start here (streamclout-io/app,
@@ -24,7 +24,9 @@ function headline(): [string, string][] {
   ];
 }
 
-const MEDIAN = medianByDay(ALBUM_CURVES);
+const MEDIAN = LAUNCH_MEDIAN;
+const NAMED = NAMED_ALBUMS.map((a) => a.curve);
+const TIP_W = 220;
 /** Readings are every second day from day 1. */
 const dayOf = (i: number) => i * 2 + 1;
 const TOP = 200; // index at the top edge; the few higher readings are clipped
@@ -32,9 +34,10 @@ const PAD = { top: 12, right: 8, bottom: 26, left: 8 };
 const DAY_TICKS = [1, 30, 60, 90, 120, 150, 180];
 const NARROW_TICKS = [1, 60, 120, 180];
 
-/** Forty real album launches over their first 180 days, faint, with their
- *  median in white. Hovering (or touching) picks a day and the album line
- *  nearest the pointer, and says where it and the median stand. */
+/** Forty real album launches over their first 180 days as faint texture,
+ *  twelve named ones over them, and the median of every launch in white.
+ *  Hovering (or touching) picks a day and the named album nearest the
+ *  pointer, and shows its cover and name and where it and the median stand. */
 function AlbumLines() {
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 640, h: 420 });
@@ -62,13 +65,14 @@ function AlbumLines() {
     const rect = e.currentTarget.getBoundingClientRect();
     const i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left - PAD.left) / plotW) * (n - 1))));
     const value = ((PAD.top + plotH - (e.clientY - rect.top)) / plotH) * TOP;
-    setHover({ i, album: nearestSeries(ALBUM_CURVES, i, value) });
+    setHover({ i, album: nearestSeries(NAMED, i, value) });
   };
 
-  const hovered = hover && hover.album >= 0 ? ALBUM_CURVES[hover.album][hover.i] : null;
+  const album = hover && hover.album >= 0 ? NAMED_ALBUMS[hover.album] : null;
+  const hovered = album && hover ? album.curve[hover.i] : null;
   const median = hover ? MEDIAN[hover.i] : null;
-  const tipLeft = hover ? Math.min(Math.max(x(hover.i) + 12, 0), size.w - 190) : 0;
-  const flip = hover ? x(hover.i) + 12 + 190 > size.w : false;
+  const tipLeft = hover ? Math.min(Math.max(x(hover.i) + 12, 0), size.w - TIP_W) : 0;
+  const flip = hover ? x(hover.i) + 12 + TIP_W > size.w : false;
 
   return (
     <div
@@ -76,9 +80,10 @@ function AlbumLines() {
       className="sc-lines"
       onPointerMove={onMove}
       onPointerDown={onMove}
-      onPointerLeave={() => setHover(null)}
+      // A finger lifting also 'leaves'; keep its reading up until the next touch.
+      onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHover(null); }}
     >
-      <svg width={size.w} height={size.h} role="img" aria-label="Daily plays of 40 of 2026's biggest album launches over their first 180 days, each against its own first week. Almost every one starts high and falls the same way; the median is drawn in white.">
+      <svg width={size.w} height={size.h} role="img" aria-label={`Daily plays of 2026 album launches over their first 180 days, each against its own first week: forty unnamed in grey, twelve named, and the median of all ${LAUNCH_COUNT} in white. Most start high and fall the same way.`}>
         <line x1={PAD.left} x2={size.w - PAD.right} y1={y(100)} y2={y(100)} className="sc-lines-ref" />
         <text x={size.w - PAD.right} y={y(100) - 6} textAnchor="end" className="sc-lines-axis">100 = FIRST WEEK</text>
         {(size.w < 500 ? NARROW_TICKS : DAY_TICKS).map((d) => (
@@ -87,6 +92,9 @@ function AlbumLines() {
           </text>
         ))}
         {ALBUM_CURVES.map((curve, i) => (
+          <path key={i} d={linePath(curve, at)} className="sc-line-bg" />
+        ))}
+        {NAMED.map((curve, i) => (
           <path key={i} d={linePath(curve, at)} className={hover?.album === i ? 'sc-line sc-line-on' : 'sc-line'} />
         ))}
         <path d={linePath(MEDIAN, at)} className="sc-line-median" />
@@ -99,7 +107,16 @@ function AlbumLines() {
         )}
       </svg>
       {hover && (
-        <div className="sc-tip" style={{ left: flip ? x(hover.i) - 12 - 190 : tipLeft, top: PAD.top }}>
+        <div className="sc-tip" style={{ left: flip ? x(hover.i) - 12 - TIP_W : tipLeft, top: PAD.top }}>
+          {album && (
+            <div className="sc-tip-album">
+              <img src={album.cover} alt="" width={44} height={44} referrerPolicy="no-referrer" />
+              <div>
+                <div className="sc-tip-name">{album.name}</div>
+                <div className="sc-tip-artist">{album.artist}</div>
+              </div>
+            </div>
+          )}
           <div className="sc-tip-day">DAY {dayOf(hover.i)}</div>
           {hovered !== null && hovered >= 0 && (
             <div><span>{Math.round(hovered)}</span> THIS ALBUM</div>
@@ -149,7 +166,7 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
       <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
       <figure className="sc-figure">
         <AlbumLines />
-        <figcaption>40 OF 2026&apos;S BIGGEST ALBUMS, DAILY PLAYS OVER THEIR FIRST 180 DAYS · MEDIAN IN WHITE</figcaption>
+        <figcaption>2026 ALBUM LAUNCHES, DAILY PLAYS OVER THEIR FIRST 180 DAYS · 12 NAMED, 40 MORE IN GREY · MEDIAN OF ALL {LAUNCH_COUNT} IN WHITE</figcaption>
       </figure>
 
       <ArtLabel>TOOLS</ArtLabel>
