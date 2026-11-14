@@ -24,7 +24,16 @@ function loadLuminance(src: string, cols: number, rows: number): Promise<Float32
       c.height = rows;
       const g = c.getContext('2d');
       if (!g) return reject(new Error('no 2d context'));
-      g.drawImage(img, 0, 0, cols, rows);
+      // Crop to the tile's shape the way object-fit: cover does, so photos
+      // that aren't the tile's shape aren't squashed.
+      const cellAspect = 0.602; // glyph width / height at FONT_PX
+      const want = (cols * cellAspect) / rows;
+      const have = img.naturalWidth / img.naturalHeight;
+      let sw = img.naturalWidth;
+      let sh = img.naturalHeight;
+      if (have > want) sw = sh * want;
+      else sh = sw / want;
+      g.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, cols, rows);
       const px = g.getImageData(0, 0, cols, rows).data;
       const lum = new Float32Array(cols * rows);
       for (let i = 0; i < lum.length; i++) {

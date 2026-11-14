@@ -18,7 +18,7 @@ export interface Favorite {
 export interface Shelf {
   label: string;
   items: Favorite[];
-  /** Cover shape: film posters are 2:3, album covers square. */
+  /** Cover shape: film posters are 2:3; album covers and photos square. */
   cover?: 'poster' | 'square';
 }
 
@@ -55,5 +55,17 @@ export const SHELVES: Shelf[] = [
       { title: 'Sound & Color', by: 'Alabama Shakes', url: 'https://music.apple.com/us/album/sound-color/1053742064', image: apple('Music62/v4/6c/30/aa/6c30aa11-b842-105c-da48-d569c45604fc/mzm.rrxxfbbw.jpg') },
     ],
   },
-  { label: 'RESTAURANTS', items: [] },
+  {
+    // Photos are from each restaurant's own website, saved small and square
+    // under public/ (Gymkhana's image host refuses requests from other sites).
+    label: 'RESTAURANTS',
+    cover: 'square',
+    items: [
+      { title: 'Oleana', by: 'Cambridge, MA', url: 'https://www.oleanarestaurant.com', image: '/media/about/restaurants/oleana.jpg' },
+      { title: 'Gymkhana', by: 'London', url: 'https://gymkhanalondon.com', image: '/media/about/restaurants/gymkhana.jpg' },
+      { title: 'Monkey Bar', by: 'New York', url: 'https://www.nycmonkeybar.com', image: '/media/about/restaurants/monkey-bar.jpg' },
+      { title: 'Francie', by: 'New York', url: 'https://www.franciebrooklyn.com', image: '/media/about/restaurants/francie.jpg' },
+      { title: 'Dirt Candy', by: 'New York', url: 'https://www.dirtcandynyc.com', image: '/media/about/restaurants/dirt-candy.jpg' },
+    ],
+  },
 ];
