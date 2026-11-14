@@ -31,24 +31,6 @@ export function nearestSeries(series: number[][], day: number, value: number): n
   return best;
 }
 
-/** Spreads marks wanting to sit at `want` (in input order) so that no two
- *  are closer than `gap`, keeping their order and staying inside
- *  [min, max] when they fit. Returns the positions in input order. */
-export function spreadApart(want: number[], gap: number, min: number, max: number): number[] {
-  const order = want.map((_, i) => i).sort((a, b) => want[a] - want[b]);
-  const at = order.map((i) => Math.min(Math.max(want[i], min), max));
-  for (let k = 1; k < at.length; k++) at[k] = Math.max(at[k], at[k - 1] + gap);
-  if (at.length) at[at.length - 1] = Math.min(at[at.length - 1], max);
-  for (let k = at.length - 2; k >= 0; k--) at[k] = Math.min(at[k], at[k + 1] - gap);
-  if (at.length && at[0] < min) {
-    at[0] = min;
-    for (let k = 1; k < at.length; k++) at[k] = Math.max(at[k], at[k - 1] + gap);
-  }
-  const out = new Array<number>(want.length);
-  order.forEach((i, k) => { out[i] = at[k]; });
-  return out;
-}
-
 /** New streams on a day from the album's first-week daily average and that
  *  day's share of it in percent. The share is smoothed and whole, so the
  *  count is good to about one percent: it is rounded to the thousand. */

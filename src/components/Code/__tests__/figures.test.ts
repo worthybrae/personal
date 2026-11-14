@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linePath, nearestSeries, spreadApart, streamsThatDay } from '../figures';
+import { linePath, nearestSeries, streamsThatDay } from '../figures';
 
 describe('linePath', () => {
   it('draws through every reading and skips the missing ones', () => {
@@ -19,20 +19,6 @@ describe('nearestSeries', () => {
 
   it('is -1 when nobody has a reading', () => {
     expect(nearestSeries([[10, -1]], 1, 5)).toBe(-1);
-  });
-});
-
-describe('spreadApart', () => {
-  it('leaves marks that are already far enough apart alone', () => {
-    expect(spreadApart([10, 50, 90], 20, 0, 100)).toEqual([10, 50, 90]);
-  });
-
-  it('pushes crowded marks apart, keeping their order', () => {
-    expect(spreadApart([50, 40, 45], 10, 0, 100)).toEqual([60, 40, 50]);
-  });
-
-  it('pulls a pile at the bottom back up inside the range', () => {
-    expect(spreadApart([100, 99, 98], 10, 0, 100)).toEqual([100, 90, 80]);
   });
 });
 

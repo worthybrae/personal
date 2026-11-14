@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
 import { LAUNCH_MEDIAN, NAMED_ALBUMS } from './albumCurves';
-import { linePath, nearestSeries, spreadApart, streamsThatDay } from './figures';
+import { linePath, nearestSeries, streamsThatDay } from './figures';
 import './streamclout-article.css';
 
 /** Daily play counts start here (streamclout-io/app,
@@ -40,15 +40,14 @@ const GRID = [50, 100, 150];
 const DAY_TICKS = [1, 30, 60, 90, 120, 150, 180];
 const NARROW_TICKS = [1, 60, 120, 180];
 
-/** Twelve named 2026 albums over their first 180 days, each as a share of
- *  its first week's plays, with the typical launch in white and each
- *  album's cover in a column at the right, tied to where its line ends.
- *  Hovering (or touching) a line or a cover shows that album's cover, name,
- *  share and new streams that day. */
-function AlbumLines() {
+type Hover = { i: number; album: number } | null;
+
+/** Named 2026 albums over their first 180 days, each as a share of its first
+ *  week's streams, with the typical launch in white. Hovering (or touching)
+ *  a line shows that album's cover, name, share and new streams that day. */
+function AlbumLines({ hover, setHover }: { hover: Hover; setHover: (h: Hover) => void }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 640, h: 420 });
-  const [hover, setHover] = useState<{ i: number; album: number } | null>(null);
 
   useEffect(() => {
     const box = boxRef.current;
@@ -62,35 +61,18 @@ function AlbumLines() {
   }, []);
 
   const narrow = size.w < 500;
-  const cover = narrow ? 18 : 28;
-  const PAD = { top: 12, right: cover + 20, bottom: 26, left: 8 };
+  const PAD = { top: 12, right: 8, bottom: 26, left: 8 };
   const n = MEDIAN.length;
   const plotW = size.w - PAD.left - PAD.right;
   const plotH = size.h - PAD.top - PAD.bottom;
   const x = (i: number) => PAD.left + (i / (n - 1)) * plotW;
   const y = (v: number) => PAD.top + plotH - (Math.min(v, TOP) / TOP) * plotH;
   const at = (i: number, v: number) => [x(i), y(v)] as const;
-  const coverX = size.w - cover;
-  const coverY = spreadApart(
-    NAMED.map((c, k) => y(c[LAST[k]])),
-    cover + 3,
-    PAD.top + cover / 2,
-    PAD.top + plotH - cover / 2,
-  );
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    if (px > PAD.left + plotW + 6) {
-      // Over the covers: the one nearest, at the end of its line.
-      let k = 0;
-      coverY.forEach((cy, j) => { if (Math.abs(cy - py) < Math.abs(coverY[k] - py)) k = j; });
-      setHover({ i: LAST[k], album: k });
-      return;
-    }
-    const i = Math.max(0, Math.min(n - 1, Math.round(((px - PAD.left) / plotW) * (n - 1))));
-    const value = ((PAD.top + plotH - py) / plotH) * TOP;
+    const i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left - PAD.left) / plotW) * (n - 1))));
+    const value = ((PAD.top + plotH - (e.clientY - rect.top)) / plotH) * TOP;
     setHover({ i, album: nearestSeries(NAMED, i, value) });
   };
 
@@ -111,7 +93,7 @@ function AlbumLines() {
       // A finger lifting also 'leaves'; keep its reading up until the next touch.
       onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHover(null); }}
     >
-      <svg width={size.w} height={size.h} role="img" aria-label="Daily plays of twelve 2026 albums over their first 180 days, each as a share of its first week, with the typical album in white. Most fall to a fraction of their first week within a few months.">
+      <svg width={size.w} height={size.h} role="img" aria-label={`New streams a day of ${NAMED_ALBUMS.length} 2026 albums over their first 180 days, each as a share of its first week, with the typical album in white. Most fall to a fraction of their first week within a few months.`}>
         {GRID.map((g) => (
           <g key={g}>
             <line x1={PAD.left} x2={PAD.left + plotW} y1={y(g)} y2={y(g)} className="sc-lines-ref" />
@@ -128,17 +110,6 @@ function AlbumLines() {
         ))}
         <path d={linePath(MEDIAN, at)} className="sc-line-median" />
         <text x={x(medianLabel)} y={y(MEDIAN[medianLabel]) + 16} className="sc-lines-axis sc-lines-median-label">TYPICAL ALBUM</text>
-        {NAMED_ALBUMS.map((a, k) => {
-          const ex = x(LAST[k]);
-          const ey = y(a.curve[LAST[k]]);
-          const cy = coverY[k];
-          return (
-            <g key={a.name} className={hover?.album === k ? 'sc-cover sc-cover-on' : 'sc-cover'}>
-              <path d={`M${ex.toFixed(1)},${ey.toFixed(1)}L${(PAD.left + plotW + 4).toFixed(1)},${ey.toFixed(1)}L${(coverX - 4).toFixed(1)},${cy.toFixed(1)}`} className="sc-cover-lead" />
-              <image href={a.cover} x={coverX} y={cy - cover / 2} width={cover} height={cover} preserveAspectRatio="xMidYMid slice" />
-            </g>
-          );
-        })}
         {hover && (
           <g>
             <line x1={crossX} x2={crossX} y1={PAD.top} y2={PAD.top + plotH} className="sc-lines-cross" />
@@ -174,6 +145,39 @@ function AlbumLines() {
   );
 }
 
+/** Every album's cover under the chart: pointing at one (or tapping it)
+ *  picks its line, at the last day it has a reading. */
+function CoverWall({ hover, setHover }: { hover: Hover; setHover: (h: Hover) => void }) {
+  return (
+    <ul className={hover ? 'sc-wall sc-wall-hover' : 'sc-wall'} onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHover(null); }}>
+      {NAMED_ALBUMS.map((a, k) => (
+        <li key={a.cover + a.name} className={hover?.album === k ? 'sc-wall-on' : undefined}>
+          <button
+            type="button"
+            aria-label={`${a.name} by ${a.artist}`}
+            onPointerEnter={() => setHover({ i: LAST[k], album: k })}
+            onFocus={() => setHover({ i: LAST[k], album: k })}
+            onClick={() => setHover({ i: LAST[k], album: k })}
+          >
+            <img src={a.cover} alt="" referrerPolicy="no-referrer" />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AlbumFigure() {
+  const [hover, setHover] = useState<Hover>(null);
+  return (
+    <figure className="sc-figure">
+      <AlbumLines hover={hover} setHover={setHover} />
+      <CoverWall hover={hover} setHover={setHover} />
+      <figcaption>{NAMED_ALBUMS.length} OF 2026&apos;S BIGGEST ALBUMS, NEW STREAMS A DAY OVER THEIR FIRST 180 DAYS</figcaption>
+    </figure>
+  );
+}
+
 /** streamclout.io's charts page, live, across the whole screen with W and +
  *  over it, like Livestream Art's hero. It is a view, not a second
  *  browser: a click opens the site, and scrolling stays with this page. The
@@ -200,10 +204,7 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
         Each line is one album&apos;s new streams a day, as a share of what it drew a day in its
         first week. A typical 2026 album is under 40% a month in and about 15% by six months.
       </p>
-      <figure className="sc-figure">
-        <AlbumLines />
-        <figcaption>12 OF 2026&apos;S ALBUMS, NEW STREAMS A DAY OVER THEIR FIRST 180 DAYS</figcaption>
-      </figure>
+      <AlbumFigure />
 
       <p className="art-intro">{summary}</p>
 
