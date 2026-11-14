@@ -26,12 +26,6 @@ function headline(): [string, string][] {
 
 const MEDIAN = LAUNCH_MEDIAN;
 const NAMED = NAMED_ALBUMS.map((a) => a.curve);
-/** Where each named album's readings stop. */
-const LAST = NAMED.map((c) => {
-  let i = c.length - 1;
-  while (i > 0 && c[i] < 0) i--;
-  return i;
-});
 const TIP_W = 250;
 /** Readings are every second day from day 1. */
 const dayOf = (i: number) => i * 2 + 1;
@@ -145,34 +139,19 @@ function AlbumLines({ hover, setHover }: { hover: Hover; setHover: (h: Hover) =>
   );
 }
 
-/** Every album's cover under the chart: pointing at one (or tapping it)
- *  picks its line, at the last day it has a reading. */
-function CoverWall({ hover, setHover }: { hover: Hover; setHover: (h: Hover) => void }) {
-  return (
-    <ul className={hover ? 'sc-wall sc-wall-hover' : 'sc-wall'} onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHover(null); }}>
-      {NAMED_ALBUMS.map((a, k) => (
-        <li key={a.cover + a.name} className={hover?.album === k ? 'sc-wall-on' : undefined}>
-          <button
-            type="button"
-            aria-label={`${a.name} by ${a.artist}`}
-            onPointerEnter={() => setHover({ i: LAST[k], album: k })}
-            onFocus={() => setHover({ i: LAST[k], album: k })}
-            onClick={() => setHover({ i: LAST[k], album: k })}
-          >
-            <img src={a.cover} alt="" referrerPolicy="no-referrer" />
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function AlbumFigure() {
   const [hover, setHover] = useState<Hover>(null);
   return (
     <figure className="sc-figure">
       <AlbumLines hover={hover} setHover={setHover} />
-      <CoverWall hover={hover} setHover={setHover} />
+      <dl className="sc-stats">
+        {headline().map(([value, label]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
       <figcaption>{NAMED_ALBUMS.length} OF 2026&apos;S BIGGEST ALBUMS, NEW STREAMS A DAY OVER THEIR FIRST 180 DAYS</figcaption>
     </figure>
   );
@@ -207,15 +186,6 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
       <AlbumFigure />
 
       <p className="art-intro">{summary}</p>
-
-      <dl className="sc-stats">
-        {headline().map(([value, label]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
 
       <ArtLabel>TOOLS</ArtLabel>
       <ArtTags tags={tech} />

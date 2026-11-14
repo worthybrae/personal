@@ -1,6 +1,6 @@
-/* StreamClout's code page: the live site full screen, twelve real album
-   curves you can hover, with their covers, then the text and a row of
-   numbers. Builds on art-article.css. */
+/* StreamClout's code page: the live site full screen, thirty real album
+   curves you can hover with a row of numbers under them, then the text.
+   Builds on art-article.css. */
 
 /* Full screen width out of the centred column and the full height of the
    screen, with W and + drawn over it, like the Livestream Art hero. */
@@ -9,14 +9,15 @@
 .sc-hero a { position:absolute;inset:0; }
 
 /* dt follows dd visually: the number sits above its label. */
-.sc-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:28px 0 0; }
+/* Under the chart, as wide as it. */
+.sc-stats { position:relative;left:50%;transform:translateX(-50%);width:min(960px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0 0; }
 .sc-stats > div { display:flex;flex-direction:column-reverse;gap:3px; }
 .sc-stats dd { margin:0;font-size:18px;color:#fff; }
 .sc-stats dt { font-size:10px;letter-spacing:.18em;color:rgba(255,255,255,.4); }
 
 .sc-explain { font-size:13px;line-height:1.75;color:rgba(255,255,255,.55);margin:14px 0 0;max-width:560px; }
 .sc-figure { margin:16px 0 0; }
-.sc-figure figcaption { font-size:10px;letter-spacing:.14em;line-height:1.7;color:rgba(255,255,255,.3);margin-top:10px; }
+.sc-figure figcaption { font-size:10px;letter-spacing:.14em;line-height:1.7;color:rgba(255,255,255,.3);margin-top:18px; }
 
 /* Wider than the text column, up to 960px, centred on it. */
 .sc-lines { position:relative;left:50%;transform:translateX(-50%);width:min(960px,calc(100vw - 32px));height:440px;cursor:crosshair;touch-action:pan-y; }
@@ -30,13 +31,6 @@
 .sc-lines-cross { stroke:rgba(255,255,255,.25); }
 .sc-lines-axis { font-size:10px;letter-spacing:.12em;fill:rgba(255,255,255,.3); }
 .sc-dot-median { fill:#fff; }
-/* The covers, as wide as the chart, under it. */
-.sc-wall { position:relative;left:50%;transform:translateX(-50%);width:min(960px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin:14px 0 0;padding:0;list-style:none; }
-.sc-wall button { display:block;width:100%;aspect-ratio:1;padding:0;border:0;background:rgba(255,255,255,.06);cursor:pointer;transition:opacity .15s,outline-color .15s;outline:1px solid transparent;outline-offset:2px; }
-.sc-wall img { display:block;width:100%;height:100%;object-fit:cover; }
-.sc-wall-hover button { opacity:.35; }
-.sc-wall-hover .sc-wall-on button { opacity:1;outline-color:rgba(255,255,255,.8); }
-.sc-wall button:focus-visible { opacity:1;outline-color:#fff; }
 .sc-dot-on { fill:#000;stroke:#fff;stroke-width:1.4; }
 .sc-tip { position:absolute;width:250px;padding:10px 12px;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.14);font-size:10px;letter-spacing:.14em;line-height:1.9;color:rgba(255,255,255,.45);pointer-events:none; }
 .sc-tip span { display:inline-block;min-width:46px;margin-right:4px;font-size:13px;letter-spacing:0;color:#fff; }
@@ -51,5 +45,4 @@
   .sc-stats dd { font-size:16px; }
   .sc-stats dt { letter-spacing:.12em; }
   .sc-lines { height:300px; }
-  .sc-wall { grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:5px; }
 }
