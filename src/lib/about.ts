@@ -19,11 +19,26 @@ export interface Shelf {
 export const SHELVES: Shelf[] = [
   {
     label: 'MOVIES',
-    items: [],
+    items: [
+      { title: 'Oldboy', by: 'Park Chan-wook', url: 'https://letterboxd.com/film/oldboy/' },
+      { title: 'Vertigo', by: 'Alfred Hitchcock', url: 'https://letterboxd.com/film/vertigo/' },
+      { title: 'Silence', by: 'Martin Scorsese', url: 'https://letterboxd.com/film/silence/' },
+      { title: 'A Clockwork Orange', by: 'Stanley Kubrick', url: 'https://letterboxd.com/film/a-clockwork-orange/' },
+      { title: 'Ice Merchants', by: 'João Gonzalez', url: 'https://letterboxd.com/film/ice-merchants/' },
+    ],
     allUrl: 'https://letterboxd.com/stingray7/films/',
     allLabel: 'EVERYTHING I’VE WATCHED',
   },
-  { label: 'TV SHOWS', items: [] },
+  {
+    label: 'TV SHOWS',
+    items: [
+      { title: 'Scavengers Reign', by: 'Joseph Bennett, Charles Huettner' },
+      { title: 'Pantheon', by: 'Craig Silverstein' },
+      { title: 'Severance', by: 'Dan Erickson' },
+      { title: 'Andor', by: 'Tony Gilroy' },
+      { title: 'The Wire', by: 'David Simon' },
+    ],
+  },
   { label: 'BOOKS', items: [] },
   { label: 'ALBUMS', items: [] },
   { label: 'RESTAURANTS', items: [] },
