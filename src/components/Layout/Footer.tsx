@@ -11,7 +11,7 @@ export default function Footer() {
         <a href="https://github.com/worthybrae" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
           github
         </a>
-        <a href="https://letterboxd.com/worthybrae" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
+        <a href="https://letterboxd.com/stingray7" target="_blank" rel="noopener noreferrer" className="hover:text-muted transition-colors">
           letterboxd
         </a>
       </div>

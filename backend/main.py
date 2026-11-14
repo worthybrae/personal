@@ -137,6 +137,12 @@ def spotify_callback(code: str):
     return {"status": "authenticated"}
 
 
+@app.get("/api/github/activity")
+def github_activity():
+    from github import get_activity
+    return get_activity()
+
+
 @app.get("/api/letterboxd/recent")
 def letterboxd_recent():
     from letterboxd import get_recent_films

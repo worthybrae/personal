@@ -14,7 +14,7 @@ export const SITE = {
     'https://github.com/worthybrae',
     'https://linkedin.com/in/worthyrae',
     'https://open.spotify.com/user/worthybrae',
-    'https://letterboxd.com/worthybrae',
+    'https://letterboxd.com/stingray7',
   ],
 };
 

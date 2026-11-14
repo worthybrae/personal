@@ -1,13 +1,22 @@
 /* The about page reuses the art article look (art-article.css); these are
-   the two pieces it adds. */
-.about-history li { grid-template-columns:44px 120px 1fr; }
+   the pieces it adds. */
+
+/* One column per week, stretched to the column width. */
+.about-activity-grid { display:grid;text-decoration:none;color:#fff;font-size:9px;line-height:11px; }
+.about-activity-week { display:flex;flex-direction:column;align-items:center; }
+.about-activity-week span { height:11px; }
+@media (max-width:560px) { .about-activity-grid { font-size:7px; } }
+.about-activity-grid:hover { filter:brightness(1.25); }
+.about-activity .about-activity-caption { font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.4);margin-top:10px; }
+
+.about-shelf li { grid-template-columns:28px minmax(0,1.2fr) 1fr; }
+.about-shelf a { color:#fff;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.25); }
+.about-shelf a:hover { border-color:#fff; }
+.about-all { display:inline-block;margin-top:12px;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5);text-decoration:none; }
+.about-all:hover { color:#fff; }
 
 .about-links { display:flex;flex-wrap:wrap;gap:8px; }
 .about-links a { font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;text-decoration:none;transition:color .15s,border-color .15s; }
 .about-links a:hover { color:#fff;border-color:rgba(255,255,255,.6); }
-
-@media (max-width:560px) {
-  .about-history li { grid-template-columns:44px 1fr; }
-}
 
 .about-portrait { display:block;margin:0 auto 28px; }

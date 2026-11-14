@@ -71,3 +71,9 @@ export interface LetterboxdFilm {
 export interface LetterboxdRecent {
   films: LetterboxdFilm[];
 }
+
+export interface GithubActivity {
+  user: string;
+  total: number;
+  days: { date: string; count: number; level: number }[];
+}

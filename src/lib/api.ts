@@ -8,6 +8,7 @@ import type {
   SpotifyNowPlaying,
   SpotifyTopTracks,
   LetterboxdRecent,
+  GithubActivity,
 } from '@/types/analytics';
 import type { MusicCatalog, MusicPlayStats } from '@/types/music';
 
@@ -29,6 +30,7 @@ export const api = {
   getSpotifyNowPlaying: () => fetchJSON<SpotifyNowPlaying>('/spotify/now-playing'),
   getSpotifyTopTracks: () => fetchJSON<SpotifyTopTracks>('/spotify/top-tracks'),
   getLetterboxdRecent: () => fetchJSON<LetterboxdRecent>('/letterboxd/recent'),
+  getGithubActivity: () => fetchJSON<GithubActivity>('/github/activity'),
   getMusicCatalog: () => fetchJSON<MusicCatalog>('/music/catalog'),
   getMusicPlayStats: () => fetchJSON<MusicPlayStats>('/music/plays/stats'),
   recordMusicPlay: async (trackId: string): Promise<MusicPlayStats> => {
