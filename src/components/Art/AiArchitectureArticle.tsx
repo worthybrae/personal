@@ -12,12 +12,13 @@ import {
   type LatentWalk,
 } from '@/lib/aiArchitecture';
 import { ArtLabel as Label, ArtTags, InViewClip } from './ArtArticleParts';
+import { markLoaded } from '@/lib/fadeIn';
 
 /** The piece itself, at the top of the page above the title. */
 export function AiArchitectureHero() {
   return (
     <figure className="art-hero">
-      <video src={AI_ARCH_HERO_URL} poster={AI_ARCH_HERO_POSTER} autoPlay muted loop playsInline aria-label="Flesh digression, a curved walk through the model's latent space" />
+      <video className="media-fade" onLoadedData={markLoaded} src={AI_ARCH_HERO_URL} poster={AI_ARCH_HERO_POSTER} autoPlay muted loop playsInline aria-label="Flesh digression, a curved walk through the model's latent space" />
       <figcaption>FLESH DIGRESSION · A CURVED WALK THROUGH LATENT SPACE</figcaption>
     </figure>
   );

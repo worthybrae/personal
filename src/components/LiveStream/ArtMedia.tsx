@@ -1,5 +1,6 @@
 import type { ArtPiece } from '@/lib/art'
 import { LiveStreamPlayer } from './LiveStreamPlayer'
+import { markLoaded } from '@/lib/fadeIn';
 
 export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: boolean }): JSX.Element | null {
   if (piece.slug === 'livestream-art') {
@@ -23,7 +24,8 @@ export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: bool
       />
     ) : (
       <video
-        className="w-full rounded-lg shadow-lg shadow-black/30"
+        className="w-full rounded-lg shadow-lg shadow-black/30 media-fade"
+        onLoadedData={markLoaded}
         src={piece.videoUrl}
         autoPlay
         muted
@@ -34,7 +36,7 @@ export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: bool
   }
 
   if (piece.imageUrl) {
-    return <img className="w-full rounded-lg shadow-lg shadow-black/30" src={piece.imageUrl} alt="" />
+    return <img className="w-full rounded-lg shadow-lg shadow-black/30 media-fade" onLoad={markLoaded} src={piece.imageUrl} alt="" />
   }
 
   return null

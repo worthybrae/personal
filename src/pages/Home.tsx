@@ -22,6 +22,7 @@ import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveS
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 import { AboutArticle } from '@/components/About/AboutArticle';
 import { AboutPortrait } from '@/components/About/AboutPortrait';
+import { markLoaded } from '@/lib/fadeIn';
 
 // 'feed' is the code list at /code and 'work-detail' a project under it; the
 // internal names predate the rename. Old /feed and /work/* links redirect
@@ -1078,7 +1079,8 @@ function MediaBlock({ videoUrl, posterUrl, imageUrl }: { videoUrl?: string; post
       />
     ) : (
       <video
-        className="w-full rounded-lg shadow-lg shadow-black/30"
+        className="w-full rounded-lg shadow-lg shadow-black/30 media-fade"
+        onLoadedData={markLoaded}
         src={videoUrl}
         poster={posterUrl}
         autoPlay
@@ -1091,7 +1093,8 @@ function MediaBlock({ videoUrl, posterUrl, imageUrl }: { videoUrl?: string; post
   if (imageUrl) {
     return (
       <img
-        className="w-full rounded-lg shadow-lg shadow-black/30"
+        className="w-full rounded-lg shadow-lg shadow-black/30 media-fade"
+        onLoad={markLoaded}
         src={imageUrl}
         alt=""
       />

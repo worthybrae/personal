@@ -15,6 +15,9 @@ import { RAMP } from '@/components/Dashboard/ramp';
 // and hair warm, shirt cool). The rim fades out, so the circle has no edge.
 
 const MAP_URL = '/media/about/portrait-map.png';
+// The person fades in over the terrain once the map has loaded, so a slow
+// first load doesn't pop the face in.
+const MAP_FADE_MS = 700;
 const MAP_SIZE = 256;
 const SIZE = 380; // CSS px; shrinks to fit narrow screens
 const FONT_PX = 5;
@@ -106,6 +109,7 @@ export function AboutPortrait() {
     const grid = new Float32Array(gCols * gRows);
 
     let map: PortraitMap | null = null;
+    let mapAt = 0;
     let raf = 0;
     let last = -Infinity;
     let visible = true;
@@ -114,6 +118,8 @@ export function AboutPortrait() {
 
     const draw = (ts: number) => {
       const t = ts / SPEED_DIVISOR;
+      const fadeK = map ? (reduceMotion ? 1 : Math.min(1, Math.max(0, (ts - mapAt) / MAP_FADE_MS))) : 0;
+      const mapFade = fadeK * fadeK * (3 - 2 * fadeK);
       const bg = getDuotoneColor(0, t);
       const bgR = Math.floor(bg.bgR);
       const bgG = Math.floor(bg.bgG);
@@ -168,7 +174,7 @@ export function AboutPortrait() {
           let hue = terrain;
           let val = terrain * BG_LEVEL;
           if (map) {
-            const m = sampleMap(map.mask, u, v);
+            const m = sampleMap(map.mask, u, v) * mapFade;
             if (m > 0.01) {
               // The photo is pre-blurred, so the face is soft light and shade
               // rather than features, and the terrain's waves run through it.
@@ -202,6 +208,7 @@ export function AboutPortrait() {
       .then((m) => {
         if (cancelled) return;
         map = m;
+        mapAt = performance.now();
         if (reduceMotion) draw(performance.now());
       })
       .catch(() => {});

@@ -67,7 +67,12 @@ export function PosterStrip({ items, square = false }: { items: Favorite[]; squa
       const rows = Math.max(8, Math.round(el.clientHeight / FONT_PX));
       const p: Poster = { el, ctx, lum: null, cols, rows };
       posters.push(p);
-      loadLuminance(src, cols, rows).then((lum) => { if (!cancelled) p.lum = lum; }).catch(() => {});
+      loadLuminance(src, cols, rows).then((lum) => {
+        if (cancelled) return;
+        p.lum = lum;
+        // Fades in (about.css) once there's something to draw.
+        requestAnimationFrame(() => el.classList.add('is-ready'));
+      }).catch(() => {});
     });
 
     const draw = (ts: number) => {
