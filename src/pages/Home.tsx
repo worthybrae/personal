@@ -20,7 +20,7 @@ import { ArtMedia } from '@/components/LiveStream/ArtMedia';
 import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
-import { AboutArticle, RESUME_URL } from '@/components/About/AboutArticle';
+import { AboutArticle } from '@/components/About/AboutArticle';
 import { AboutPortrait } from '@/components/About/AboutPortrait';
 
 // 'feed' is the code list at /code and 'work-detail' a project under it; the
@@ -841,32 +841,12 @@ export default function Home() {
       {showAbout && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
           <AboutPortrait />
-          <div className="flex items-start justify-between gap-4">
-            <div className="text-left">
-              <h1
-                className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal"
-                style={{ fontFamily: monoFont }}
-              >
-                WORTHY RAE
-              </h1>
-              <div
-                className="text-xs md:text-sm uppercase tracking-wider mt-1 text-white/30"
-                style={{ fontFamily: monoFont }}
-              >
-                AI PRODUCT ENGINEER · NEW YORK
-              </div>
-            </div>
-            <a
-              href={RESUME_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 shrink-0 mt-1 px-3 py-1.5 text-xs uppercase tracking-wider text-white/50 hover:text-white/90 border border-white/20 hover:border-white/50 transition-colors"
-              style={{ fontFamily: monoFont }}
-            >
-              <ExternalLink size={12} />
-              Resume
-            </a>
-          </div>
+          <h1
+            className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal text-center"
+            style={{ fontFamily: monoFont }}
+          >
+            WORTHY RAE
+          </h1>
           <AboutArticle />
         </DetailOverlay>
       )}

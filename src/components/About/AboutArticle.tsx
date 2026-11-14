@@ -17,8 +17,7 @@ export function AboutArticle() {
     <article className="art-article" aria-label="About Worthy Rae">
       <p className="art-intro">
         I live in New York and I love building things with code. I try to push on the line between code and
-        creativity: generative art, music, live visuals, and tools I wished existed. By day I'm an AI product
-        engineer at Camber.
+        creativity: generative art, music, live visuals, and tools I wished existed.
       </p>
 
       <ArtLabel>LATELY</ArtLabel>
