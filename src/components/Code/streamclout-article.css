@@ -9,8 +9,8 @@
 .sc-hero a { position:absolute;inset:0; }
 
 /* dt follows dd visually: the number sits above its label. */
-/* Under the chart, as wide as it. */
-.sc-stats { position:relative;left:50%;transform:translateX(-50%);width:min(960px,calc(100vw - 32px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0 0; }
+/* Under the chart, as wide as the text under it (70ch at 13px, from art-article.css). */
+.sc-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0 0;font-size:13px;max-width:70ch; }
 .sc-stats > div { display:flex;flex-direction:column-reverse;gap:3px; }
 .sc-stats dd { margin:0;font-size:18px;color:#fff; }
 .sc-stats dt { font-size:10px;letter-spacing:.18em;color:rgba(255,255,255,.4); }
