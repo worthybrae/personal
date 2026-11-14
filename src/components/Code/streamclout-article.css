@@ -1,0 +1,26 @@
+/* StreamClout's code page: a still of the site, the catalog in numbers, and
+   the rewrites as dated before/after rows. Builds on art-article.css. */
+.sc-still { margin:28px 0 0; }
+.sc-still img { display:block;width:100%;height:auto;aspect-ratio:16/10;border-radius:8px;background:#0a0a0a;box-shadow:0 10px 15px -3px rgba(0,0,0,.3); }
+.sc-still figcaption { font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.3);margin-top:7px; }
+
+/* dt follows dd visually: the number sits above its label. */
+.sc-stats { display:grid;grid-template-columns:repeat(4,1fr);margin:32px 0 0;border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1); }
+.sc-stats > div { display:flex;flex-direction:column-reverse;gap:4px;padding:16px 0; }
+.sc-stats dd { margin:0;font-size:26px;font-weight:300;letter-spacing:.02em;color:#fff; }
+.sc-stats dt { font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.4); }
+.sc-stats-note { font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.3);margin-top:9px; }
+
+/* Dated rows, like the Livestream Art steps with a date in front. */
+.sc-rewrites { list-style:none;margin:18px 0 0;padding:0;border-top:1px solid rgba(255,255,255,.1); }
+.sc-rewrites li { display:grid;grid-template-columns:64px 160px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.6; }
+.sc-rewrites li span:nth-child(1) { color:rgba(255,255,255,.3); }
+.sc-rewrites li span:nth-child(2) { letter-spacing:.14em;color:#fff; }
+.sc-rewrites li span:nth-child(3) { color:#9a9a9a; }
+
+@media (max-width:560px) {
+  .sc-stats { grid-template-columns:repeat(2,1fr); }
+  .sc-stats dd { font-size:22px; }
+  .sc-rewrites li { grid-template-columns:64px 1fr;row-gap:2px; }
+  .sc-rewrites li span:nth-child(3) { grid-column:2; }
+}

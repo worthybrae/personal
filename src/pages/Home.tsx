@@ -21,6 +21,7 @@ import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 import { AboutArticle } from '@/components/About/AboutArticle';
+import { StreamCloutArticle } from '@/components/Code/StreamCloutArticle';
 import { AboutPortrait } from '@/components/About/AboutPortrait';
 import { markLoaded } from '@/lib/fadeIn';
 
@@ -905,23 +906,29 @@ export default function Home() {
               View
             </a>
           </div>
-          <div className="mt-8">
-            <MediaBlock videoUrl={displayProject.videoUrl} posterUrl={displayProject.posterUrl} imageUrl={displayProject.imageUrl} />
-          </div>
-          <div
-            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-            style={{ fontFamily: monoFont }}
-          >
-            SUMMARY
-          </div>
-          <PretextSummary text={displayProject.summary} />
-          <div
-            className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
-            style={{ fontFamily: monoFont }}
-          >
-            TOOLS
-          </div>
-          <TechTags tags={displayProject.tech} />
+          {displayProject.slug === 'streamclout' ? (
+            <StreamCloutArticle summary={displayProject.summary} tech={displayProject.tech} />
+          ) : (
+            <>
+              <div className="mt-8">
+                <MediaBlock videoUrl={displayProject.videoUrl} posterUrl={displayProject.posterUrl} imageUrl={displayProject.imageUrl} />
+              </div>
+              <div
+                className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+                style={{ fontFamily: monoFont }}
+              >
+                SUMMARY
+              </div>
+              <PretextSummary text={displayProject.summary} />
+              <div
+                className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left"
+                style={{ fontFamily: monoFont }}
+              >
+                TOOLS
+              </div>
+              <TechTags tags={displayProject.tech} />
+            </>
+          )}
           <ProjectAnalyticsSection slug={displayProject.slug} />
         </DetailOverlay>
       )}
