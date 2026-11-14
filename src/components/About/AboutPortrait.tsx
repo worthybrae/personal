@@ -5,23 +5,27 @@ import { RAMP } from '@/components/Dashboard/ramp';
 
 // A round portrait drawn the way the site background is drawn: glyphs from
 // "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped
-// head-and-shoulders photo: red holds brightness, green holds the person mask
+// waist-up photo against a graffiti wall: red holds brightness, green holds the person mask
 // (from macOS Vision). Inside the mask the photo sets the brightness with a
-// little terrain moving through it; outside, the terrain flows on its own.
+// little terrain moving through it; outside, the graffiti wall behind is
+// kept but dimmer, with the terrain flowing through it more strongly. A lit
+// edge traces the mask so the dark shirt separates from the dark wall.
 
 const MAP_URL = '/media/about/portrait-map.png';
-const MAP_SIZE = 160;
-const SIZE = 240; // CSS px
+const MAP_SIZE = 256;
+const SIZE = 380; // CSS px; shrinks to fit narrow screens
 const FONT_PX = 5;
 // Same clock as the background terrain (useTerrainAnimation speedDivisor), so
 // the circle runs through the palettes in step with the page behind it.
 const SPEED_DIVISOR = 6750;
 const FRAME_MS = 1000 / 24;
 const LEVELS = 48;
-// How much the terrain shows through the person, and how bright the terrain
-// around them is allowed to get, so the face stays the brightest thing.
-const TERRAIN_IN_PERSON = 0.22;
-const SURROUND_LEVEL = 0.55;
+// How much the terrain shows through the person and through the wall, and
+// how bright the wall is allowed to get, so the face stays the brightest thing.
+const TERRAIN_IN_PERSON = 0.12;
+const TERRAIN_IN_WALL = 0.32;
+const WALL_LEVEL = 0.62;
+const EDGE_LEVEL = 0.78;
 const NOISE_SCALE = 2.4;
 
 interface PortraitMap { lum: Float32Array; mask: Float32Array }
@@ -126,17 +130,27 @@ export function AboutPortrait() {
 
           let terrain = (warpedTerrain(u * NOISE_SCALE, v * NOISE_SCALE, t) + 0.5) / 1.8;
           terrain = Math.max(0, Math.min(1, terrain));
-          // Same contrast curve as the background terrain, then dimmed.
-          let val = scurve(terrain, 8) * SURROUND_LEVEL;
+          // Before the map loads: the background terrain's curve, dimmed.
+          let val = scurve(terrain, 8) * WALL_LEVEL;
           if (map) {
-            // A slight drift in where the photo is sampled, so the person
-            // breathes with the terrain without losing the face.
-            const su = u + fbm(u * 2.5 + 1.7, v * 2.5 + ft, 3) * 0.012;
-            const sv = v + fbm(u * 2.5 + 9.2 + ft, v * 2.5, 3) * 0.012;
-            const photo = sampleMap(map.lum, su, sv);
-            const inPerson = sampleMap(map.mask, su, sv);
-            const person = scurve(photo + (terrain - 0.45) * TERRAIN_IN_PERSON, 5.5);
-            val = val + (person - val) * inPerson;
+            const inPerson = sampleMap(map.mask, u, v);
+            let person = 0;
+            if (inPerson > 0.01) {
+              // The person is sampled where they are, so the face holds still.
+              person = scurve(sampleMap(map.lum, u, v) * 1.12 - 0.04 + (terrain - 0.45) * TERRAIN_IN_PERSON, 5.5);
+            }
+            let wall = 0;
+            if (inPerson < 0.99) {
+              // The wall drifts a little, like it's under water.
+              const su = u + fbm(u * 2.5 + 1.7, v * 2.5 + ft, 3) * 0.015;
+              const sv = v + fbm(u * 2.5 + 9.2 + ft, v * 2.5, 3) * 0.015;
+              wall = scurve(sampleMap(map.lum, su, sv) * 0.8 + (terrain - 0.45) * TERRAIN_IN_WALL, 6) * WALL_LEVEL;
+            }
+            val = wall + (person - wall) * inPerson;
+            // A soft lit edge where the mask crosses half, so the dark shirt
+            // still separates from the dark wall.
+            const edge = Math.max(0, 1 - Math.abs(inPerson - 0.5) * 2);
+            if (edge > 0) val = Math.max(val, edge * EDGE_LEVEL);
           }
           ctx.fillStyle = lut[Math.min(LEVELS - 1, (val * LEVELS) | 0)];
           ctx.fillText(RAMP[Math.min(RAMP.length - 1, (val * (RAMP.length - 1)) | 0)], c * charW, r * charH);
@@ -176,7 +190,7 @@ export function AboutPortrait() {
     <canvas
       ref={canvasRef}
       className="about-portrait"
-      style={{ width: SIZE, height: SIZE }}
+      style={{ width: `min(${SIZE}px, 100%)`, aspectRatio: '1' }}
       aria-hidden="true"
     />
   );
