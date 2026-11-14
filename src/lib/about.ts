@@ -34,7 +34,7 @@ export const SHELVES: Shelf[] = [
     ],
   },
   {
-    label: 'tv',
+    label: 'TV',
     items: [
       { title: 'Scavengers Reign', by: 'Joseph Bennett, Charles Huettner', url: 'https://www.themoviedb.org/tv/204154-scavengers-reign', image: tmdb('bFlVZV8TQbs8hcIY7PVYonYFMgK') },
       { title: 'Pantheon', by: 'Craig Silverstein', url: 'https://www.themoviedb.org/tv/195339-pantheon', image: tmdb('28xQt18ryWRcx9tBkK0MBsNNRw5') },
