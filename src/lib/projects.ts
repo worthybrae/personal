@@ -26,11 +26,11 @@ export const PROJECTS: ProjectMeta[] = [
     slug: 'streamclout',
     name: 'STREAMCLOUT',
     description: 'STREAMING ANALYTICS DASHBOARD',
-    summary: 'A real-time analytics platform that brings transparency to music streaming metrics. StreamClout reverse-engineers Spotify\'s internal GraphQL endpoints to access play count data unavailable through their public API, using Playwright for headless browser automation to capture authentication tokens. A distributed Celery task queue continuously processes thousands of albums in three stages — batch retrieval, track data fetching with exponential backoff, and trend analysis. The frontend dynamically extracts color schemes from album cover art to create unique visual identities for each artist page, and a "Stream Velocity" metric identifies tracks experiencing unusual growth patterns that might indicate viral potential. The platform also exposes a public API with rate limiting and key management for third-party integrations.',
+    summary: 'StreamClout tracks the play count of every song on Spotify, every day, numbers Spotify\'s public API doesn\'t offer. Each night it refreshes 4.7M artists, 24.3M albums and 81.2M songs, plus 2.3M playlists holding 149M song slots, and the daily history runs back to January 2026. Fitting that into one night has taken a year of rewrites, from a Python crawler to a Rust ingestion engine and a columnar build pipeline. The old nightly build re-read a month of raw play counts, 2.7 billion rows, in 128 minutes on a 16-core cloud machine; today a day of history is stored in 56 MB instead of 2.7 GB. In November 2026 the API server was switched off entirely and the site moved to the edge, with warm lookups at a 9 ms p95. One query fix alone took an artist export from 44 minutes to two.',
     url: 'https://streamclout.io',
     videoUrl: 'https://portfolio-worthy.s3.us-east-1.amazonaws.com/StreamCloutAd.mp4',
     posterUrl: '/media/code/streamclout.jpg',
-    tech: ['React', 'FastAPI', 'Celery', 'Playwright', 'PostgreSQL', 'Python', 'Rust'],
+    tech: ['Rust', 'Python', 'DuckDB', 'Cloudflare', 'React', 'TypeScript'],
   },
 ];
 
