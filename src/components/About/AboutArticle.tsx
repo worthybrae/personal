@@ -16,8 +16,9 @@ export function AboutArticle() {
   return (
     <article className="art-article" aria-label="About Worthy Rae">
       <p className="art-intro">
-        I live in New York and I love building things with code. I try to push on the line between code and
-        creativity: generative art, music, live visuals, and tools I wished existed.
+        I live in New York and I love building things with code. I'm really passionate about music streaming
+        analytics and about pushing the boundaries of live art, both digital and physical. I'm always trying to
+        learn something new.
       </p>
 
       {shelves.map((shelf) => (

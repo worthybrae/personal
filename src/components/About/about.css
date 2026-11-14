@@ -1,10 +1,8 @@
 /* The about page reuses the art article look (art-article.css); these are
    the pieces it adds. */
 
-/* One glyph per week, stretched across the column. */
-.about-activity-row { display:grid;text-decoration:none;color:#fff;font-size:14px;line-height:1;text-align:center; }
-@media (max-width:560px) { .about-activity-row { font-size:9px; } }
-.about-activity-row:hover { filter:brightness(1.25); }
+.about-activity-canvas { display:block;width:100%; }
+.about-activity a:hover .about-activity-canvas { filter:brightness(1.25); }
 .about-activity .about-activity-caption { font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.4);margin-top:10px; }
 
 .about-shelf li { grid-template-columns:28px minmax(0,1.2fr) 1fr; }
