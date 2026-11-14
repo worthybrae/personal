@@ -18,7 +18,7 @@ export function AboutArticle() {
     <article className="art-article" aria-label="About Worthy Rae">
       <p className="art-intro about-intro">
         I live in New York and I love building things with code. I'm really passionate about music streaming
-        analytics and about pushing the boundaries of living art, both digital and physical. I'm always trying to
+        analytics and living art, both digital and physical. I'm always trying to
         learn something new.
       </p>
 
