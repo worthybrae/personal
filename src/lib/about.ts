@@ -24,7 +24,7 @@ export interface Shelf {
 
 export const SHELVES: Shelf[] = [
   {
-    label: 'MOVIES',
+    label: 'FILM',
     items: [
       { title: 'Oldboy', by: 'Park Chan-wook', url: 'https://letterboxd.com/film/oldboy/', image: tmdb('pWDtjs568ZfOTMbURQBYuT4Qxka') },
       { title: 'Vertigo', by: 'Alfred Hitchcock', url: 'https://letterboxd.com/film/vertigo/', image: tmdb('15uOEfqBNTVtDUT7hGBVCka0rZz') },
@@ -34,7 +34,7 @@ export const SHELVES: Shelf[] = [
     ],
   },
   {
-    label: 'TV SHOWS',
+    label: 'TV',
     items: [
       { title: 'Scavengers Reign', by: 'Joseph Bennett, Charles Huettner', url: 'https://www.themoviedb.org/tv/204154-scavengers-reign', image: tmdb('bFlVZV8TQbs8hcIY7PVYonYFMgK') },
       { title: 'Pantheon', by: 'Craig Silverstein', url: 'https://www.themoviedb.org/tv/195339-pantheon', image: tmdb('28xQt18ryWRcx9tBkK0MBsNNRw5') },
@@ -45,7 +45,7 @@ export const SHELVES: Shelf[] = [
   },
   { label: 'BOOKS', items: [] },
   {
-    label: 'ALBUMS',
+    label: 'MUSIC',
     cover: 'square',
     items: [
       { title: 'channel ORANGE', by: 'Frank Ocean', url: 'https://music.apple.com/us/album/channel-orange/1440765580', image: apple('Music125/v4/04/f8/63/04f863fc-2852-604f-c910-a97ac069506b/12UMGIM40339.rgb.jpg') },
