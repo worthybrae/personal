@@ -1047,7 +1047,7 @@ export function useTerrainAnimation(
     // Album-art tile grid (music mode): square art region (T cols wide, ~T*0.602
     // rows tall to read as visually square given the 0.602 char aspect ratio),
     // a 1-row pad, then 2 centered 2x text lines (title, artist). The grid fills
-    // the region beside/below the pinned intro panel (musicPanelLayout), and
+    // the region below the pinned intro band (musicPanelLayout), and
     // musicSlotRows full rows of tiles form the fixed slots — scrolling swaps
     // slot content in whole row-blocks (see the snap logic in draw()) instead
     // of sliding tiles, so feedMaxScroll is measured in whole periods.
@@ -1055,7 +1055,7 @@ export function useTerrainAnimation(
       const L = getMusicLayout();
       const tileGap = feedColGap; // reuse the same deliberate terrain-band gap, both axes
       const regionLeft = L.tilesLeftCol;
-      const regionRight = cols - (isMobile ? 3 : 5);
+      const regionRight = L.tilesRightCol;
       const availCols = Math.max(10, regionRight - regionLeft + 1);
       // Mobile: 2 columns of large tiles (readable 2x captions, thumbable
       // targets) instead of a cramped 3-4 column grid.

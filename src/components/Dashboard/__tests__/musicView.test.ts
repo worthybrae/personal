@@ -14,18 +14,35 @@ function makeStubCtx() {
   } as unknown as CanvasRenderingContext2D;
 }
 
+const lineCenter = (l: { str: string; col: number; scale: number }) => l.col + (l.str.length * l.scale) / 2;
+
 describe('musicPanelLayout', () => {
-  it('desktop: reserves a left panel and starts tiles right of it', () => {
+  it('desktop: centers the title, blurb and search above the tiles', () => {
     const L = musicPanelLayout(geom, false);
-    expect(L.tilesLeftCol).toBeGreaterThan(L.panelLeft + L.panelWidth);
-    expect(L.lines.length).toBeGreaterThan(2); // title lines + wrapped blurb
+    expect(L.lines.length).toBeGreaterThan(2); // title + wrapped blurb
+    for (const l of L.lines) expect(Math.abs(lineCenter(l) - geom.cols / 2)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(L.panelLeft + L.panelWidth / 2 - geom.cols / 2)).toBeLessThanOrEqual(1);
     expect(L.searchRow).toBeGreaterThan(L.panelTop);
+    expect(L.statRow).toBeGreaterThan(L.searchRow);
+    expect(L.tilesTopRow).toBeGreaterThan(L.statRow + 2);
   });
 
-  it('mobile: panel is a top band and tiles start below the search input', () => {
-    const L = musicPanelLayout({ ...geom, cols: 60 }, true);
-    expect(L.tilesLeftCol).toBe(L.panelLeft);
-    expect(L.tilesTopRow).toBeGreaterThan(L.searchRow);
+  it('desktop: the tile region is centered with equal margins', () => {
+    const L = musicPanelLayout(geom, false);
+    expect(L.tilesLeftCol).toBeGreaterThan(0);
+    expect(Math.abs(L.tilesLeftCol - (geom.cols - 1 - L.tilesRightCol))).toBeLessThanOrEqual(1);
+  });
+
+  it('writes the blurb in sentence case, not all caps', () => {
+    const L = musicPanelLayout(geom, false);
+    expect(L.lines.some((l) => /[a-z]/.test(l.str))).toBe(true);
+  });
+
+  it('mobile: centered top band, tiles start below the stat line', () => {
+    const g = { ...geom, cols: 60 };
+    const L = musicPanelLayout(g, true);
+    for (const l of L.lines) expect(Math.abs(lineCenter(l) - g.cols / 2)).toBeLessThanOrEqual(1.5);
+    expect(L.tilesTopRow).toBeGreaterThan(L.statRow);
   });
 });
 
