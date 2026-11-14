@@ -75,6 +75,18 @@ export default function Home() {
   // up, untouched, while the black veil comes down over it, then closes
   // instantly behind the veil as the route lands (the entry-fade timer).
   const menuCloseBehindVeilRef = useRef(false);
+  // + on a detail page fades the page to black first, the way W does, and
+  // only then opens the menu over it. The page stays faded while the menu
+  // is up and comes back as the menu closes.
+  const [menuPageFade, setMenuPageFade] = useState(false);
+  const menuFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelMenuFade = useCallback(() => {
+    if (menuFadeTimerRef.current) clearTimeout(menuFadeTimerRef.current);
+    menuFadeTimerRef.current = null;
+  }, []);
+  useEffect(() => {
+    if (!menuOpen) setMenuPageFade(false);
+  }, [menuOpen]);
   useEffect(() => {
     if (!menuVeil) return;
     const id = setTimeout(() => setMenuVeil(false), 1000);
@@ -93,6 +105,11 @@ export default function Home() {
   const contactCloseToHomeRef = useRef(false);
 
   const route = parseRoute(location.pathname);
+  // A route change (back button, W) drops a menu-open fade still pending.
+  useEffect(() => {
+    cancelMenuFade();
+    if (!menuOpenRef.current) setMenuPageFade(false);
+  }, [location.pathname, cancelMenuFade]);
 
   // Leaving a detail page (W, back) for anywhere but the work list: hold the
   // detail page for EXIT_FADE_MS while its media fades to black, then let
@@ -519,6 +536,7 @@ export default function Home() {
   // both land in the same commit — otherwise the menu closes a frame early
   // and the page being left flashes under it.
   const handleLogoClick = useCallback(() => {
+    cancelMenuFade();
     startTransition(() => {
       if (menuOpen) {
         menuCloseToHomeRef.current = true;
@@ -532,7 +550,7 @@ export default function Home() {
       }
     });
     navigate('/');
-  }, [navigate, menuOpen, contactOpen]);
+  }, [navigate, menuOpen, contactOpen, cancelMenuFade]);
   const handleNameClick = useCallback(() => navigate('/about'), [navigate]);
   const handleMenuClick = useCallback(() => {
     if (menuOpen) {
@@ -548,12 +566,21 @@ export default function Home() {
         setMenuOpen(false);
         if (isDetailPage(page)) setMenuVeil(true);
       }
+    } else if (isDetailPage(page) && !contactOpen) {
+      // A detail page fades to black first, like leaving it with W, then
+      // the menu comes in over the black.
+      if (menuFadeTimerRef.current) return;
+      setMenuPageFade(true);
+      menuFadeTimerRef.current = setTimeout(() => {
+        menuFadeTimerRef.current = null;
+        setMenuOpen(true);
+      }, EXIT_FADE_MS);
     } else {
       // Opens over contact mode without closing it — contact stays open
       // underneath until Esc or W (handleLogoClick above) closes it.
       setMenuOpen(true);
     }
-  }, [menuOpen, navigate, page]);
+  }, [menuOpen, navigate, page, contactOpen]);
   const handleMenuSelect = useCallback((entry: MenuEntryKey) => {
     menuCloseToHomeRef.current = false;
     contactCloseToHomeRef.current = false;
@@ -834,7 +861,7 @@ export default function Home() {
       )}
 
       {showWork && displayProject && (
-        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
           <div className="flex items-start justify-between gap-4">
             <div className="text-left">
               <h1
@@ -883,7 +910,7 @@ export default function Home() {
       )}
 
       {showAbout && (
-        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
           <AboutPortrait />
           <h1
             className="text-2xl md:text-3xl uppercase tracking-wider text-white font-normal text-center"
@@ -896,7 +923,7 @@ export default function Home() {
       )}
 
       {showArt && displayArtPiece && (
-        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
+        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
           {displayArtPiece.slug === 'livestream-art' && (
             <LivestreamArtHero piece={displayArtPiece} />
           )}
