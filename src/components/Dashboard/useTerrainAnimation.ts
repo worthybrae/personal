@@ -2178,7 +2178,12 @@ export function useTerrainAnimation(
             if (fc.tileArt) {
               const img = getArt(trackId);
               if (img) {
+                // Fade with the cards: the menu, the landing and the way back
+                // from a detail page all ride cardFade, and an image drawn at
+                // full strength sat whole over them until it snapped away.
+                ctx.globalAlpha = cardFade;
                 ctx.drawImage(img, fc.left * charW, screenTop * charH, tileWidth * charW, fc.artRows * charH);
+                ctx.globalAlpha = 1;
               }
             }
 
