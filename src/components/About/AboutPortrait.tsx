@@ -5,11 +5,10 @@ import { RAMP } from '@/components/Dashboard/ramp';
 
 // A round portrait drawn the way the site background is drawn: glyphs from
 // "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped
-// waist-up photo against a graffiti wall: red holds brightness, green holds the person mask
-// (from macOS Vision). Inside the mask the photo sets the brightness with a
-// little terrain moving through it; outside, the graffiti wall behind is
-// kept but dimmer, with the terrain flowing through it more strongly. A lit
-// edge traces the mask so the dark shirt separates from the dark wall.
+// photo in a tiled plaza: red holds brightness, green holds the person mask
+// (from macOS Vision). The person is lifted so they glow above the scene,
+// with a little terrain moving through them; the plaza behind is dimmer and
+// drifts with the terrain. A lit edge traces the mask.
 
 const MAP_URL = '/media/about/portrait-map.png';
 const MAP_SIZE = 256;
@@ -23,8 +22,10 @@ const LEVELS = 48;
 // How much the terrain shows through the person and through the wall, and
 // how bright the wall is allowed to get, so the face stays the brightest thing.
 const TERRAIN_IN_PERSON = 0.12;
-const TERRAIN_IN_WALL = 0.32;
-const WALL_LEVEL = 0.62;
+const TERRAIN_IN_WALL = 0.2;
+const WALL_LEVEL = 0.5;
+// Lifts the person's darkest parts (a black shirt) above the scene.
+const PERSON_FLOOR = 0.4;
 const EDGE_LEVEL = 0.78;
 const NOISE_SCALE = 2.4;
 
@@ -137,7 +138,7 @@ export function AboutPortrait() {
             let person = 0;
             if (inPerson > 0.01) {
               // The person is sampled where they are, so the face holds still.
-              person = scurve(sampleMap(map.lum, u, v) * 1.12 - 0.04 + (terrain - 0.45) * TERRAIN_IN_PERSON, 5.5);
+              person = scurve(PERSON_FLOOR + sampleMap(map.lum, u, v) * (1 - PERSON_FLOOR) + (terrain - 0.45) * TERRAIN_IN_PERSON, 5);
             }
             let wall = 0;
             if (inPerson < 0.99) {
