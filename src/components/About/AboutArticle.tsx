@@ -20,9 +20,6 @@ export function AboutArticle() {
         creativity: generative art, music, live visuals, and tools I wished existed.
       </p>
 
-      <ArtLabel>LATELY</ArtLabel>
-      <GithubActivity />
-
       {shelves.map((shelf) => (
         <section key={shelf.label}>
           <ArtLabel>{shelf.label}</ArtLabel>
@@ -56,6 +53,9 @@ export function AboutArticle() {
           <a key={url} href={url} target="_blank" rel="me noopener noreferrer">{hostLabel(url)}</a>
         ))}
       </div>
+
+      <ArtLabel>CODE</ArtLabel>
+      <GithubActivity />
     </article>
   );
 }
