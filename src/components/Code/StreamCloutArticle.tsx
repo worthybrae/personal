@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
-import { ALBUM_CURVES, LAUNCH_COUNT, LAUNCH_MEDIAN, NAMED_ALBUMS } from './albumCurves';
-import { linePath, nearestSeries } from './figures';
+import { LAUNCH_MEDIAN, NAMED_ALBUMS } from './albumCurves';
+import { linePath, nearestSeries, shortCount, spreadApart } from './figures';
 import './streamclout-article.css';
 
 /** Daily play counts start here (streamclout-io/app,
@@ -26,18 +26,25 @@ function headline(): [string, string][] {
 
 const MEDIAN = LAUNCH_MEDIAN;
 const NAMED = NAMED_ALBUMS.map((a) => a.curve);
-const TIP_W = 220;
+/** Where each named album's readings stop. */
+const LAST = NAMED.map((c) => {
+  let i = c.length - 1;
+  while (i > 0 && c[i] < 0) i--;
+  return i;
+});
+const TIP_W = 230;
 /** Readings are every second day from day 1. */
 const dayOf = (i: number) => i * 2 + 1;
-const TOP = 200; // index at the top edge; the few higher readings are clipped
-const PAD = { top: 12, right: 8, bottom: 26, left: 8 };
+const TOP = 200; // percent at the top edge; the few higher readings are clipped
+const GRID = [50, 100, 150];
 const DAY_TICKS = [1, 30, 60, 90, 120, 150, 180];
 const NARROW_TICKS = [1, 60, 120, 180];
 
-/** Forty real album launches over their first 180 days as faint texture,
- *  twelve named ones over them, and the median of every launch in white.
- *  Hovering (or touching) picks a day and the named album nearest the
- *  pointer, and shows its cover and name and where it and the median stand. */
+/** Twelve named 2026 albums over their first 180 days, each as a share of
+ *  its first week's plays, with the typical launch in white and each
+ *  album's cover in a column at the right, tied to where its line ends.
+ *  Hovering (or touching) a line or a cover shows that album's cover, name,
+ *  share and plays that day. */
 function AlbumLines() {
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 640, h: 420 });
@@ -54,60 +61,94 @@ function AlbumLines() {
     return () => observer.disconnect();
   }, []);
 
+  const narrow = size.w < 500;
+  const cover = narrow ? 18 : 28;
+  const PAD = { top: 12, right: cover + 20, bottom: 26, left: 8 };
   const n = MEDIAN.length;
   const plotW = size.w - PAD.left - PAD.right;
   const plotH = size.h - PAD.top - PAD.bottom;
   const x = (i: number) => PAD.left + (i / (n - 1)) * plotW;
   const y = (v: number) => PAD.top + plotH - (Math.min(v, TOP) / TOP) * plotH;
   const at = (i: number, v: number) => [x(i), y(v)] as const;
+  const coverX = size.w - cover;
+  const coverY = spreadApart(
+    NAMED.map((c, k) => y(c[LAST[k]])),
+    cover + 3,
+    PAD.top + cover / 2,
+    PAD.top + plotH - cover / 2,
+  );
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left - PAD.left) / plotW) * (n - 1))));
-    const value = ((PAD.top + plotH - (e.clientY - rect.top)) / plotH) * TOP;
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    if (px > PAD.left + plotW + 6) {
+      // Over the covers: the one nearest, at the end of its line.
+      let k = 0;
+      coverY.forEach((cy, j) => { if (Math.abs(cy - py) < Math.abs(coverY[k] - py)) k = j; });
+      setHover({ i: LAST[k], album: k });
+      return;
+    }
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - PAD.left) / plotW) * (n - 1))));
+    const value = ((PAD.top + plotH - py) / plotH) * TOP;
     setHover({ i, album: nearestSeries(NAMED, i, value) });
   };
 
   const album = hover && hover.album >= 0 ? NAMED_ALBUMS[hover.album] : null;
-  const hovered = album && hover ? album.curve[hover.i] : null;
+  const share = album && hover ? album.curve[hover.i] : null;
   const median = hover ? MEDIAN[hover.i] : null;
-  const tipLeft = hover ? Math.min(Math.max(x(hover.i) + 12, 0), size.w - TIP_W) : 0;
-  const flip = hover ? x(hover.i) + 12 + TIP_W > size.w : false;
+  const crossX = hover ? x(hover.i) : 0;
+  const flip = crossX + 12 + TIP_W > size.w - PAD.right;
+  const tipLeft = Math.max(0, flip ? crossX - 12 - TIP_W : crossX + 12);
+  const medianLabel = 44;
 
   return (
     <div
       ref={boxRef}
-      className="sc-lines"
+      className={hover ? 'sc-lines sc-lines-hover' : 'sc-lines'}
       onPointerMove={onMove}
       onPointerDown={onMove}
       // A finger lifting also 'leaves'; keep its reading up until the next touch.
       onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHover(null); }}
     >
-      <svg width={size.w} height={size.h} role="img" aria-label={`Daily plays of 2026 album launches over their first 180 days, each against its own first week: forty unnamed in grey, twelve named, and the median of all ${LAUNCH_COUNT} in white. Most start high and fall the same way.`}>
-        <line x1={PAD.left} x2={size.w - PAD.right} y1={y(100)} y2={y(100)} className="sc-lines-ref" />
-        <text x={size.w - PAD.right} y={y(100) - 6} textAnchor="end" className="sc-lines-axis">100 = FIRST WEEK</text>
-        {(size.w < 500 ? NARROW_TICKS : DAY_TICKS).map((d) => (
+      <svg width={size.w} height={size.h} role="img" aria-label="Daily plays of twelve 2026 albums over their first 180 days, each as a share of its first week, with the typical album in white. Most fall to a fraction of their first week within a few months.">
+        {GRID.map((g) => (
+          <g key={g}>
+            <line x1={PAD.left} x2={PAD.left + plotW} y1={y(g)} y2={y(g)} className="sc-lines-ref" />
+            <text x={PAD.left + plotW} y={y(g) - 5} textAnchor="end" className="sc-lines-axis">{g}%</text>
+          </g>
+        ))}
+        {(narrow ? NARROW_TICKS : DAY_TICKS).map((d) => (
           <text key={d} x={x((d - 1) / 2)} y={size.h - 6} textAnchor={d === 1 ? 'start' : d === 180 ? 'end' : 'middle'} className="sc-lines-axis">
             {d === 1 ? 'DAY 1' : d}
           </text>
         ))}
-        {ALBUM_CURVES.map((curve, i) => (
-          <path key={i} d={linePath(curve, at)} className="sc-line-bg" />
-        ))}
-        {NAMED.map((curve, i) => (
-          <path key={i} d={linePath(curve, at)} className={hover?.album === i ? 'sc-line sc-line-on' : 'sc-line'} />
+        {NAMED.map((curve, k) => (
+          <path key={k} d={linePath(curve, at)} className={hover?.album === k ? 'sc-line sc-line-on' : 'sc-line'} />
         ))}
         <path d={linePath(MEDIAN, at)} className="sc-line-median" />
+        <text x={x(medianLabel)} y={y(MEDIAN[medianLabel]) + 16} className="sc-lines-axis sc-lines-median-label">TYPICAL ALBUM</text>
+        {NAMED_ALBUMS.map((a, k) => {
+          const ex = x(LAST[k]);
+          const ey = y(a.curve[LAST[k]]);
+          const cy = coverY[k];
+          return (
+            <g key={a.name} className={hover?.album === k ? 'sc-cover sc-cover-on' : 'sc-cover'}>
+              <path d={`M${ex.toFixed(1)},${ey.toFixed(1)}L${(PAD.left + plotW + 4).toFixed(1)},${ey.toFixed(1)}L${(coverX - 4).toFixed(1)},${cy.toFixed(1)}`} className="sc-cover-lead" />
+              <image href={a.cover} x={coverX} y={cy - cover / 2} width={cover} height={cover} preserveAspectRatio="xMidYMid slice" />
+            </g>
+          );
+        })}
         {hover && (
           <g>
-            <line x1={x(hover.i)} x2={x(hover.i)} y1={PAD.top} y2={PAD.top + plotH} className="sc-lines-cross" />
-            {median !== null && median >= 0 && <circle cx={x(hover.i)} cy={y(median)} r={3.5} className="sc-dot-median" />}
-            {hovered !== null && hovered >= 0 && <circle cx={x(hover.i)} cy={y(hovered)} r={3.5} className="sc-dot-on" />}
+            <line x1={crossX} x2={crossX} y1={PAD.top} y2={PAD.top + plotH} className="sc-lines-cross" />
+            {median !== null && median >= 0 && <circle cx={crossX} cy={y(median)} r={3.5} className="sc-dot-median" />}
+            {share !== null && share >= 0 && <circle cx={crossX} cy={y(share)} r={3.5} className="sc-dot-on" />}
           </g>
         )}
       </svg>
       {hover && (
-        <div className="sc-tip" style={{ left: flip ? x(hover.i) - 12 - TIP_W : tipLeft, top: PAD.top }}>
+        <div className="sc-tip" style={{ left: tipLeft, top: PAD.top }}>
           {album && (
             <div className="sc-tip-album">
               <img src={album.cover} alt="" width={44} height={44} referrerPolicy="no-referrer" />
@@ -118,13 +159,15 @@ function AlbumLines() {
             </div>
           )}
           <div className="sc-tip-day">DAY {dayOf(hover.i)}</div>
-          {hovered !== null && hovered >= 0 && (
-            <div><span>{Math.round(hovered)}</span> THIS ALBUM</div>
+          {album && share !== null && share >= 0 && (
+            <>
+              <div><span>{shortCount((album.firstWeek * share) / 100)}</span> PLAYS THAT DAY</div>
+              <div><span>{Math.round(share)}%</span> OF ITS FIRST WEEK</div>
+            </>
           )}
           {median !== null && median >= 0 && (
-            <div><span>{Math.round(median)}</span> MEDIAN</div>
+            <div><span>{Math.round(median)}%</span> TYPICAL ALBUM</div>
           )}
-          <div className="sc-tip-note">100 = ITS FIRST WEEK</div>
         </div>
       )}
     </div>
@@ -164,9 +207,13 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
       <p className="art-intro">{summary}</p>
 
       <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
+      <p className="sc-explain">
+        Each line is one album&apos;s plays a day, as a share of what it drew a day in its first
+        week. A typical 2026 album is under 40% a month in and about 15% by six months.
+      </p>
       <figure className="sc-figure">
         <AlbumLines />
-        <figcaption>2026 ALBUM LAUNCHES, DAILY PLAYS OVER THEIR FIRST 180 DAYS · 12 NAMED, 40 MORE IN GREY · MEDIAN OF ALL {LAUNCH_COUNT} IN WHITE</figcaption>
+        <figcaption>12 OF 2026&apos;S ALBUMS, DAILY PLAYS OVER THEIR FIRST 180 DAYS</figcaption>
       </figure>
 
       <ArtLabel>TOOLS</ArtLabel>
