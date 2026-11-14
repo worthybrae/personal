@@ -5,10 +5,10 @@ import { RAMP } from '@/components/Dashboard/ramp';
 
 // A round portrait drawn the way the site background is drawn: glyphs from
 // "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped
-// photo in a tiled plaza: red holds brightness, green holds the person mask
-// (from macOS Vision). The person is lifted so they glow above the scene,
-// with a little terrain moving through them; the plaza behind is dimmer and
-// drifts with the terrain. A lit edge traces the mask.
+// photo: red holds brightness, green holds a heavily blurred person mask
+// (from macOS Vision). The person is full brightness and holds still, with a
+// little terrain moving through them; the scene around them is dimmer and
+// drifts more. The mask is soft and the rim fades out, so nothing has an edge.
 
 const MAP_URL = '/media/about/portrait-map.png';
 const MAP_SIZE = 256;
@@ -24,9 +24,8 @@ const LEVELS = 48;
 const TERRAIN_IN_PERSON = 0.12;
 const TERRAIN_IN_WALL = 0.2;
 const WALL_LEVEL = 0.5;
-// Lifts the person's darkest parts (a black shirt) above the scene.
-const PERSON_FLOOR = 0.4;
-const EDGE_LEVEL = 0.78;
+// The glyphs fade out over this band at the rim, so the circle has no edge.
+const RIM_FADE_START = 0.38;
 const NOISE_SCALE = 2.4;
 
 interface PortraitMap { lum: Float32Array; mask: Float32Array }
@@ -111,10 +110,6 @@ export function AboutPortrait() {
       }
 
       ctx.clearRect(0, 0, W, W);
-      ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
-      ctx.beginPath();
-      ctx.arc(W / 2, W / 2, W / 2, 0, Math.PI * 2);
-      ctx.fill();
       ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       ctx.textBaseline = 'top';
 
@@ -134,24 +129,21 @@ export function AboutPortrait() {
           // Before the map loads: the background terrain's curve, dimmed.
           let val = scurve(terrain, 8) * WALL_LEVEL;
           if (map) {
-            const inPerson = sampleMap(map.mask, u, v);
-            let person = 0;
-            if (inPerson > 0.01) {
-              // The person is sampled where they are, so the face holds still.
-              person = scurve(PERSON_FLOOR + sampleMap(map.lum, u, v) * (1 - PERSON_FLOOR) + (terrain - 0.45) * TERRAIN_IN_PERSON, 5);
-            }
-            let wall = 0;
-            if (inPerson < 0.99) {
-              // The wall drifts a little, like it's under water.
-              const su = u + fbm(u * 2.5 + 1.7, v * 2.5 + ft, 3) * 0.015;
-              const sv = v + fbm(u * 2.5 + 9.2 + ft, v * 2.5, 3) * 0.015;
-              wall = scurve(sampleMap(map.lum, su, sv) * 0.8 + (terrain - 0.45) * TERRAIN_IN_WALL, 6) * WALL_LEVEL;
-            }
-            val = wall + (person - wall) * inPerson;
-            // A soft lit edge where the mask crosses half, so the dark shirt
-            // still separates from the dark wall.
-            const edge = Math.max(0, 1 - Math.abs(inPerson - 0.5) * 2);
-            if (edge > 0) val = Math.max(val, edge * EDGE_LEVEL);
+            // The mask is heavily blurred, so the person blends into the
+            // scene rather than sitting on it as a cutout.
+            const m = sampleMap(map.mask, u, v);
+            // The scene drifts a little, like it's under water; the person
+            // holds still so the face stays put.
+            const drift = 0.015 * (1 - m);
+            const su = u + fbm(u * 2.5 + 1.7, v * 2.5 + ft, 3) * drift;
+            const sv = v + fbm(u * 2.5 + 9.2 + ft, v * 2.5, 3) * drift;
+            const terrainMix = TERRAIN_IN_WALL + (TERRAIN_IN_PERSON - TERRAIN_IN_WALL) * m;
+            const level = WALL_LEVEL + (1 - WALL_LEVEL) * m;
+            val = scurve(sampleMap(map.lum, su, sv) + (terrain - 0.45) * terrainMix, 5.5) * level;
+          }
+          if (d > RIM_FADE_START) {
+            const k = 1 - (d - RIM_FADE_START) / (0.5 - RIM_FADE_START);
+            val *= k * k * (3 - 2 * k);
           }
           ctx.fillStyle = lut[Math.min(LEVELS - 1, (val * LEVELS) | 0)];
           ctx.fillText(RAMP[Math.min(RAMP.length - 1, (val * (RAMP.length - 1)) | 0)], c * charW, r * charH);
