@@ -135,7 +135,6 @@ export default function Home() {
   // veil.
   let exitingNow = exitingFrom;
   let enteringNow = enteringFrom;
-  let veilNow = veilDown;
   if (location.pathname !== lastPath) {
     const prev = parseRoute(lastPath);
     setLastPath(location.pathname);
@@ -147,13 +146,12 @@ export default function Home() {
     exitingNow = leavingDetail && !covered ? prev : null;
     setExitingFrom(exitingNow);
     // About gets the same fade from anywhere that isn't another detail page,
-    // the menu included: the menu stays up under the veil and closes once
-    // the screen is black (see handleMenuSelect).
+    // and from the menu over any page: the menu stays up under the veil and
+    // closes once the screen is black (see handleMenuSelect).
     const enteringDetail = ((prev.page === 'feed' || prev.page === 'art') &&
       (route.page === 'work-detail' || route.page === 'art-detail') && !covered) ||
-      (route.page === 'about' && !isDetailPage(prev.page));
+      (route.page === 'about' && (!isDetailPage(prev.page) || menuCloseBehindVeilRef.current));
     enteringNow = enteringDetail ? prev : null;
-    veilNow = enteringDetail;
     setEnteringFrom(enteringNow);
     setVeilDown(enteringDetail);
   }
@@ -592,13 +590,19 @@ export default function Home() {
     // the menu words scatter-dissolve over the incoming page instead of
     // vanishing instantly (consumed by the draw loop's close edge).
     const target: Page = entry === 'code' ? 'feed' : entry;
-    // About from a non-detail page fades in through the black veil like an
-    // item opened from a list: leave the menu exactly as it is and let the
-    // veil darken it; it closes behind the veil when the route lands.
-    if (target === 'about' && !isDetailPage(page)) {
-      menuNavRef.current = true;
+    // About fades in through the black veil like an item opened from a
+    // list: leave the menu exactly as it is and let the veil darken it; it
+    // closes behind the veil when the route lands. Already on About there
+    // is no route change, so hold the page under the veil directly.
+    if (target === 'about') {
+      menuNavRef.current = page !== 'about';
       menuCloseBehindVeilRef.current = true;
-      navigate('/about');
+      if (page === 'about') {
+        setEnteringFrom({ page: 'about' });
+        setVeilDown(true);
+      } else {
+        navigate('/about');
+      }
       return;
     }
     menuCloseToContentRef.current = true;
@@ -789,9 +793,9 @@ export default function Home() {
   const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
   const showAbout = page === 'about' || fadingDetail?.page === 'about';
   const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
-  // Under the entry veil the canvas drops below it, so a menu still open
-  // over the page being left darkens with it.
-  const canvasOverPage = (menuOpen || contactOpen || menuVeil) && !veilNow;
+  // The entry veil sits above the canvas, so a menu still open over the page
+  // being left darkens with it and keeps covering that page until it is black.
+  const canvasOverPage = menuOpen || contactOpen || menuVeil;
 
   return (
     <div>
@@ -983,12 +987,12 @@ export default function Home() {
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
 
-      {/* Veil for opening a detail page from a list: above the page and the
-          canvas, below the menu canvas (z-25). */}
+      {/* Veil for opening a detail page from a list or About from the menu:
+          above the page and every canvas, the menu's included. */}
       <div
         aria-hidden
         className="fixed inset-0"
-        style={{ zIndex: 12, background: '#000', pointerEvents: 'none', opacity: veilDown ? 1 : 0, transition: `opacity ${EXIT_FADE_MS}ms linear` }}
+        style={{ zIndex: 30, background: '#000', pointerEvents: 'none', opacity: veilDown ? 1 : 0, transition: `opacity ${EXIT_FADE_MS}ms linear` }}
       />
     </div>
   );
