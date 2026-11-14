@@ -21,6 +21,7 @@ import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
 import { AboutArticle, RESUME_URL } from '@/components/About/AboutArticle';
+import { AboutPortrait } from '@/components/About/AboutPortrait';
 
 // 'feed' is the code list at /code and 'work-detail' a project under it; the
 // internal names predate the rename. Old /feed and /work/* links redirect
@@ -839,6 +840,7 @@ export default function Home() {
 
       {showAbout && (
         <DetailOverlay meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom} onFadeComplete={handleFadeComplete}>
+          <AboutPortrait />
           <div className="flex items-start justify-between gap-4">
             <div className="text-left">
               <h1

@@ -9,3 +9,5 @@
 @media (max-width:560px) {
   .about-history li { grid-template-columns:44px 1fr; }
 }
+
+.about-portrait { display:block;border-radius:50%;margin-bottom:28px; }
