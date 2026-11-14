@@ -24,7 +24,7 @@ export const ART_PIECES: ArtPiece[] = [
     name: 'LIVESTREAM ART',
     description: 'A LIVE PAINTING OF ABBEY ROAD',
     summary: 'An ongoing digital painting of Abbey Road, made from a live camera feed. Brush marks follow movement through the street and are revised as people, cars, and light change.',
-    videoUrl: '/media/abbey-road-loaded-bristle.mp4',
+    videoUrl: '/media/livestream/stream.mp4',
     githubUrl: 'https://github.com/worthybrae/livestream-morphing',
     tech: ['Rust', 'Python', 'OpenCV', 'FFmpeg', 'HLS'],
   },
