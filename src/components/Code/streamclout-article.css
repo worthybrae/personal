@@ -1,6 +1,7 @@
-/* StreamClout's code page: a full-width still of the site, the catalog in
-   four columns, then a night's operations with ASCII bars. Builds on
+/* StreamClout's code page: the live site full screen, a headline row of
+   numbers, the catalog as nested squares and 40 real album curves. Builds on
    art-article.css. */
+
 /* Full screen width out of the centred column and the full height of the
    screen, with W and + drawn over it, like the Livestream Art hero. */
 .sc-hero { position:relative;left:50%;width:100vw;transform:translateX(-50%);height:100dvh;min-height:420px;overflow:hidden;background:#0a0a0a url(/media/code/streamclout-charts.jpg) top center / 100% auto no-repeat; }
@@ -13,21 +14,16 @@
 .sc-stats dd { margin:0;font-size:18px;color:#fff; }
 .sc-stats dt { font-size:10px;letter-spacing:.18em;color:rgba(255,255,255,.4); }
 
-/* One operation a row: name, detail, time, and a bar the width of the list. */
-.sc-night { position:relative;margin:14px 0 0; }
-.sc-night ol { list-style:none;margin:0;padding:0; }
-.sc-night li { display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1.4fr) minmax(0,.55fr);column-gap:10px;row-gap:6px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;line-height:1.5;align-items:baseline; }
-.sc-night li:last-child { border-bottom:none; }
-.sc-night-name { letter-spacing:.12em;color:#fff; }
-.sc-night-detail { color:#9a9a9a; }
-.sc-night-time { color:#fff;text-align:right; }
-.sc-bar { grid-column:1 / -1;font-size:12px;line-height:1;letter-spacing:0;white-space:nowrap;overflow:hidden;color:rgba(255,255,255,.14); }
-.sc-bar > span { color:rgba(255,255,255,.72); }
-.sc-probe { position:absolute;visibility:hidden;pointer-events:none; }
+.sc-squares { display:block;width:100%;max-width:520px;height:auto;margin-top:16px;overflow:visible; }
+.sc-fig-num { font-size:15px;fill:#fff; }
+.sc-fig-label { font-size:10px;letter-spacing:.18em;fill:rgba(255,255,255,.4); }
+
+.sc-figure { margin:16px 0 0; }
+.sc-lines { display:block;width:100%;height:240px; }
+.sc-figure figcaption { font-size:10px;letter-spacing:.14em;line-height:1.7;color:rgba(255,255,255,.3);margin-top:10px; }
 
 @media (max-width:560px) {
   .sc-stats dd { font-size:16px; }
   .sc-stats dt { letter-spacing:.12em; }
-  .sc-night li { grid-template-columns:minmax(0,1fr) auto; }
-  .sc-night-detail { grid-column:1 / -1;grid-row:2; }
+  .sc-lines { height:180px; }
 }

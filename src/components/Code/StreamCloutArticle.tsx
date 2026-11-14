@@ -1,111 +1,93 @@
-import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
-import { asciiBar, filledCells } from './asciiBar';
+import { ALBUM_CURVES } from './albumCurves';
+import { linePath, medianByDay, squareSide } from './figures';
 import './streamclout-article.css';
 
-// Catalog totals from streamclout.io's own home page line on 2026-11-13;
-// playlists from the 2026-11-12 playlist build in streamclout-io/app.
-const CATALOG: [string, string][] = [
-  ['13.5M', 'ARTISTS'],
-  ['50.2M', 'ALBUMS'],
-  ['154M', 'SONGS'],
-  ['2.3M', 'PLAYLISTS'],
-];
+/** Daily play counts start here (streamclout-io/app,
+ *  docs/research/album-lifecycle/README.md). */
+const FIRST_NIGHT = Date.UTC(2026, 0, 22);
 
-// What one night does, in plain words, from the streamclout-io/app history:
-// the 2.7 GB → 56 MB day was measured in September 2026, the 33 min build and
-// 9 ms lookup in the October 2026 edge trial. The last field is the millions
-// of records each one touches, which sets its bar. How the data is collected
-// stays out of the page.
-const NIGHT: [string, string, string, number][] = [
-  ["COUNT EVERY SONG'S PLAYS", '154M songs', 'nightly', 154],
-  ['CHECK EVERY PLAYLIST', '2.3M playlists, ~30M song slots', 'nightly', 30],
-  ["SAVE THE DAY'S HISTORY", '2.7 GB squeezed into 56 MB', 'nightly', 154],
-  ["REBUILD THE SITE'S DATA", '108M records, 30 GB', '33 min', 108],
-  ['OPEN A PAGE', '1 record out of 108M', '9 ms', 0.000001],
-];
-const NIGHT_MAX = Math.max(...NIGHT.map((row) => row[3]));
-const STEP_MS = 55;
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+function nightsSoFar(now = Date.now()): number {
+  return Math.floor((now - FIRST_NIGHT) / 86_400_000) + 1;
 }
 
-/** The night's operations, each with an ASCII bar that fills in, a cell at a
- *  time, once the list scrolls into view. */
-function NightsWork() {
-  const listRef = useRef<HTMLDivElement>(null);
-  const probeRef = useRef<HTMLSpanElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [cells, setCells] = useState(48);
-  const [step, setStep] = useState(() => (prefersReducedMotion() ? Number.POSITIVE_INFINITY : 0));
+// Songs from streamclout.io's own home page line on 2026-11-13; stored data
+// from the September 2026 AWS bill; 9 ms is a warm page lookup in the
+// October 2026 edge trial.
+function headline(): [string, string][] {
+  return [
+    ['154M', 'SONGS'],
+    ['746 GB', 'STORED'],
+    [String(nightsSoFar()), 'NIGHTS'],
+    ['9 ms', 'PER PAGE'],
+  ];
+}
 
-  // As many cells as fit across the list at the bar's font size.
-  useEffect(() => {
-    const list = listRef.current;
-    const probe = probeRef.current;
-    if (!list || !probe) return;
-    const measure = () => {
-      const cellWidth = probe.getBoundingClientRect().width / 10;
-      if (cellWidth > 0) setCells(Math.max(10, Math.floor(list.clientWidth / cellWidth)));
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    return () => observer.disconnect();
-  }, []);
+// streamclout.io's totals on 2026-11-13; playlists from the 2026-11-12
+// playlist build in streamclout-io/app. Largest first: each square sits
+// inside the one before it.
+const CATALOG: [number, string, string][] = [
+  [154, '154M', 'SONGS'],
+  [50.2, '50.2M', 'ALBUMS'],
+  [13.5, '13.5M', 'ARTISTS'],
+  [2.3, '2.3M', 'PLAYLISTS'],
+];
 
-  // Start filling the first time the list is on screen.
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list || prefersReducedMotion()) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      setStep(Number.POSITIVE_INFINITY);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        timerRef.current = setInterval(() => setStep((s) => s + 1), STEP_MS);
-      },
-      { threshold: 0.3 },
-    );
-    observer.observe(list);
-    return () => {
-      observer.disconnect();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (step >= cells && timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, [step, cells]);
-
+/** The catalog as squares nested in one corner, each with the area of its
+ *  count, so the sizes compare at a glance. */
+function CatalogSquares() {
+  const full = 210;
+  const base = 212;
+  const labelX = 236;
+  const max = CATALOG[0][0];
+  // Label lines sit level with each square's top, spread where the small
+  // squares crowd together.
+  const labelY = [14, 96, 168, 204];
   return (
-    <div className="sc-night" ref={listRef}>
-      <span className="sc-bar sc-probe" ref={probeRef} aria-hidden="true">██████████</span>
-      <ol>
-      {NIGHT.map(([name, detail, time, millions]) => {
-        const [solid, empty] = asciiBar(Math.min(step, filledCells(millions, NIGHT_MAX, cells)), cells);
+    <svg className="sc-squares" viewBox="0 0 440 214" role="img" aria-label="StreamClout's catalog to scale: 154 million songs, 50.2 million albums, 13.5 million artists and 2.3 million playlists">
+      {CATALOG.map(([value, figure, label], i) => {
+        const side = squareSide(value, max, full);
+        const y = labelY[i];
         return (
-          <li key={name}>
-            <span className="sc-night-name">{name}</span>
-            <span className="sc-night-detail">{detail}</span>
-            <span className="sc-night-time">{time}</span>
-            <span className="sc-bar" aria-hidden="true">
-              <span>{solid}</span>
-              {empty}
-            </span>
-          </li>
+          <g key={label}>
+            <rect
+              x={0.5}
+              y={base - side}
+              width={side}
+              height={side}
+              fill={i === 0 ? 'rgba(255,255,255,.04)' : 'none'}
+              stroke={`rgba(255,255,255,${0.25 + i * 0.17})`}
+            />
+            <line x1={side + 4} y1={base - side + 0.5} x2={labelX - 8} y2={y - 4} stroke="rgba(255,255,255,.15)" />
+            <text x={labelX} y={y} className="sc-fig-num">
+              {figure}
+              <tspan dx={10} className="sc-fig-label">{label}</tspan>
+            </text>
+          </g>
         );
       })}
-      </ol>
-    </div>
+    </svg>
+  );
+}
+
+/** Forty real album launches over their first 180 days, faint, with their
+ *  median in white. */
+function AlbumLines() {
+  const width = 600;
+  const height = 240;
+  const top = 200; // index drawn at the top edge; higher readings are clipped
+  const days = ALBUM_CURVES[0].length;
+  const at = (i: number, v: number) => [
+    (i / (days - 1)) * width,
+    height - (Math.min(v, top) / top) * (height - 10),
+  ] as const;
+  return (
+    <svg className="sc-lines" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Daily plays of 40 of 2026's biggest album launches over their first 180 days, each against its own first week. Almost every one starts high and falls the same way; the median is drawn in white.">
+      {ALBUM_CURVES.map((curve, i) => (
+        <path key={i} d={linePath(curve, at)} fill="none" stroke="rgba(255,255,255,.16)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+      ))}
+      <path d={linePath(medianByDay(ALBUM_CURVES), at)} fill="none" stroke="#fff" strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
@@ -131,7 +113,7 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
   return (
     <article className="art-article" aria-label="About StreamClout">
       <dl className="sc-stats">
-        {CATALOG.map(([value, label]) => (
+        {headline().map(([value, label]) => (
           <div key={label}>
             <dt>{label}</dt>
             <dd>{value}</dd>
@@ -141,8 +123,14 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
 
       <p className="art-intro">{summary}</p>
 
-      <ArtLabel>A NIGHT&apos;S WORK</ArtLabel>
-      <NightsWork />
+      <ArtLabel>THE CATALOG</ArtLabel>
+      <CatalogSquares />
+
+      <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
+      <figure className="sc-figure">
+        <AlbumLines />
+        <figcaption>40 OF 2026&apos;S BIGGEST ALBUMS, DAILY PLAYS OVER THEIR FIRST 180 DAYS · MEDIAN IN WHITE</figcaption>
+      </figure>
 
       <ArtLabel>TOOLS</ArtLabel>
       <ArtTags tags={tech} />
