@@ -63,9 +63,9 @@ export const SHELVES: Shelf[] = [
     items: [
       { title: 'Oleana', by: 'Cambridge, MA', url: 'https://www.oleanarestaurant.com', image: '/media/about/restaurants/oleana.jpg' },
       { title: 'Gymkhana', by: 'London', url: 'https://gymkhanalondon.com', image: '/media/about/restaurants/gymkhana.jpg' },
-      { title: 'Monkey Bar', by: 'New York', url: 'https://www.nycmonkeybar.com', image: '/media/about/restaurants/monkey-bar.jpg' },
+      { title: 'Quintonil', by: 'Mexico City', url: 'https://quintonil.com', image: '/media/about/restaurants/quintonil.jpg' },
       { title: 'Francie', by: 'New York', url: 'https://www.franciebrooklyn.com', image: '/media/about/restaurants/francie.jpg' },
-      { title: 'Dirt Candy', by: 'New York', url: 'https://www.dirtcandynyc.com', image: '/media/about/restaurants/dirt-candy.jpg' },
+      { title: '4 Charles Prime Rib', by: 'New York', url: 'https://www.nycprimerib.com', image: '/media/about/restaurants/4-charles.jpg' },
     ],
   },
 ];
