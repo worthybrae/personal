@@ -49,9 +49,9 @@ export function spreadApart(want: number[], gap: number, min: number, max: numbe
   return out;
 }
 
-/** Plays as a short figure: 2.3M, 640K, 900. */
-export function shortCount(n: number): string {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M`;
-  if (n >= 1e3) return `${Math.round(n / 1e3)}K`;
-  return String(Math.round(n));
+/** New streams on a day from the album's first-week daily average and that
+ *  day's share of it in percent. The share is smoothed and whole, so the
+ *  count is good to about one percent: it is rounded to the thousand. */
+export function streamsThatDay(firstWeek: number, share: number): number {
+  return Math.round((firstWeek * share) / 100 / 1000) * 1000;
 }

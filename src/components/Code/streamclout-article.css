@@ -1,6 +1,6 @@
-/* StreamClout's code page: the live site full screen, a headline row of
-   numbers and twelve real album curves you can hover, with their covers. Builds on
-   art-article.css. */
+/* StreamClout's code page: the live site full screen, twelve real album
+   curves you can hover, with their covers, then the text and a row of
+   numbers. Builds on art-article.css. */
 
 /* Full screen width out of the centred column and the full height of the
    screen, with W and + drawn over it, like the Livestream Art hero. */
@@ -36,8 +36,8 @@
 .sc-lines-axis { font-size:10px;letter-spacing:.12em;fill:rgba(255,255,255,.3); }
 .sc-dot-median { fill:#fff; }
 .sc-dot-on { fill:#000;stroke:#fff;stroke-width:1.4; }
-.sc-tip { position:absolute;width:230px;padding:10px 12px;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.14);font-size:10px;letter-spacing:.14em;line-height:1.9;color:rgba(255,255,255,.45);pointer-events:none; }
-.sc-tip span { display:inline-block;min-width:46px;font-size:13px;letter-spacing:0;color:#fff; }
+.sc-tip { position:absolute;width:250px;padding:10px 12px;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.14);font-size:10px;letter-spacing:.14em;line-height:1.9;color:rgba(255,255,255,.45);pointer-events:none; }
+.sc-tip span { display:inline-block;min-width:46px;margin-right:4px;font-size:13px;letter-spacing:0;color:#fff; }
 .sc-tip-album { display:flex;gap:10px;align-items:center;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1); }
 .sc-tip-album img { flex:none;display:block;width:44px;height:44px;object-fit:cover;background:rgba(255,255,255,.06); }
 .sc-tip-album > div { min-width:0; }

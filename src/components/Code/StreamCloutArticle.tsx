@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
 import { LAUNCH_MEDIAN, NAMED_ALBUMS } from './albumCurves';
-import { linePath, nearestSeries, shortCount, spreadApart } from './figures';
+import { linePath, nearestSeries, spreadApart, streamsThatDay } from './figures';
 import './streamclout-article.css';
 
 /** Daily play counts start here (streamclout-io/app,
@@ -32,7 +32,7 @@ const LAST = NAMED.map((c) => {
   while (i > 0 && c[i] < 0) i--;
   return i;
 });
-const TIP_W = 230;
+const TIP_W = 250;
 /** Readings are every second day from day 1. */
 const dayOf = (i: number) => i * 2 + 1;
 const TOP = 200; // percent at the top edge; the few higher readings are clipped
@@ -44,7 +44,7 @@ const NARROW_TICKS = [1, 60, 120, 180];
  *  its first week's plays, with the typical launch in white and each
  *  album's cover in a column at the right, tied to where its line ends.
  *  Hovering (or touching) a line or a cover shows that album's cover, name,
- *  share and plays that day. */
+ *  share and new streams that day. */
 function AlbumLines() {
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 640, h: 420 });
@@ -161,7 +161,7 @@ function AlbumLines() {
           <div className="sc-tip-day">DAY {dayOf(hover.i)}</div>
           {album && share !== null && share >= 0 && (
             <>
-              <div><span>{shortCount((album.firstWeek * share) / 100)}</span> PLAYS THAT DAY</div>
+              <div><span>{streamsThatDay(album.firstWeek, share).toLocaleString('en-US')}</span> NEW STREAMS</div>
               <div><span>{Math.round(share)}%</span> OF ITS FIRST WEEK</div>
             </>
           )}
@@ -195,6 +195,18 @@ export function StreamCloutHero() {
 export function StreamCloutArticle({ summary, tech }: { summary: string; tech: string[] }) {
   return (
     <article className="art-article" aria-label="About StreamClout">
+      <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
+      <p className="sc-explain">
+        Each line is one album&apos;s new streams a day, as a share of what it drew a day in its
+        first week. A typical 2026 album is under 40% a month in and about 15% by six months.
+      </p>
+      <figure className="sc-figure">
+        <AlbumLines />
+        <figcaption>12 OF 2026&apos;S ALBUMS, NEW STREAMS A DAY OVER THEIR FIRST 180 DAYS</figcaption>
+      </figure>
+
+      <p className="art-intro">{summary}</p>
+
       <dl className="sc-stats">
         {headline().map(([value, label]) => (
           <div key={label}>
@@ -203,18 +215,6 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
           </div>
         ))}
       </dl>
-
-      <p className="art-intro">{summary}</p>
-
-      <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
-      <p className="sc-explain">
-        Each line is one album&apos;s plays a day, as a share of what it drew a day in its first
-        week. A typical 2026 album is under 40% a month in and about 15% by six months.
-      </p>
-      <figure className="sc-figure">
-        <AlbumLines />
-        <figcaption>12 OF 2026&apos;S ALBUMS, DAILY PLAYS OVER THEIR FIRST 180 DAYS</figcaption>
-      </figure>
 
       <ArtLabel>TOOLS</ArtLabel>
       <ArtTags tags={tech} />
