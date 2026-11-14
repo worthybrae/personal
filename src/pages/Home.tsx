@@ -129,6 +129,10 @@ export default function Home() {
   const [enteringFrom, setEnteringFrom] = useState<{ page: Page; slug?: string } | null>(null);
   const [veilDown, setVeilDown] = useState(false);
   const instantDetailRef = useRef(false);
+  // Set with instantDetailRef: the page opening behind the veil is music, so
+  // the canvas may take the instant open once the music tiles are up. Leaving
+  // music the tiles are the old page and must not take it.
+  const instantToMusicRef = useRef(false);
   // This render must already use the held page: the state set below only
   // lands on the re-render, and this pass still writes refs the canvas reads
   // (contentOpenRef, scrollTargetRef). Coming from the landing, a pass that
@@ -169,10 +173,13 @@ export default function Home() {
     }, EXIT_FADE_MS);
     return () => clearTimeout(timer);
   }, [exitingFrom]);
+  const routePage = route.page;
   useEffect(() => {
     if (!enteringFrom) return;
+    const toMusic = routePage === 'music';
     const timer = setTimeout(() => {
       instantDetailRef.current = true;
+      instantToMusicRef.current = toMusic;
       // Open the content now rather than at the commit: from the landing the
       // draw loop would otherwise see a closed page for a frame and drop
       // instantDetailRef before the route lands.
@@ -191,7 +198,7 @@ export default function Home() {
       setVeilDown(false);
     }, EXIT_FADE_MS);
     return () => clearTimeout(timer);
-  }, [enteringFrom]);
+  }, [enteringFrom, routePage]);
   const { page, slug } = exitingNow ?? enteringNow ?? route;
 
   // Canvas draws everything a human sees; this keeps the document head in sync
@@ -674,6 +681,7 @@ export default function Home() {
       meltProgressRef,
       detailToFeedRef,
       instantDetailRef,
+      instantToMusicRef,
       domPageRef,
       pageHiddenRef,
       nowPlayingRef,

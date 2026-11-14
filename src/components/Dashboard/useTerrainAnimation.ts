@@ -90,6 +90,8 @@ export interface TerrainConfig {
   // veil: the next list -> detail change lands melted at once instead of
   // melting. Consumed by draw().
   instantDetailRef?: React.MutableRefObject<boolean>;
+  /** The instant open is for /music: its tiles may already be up when it is taken. */
+  instantToMusicRef?: React.MutableRefObject<boolean>;
   /** The page has faded out under a DOM veil (music before the menu opens):
    *  draw none of it, so the menu comes in over black. */
   pageHiddenRef?: React.MutableRefObject<boolean>;
@@ -109,7 +111,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, instantDetailRef, pageHiddenRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, instantDetailRef, instantToMusicRef, pageHiddenRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -1388,7 +1390,7 @@ export function useTerrainAnimation(
       // A page opened behind the black veil (About from the landing) has no
       // list to melt away, so it opens at once; the feed-card path below
       // handles the same flag when coming from a list.
-      if (instantDetailRef?.current && contentTarget === 1 && (feedCards.length === 0 || musicUIRef?.current) && !f2dHeldCards) {
+      if (instantDetailRef?.current && contentTarget === 1 && (feedCards.length === 0 || (musicUIRef?.current && instantToMusicRef?.current)) && !f2dHeldCards) {
         instantDetailRef.current = false;
         contentProgress = 1;
         instantMusicBlack = true;
