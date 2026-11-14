@@ -43,7 +43,18 @@ export const SHELVES: Shelf[] = [
       { title: 'The Wire', by: 'David Simon', url: 'https://www.themoviedb.org/tv/1438-the-wire', image: tmdb('4lbclFySvugI51fwsyxBTOm4DqK') },
     ],
   },
-  { label: 'BOOKS', items: [] },
+  {
+    // Covers from Open Library, saved small under public/ (its cover server
+    // redirects through archive.org and is slow to hotlink).
+    label: 'BOOKS',
+    items: [
+      { title: 'The Three-Body Problem', by: 'Cixin Liu', url: 'https://openlibrary.org/works/OL17267881W', image: '/media/about/books/three-body-problem.jpg' },
+      { title: 'Eden', by: 'Stanisław Lem', url: 'https://openlibrary.org/works/OL109515W', image: '/media/about/books/eden.jpg' },
+      { title: 'Exhalation', by: 'Ted Chiang', url: 'https://openlibrary.org/works/OL20149336W', image: '/media/about/books/exhalation.jpg' },
+      { title: 'Bloodchild and Other Stories', by: 'Octavia E. Butler', url: 'https://openlibrary.org/works/OL35621W', image: '/media/about/books/bloodchild.jpg' },
+      { title: 'Ringworld', by: 'Larry Niven', url: 'https://openlibrary.org/works/OL510405W', image: '/media/about/books/ringworld.jpg' },
+    ],
+  },
   {
     label: 'MUSIC',
     cover: 'square',
