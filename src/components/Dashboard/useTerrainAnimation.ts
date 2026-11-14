@@ -90,6 +90,9 @@ export interface TerrainConfig {
   // veil: the next list -> detail change lands melted at once instead of
   // melting. Consumed by draw().
   instantDetailRef?: React.MutableRefObject<boolean>;
+  /** The page has faded out under a DOM veil (music before the menu opens):
+   *  draw none of it, so the menu comes in over black. */
+  pageHiddenRef?: React.MutableRefObject<boolean>;
   // True while a DOM detail page (work/art detail) is the live route. The
   // canvas sits under that page's opaque overlay, so the menu has to veil it
   // in and out cell by cell instead of covering it in one frame.
@@ -106,7 +109,7 @@ export function useTerrainAnimation(
   scrollProgressRef: React.MutableRefObject<number>,
   config: TerrainConfig = {},
 ) {
-  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, instantDetailRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
+  const { liveArtRef, speedDivisor = 6750, showNameMask = true, contrast = 8, onLogoClick, onNameClick, onMenuClick, onSubItemClick, menuOpenRef, menuCloseToHomeRef, menuCloseToContentRef, onMenuSelect, contentOpenRef, activeLabelRef, scrollTargetRef, contentSubItemsRef, meltCompleteRef, meltProgressRef, detailToFeedRef, instantDetailRef, pageHiddenRef, domPageRef, nowPlayingRef, coverCanvasRef, skipIntro, musicUIRef, onMusicControl, contactOpenRef, contactCloseToHomeRef, contactUIRef, onContactControl } = config;
 
   // Wrap callbacks in refs so they never cause the useEffect to re-run.
   // navigate() from React Router changes identity on route changes, which cascades
@@ -564,6 +567,10 @@ export function useTerrainAnimation(
     // over the terrain glyph pass; page chrome (tiles, art, np box) renders
     // after the veil and is never dimmed by it.
     let musicBlackness = 0;
+    // Music opened behind the black veil starts fully black instead of
+    // easing there in view (set with the instant open, kept until music
+    // mode is up to take it).
+    let instantMusicBlack = false;
     let feedToDetailMelt = false;
     // Feed → detail: the outgoing cards stay on screen, frozen, until the
     // forward melt has dissolved them (instead of vanishing the frame the
@@ -1381,10 +1388,12 @@ export function useTerrainAnimation(
       // A page opened behind the black veil (About from the landing) has no
       // list to melt away, so it opens at once; the feed-card path below
       // handles the same flag when coming from a list.
-      if (instantDetailRef?.current && contentTarget === 1 && feedCards.length === 0 && !f2dHeldCards) {
+      if (instantDetailRef?.current && contentTarget === 1 && (feedCards.length === 0 || musicUIRef?.current) && !f2dHeldCards) {
         instantDetailRef.current = false;
         contentProgress = 1;
+        instantMusicBlack = true;
       }
+      if (contentTarget === 0) instantMusicBlack = false;
       contentProgressRef.current = contentProgress;
       nameInteractive = currentLayer === 'name' && xfadeFrom === null && introProgress >= 1 &&
         scroll < 0.001 && contentTarget === 0 && contentProgress === 0;
@@ -1508,6 +1517,10 @@ export function useTerrainAnimation(
         contentTarget === 1 ? 1 : 0;
       musicBlackness += (musicBlackTarget - musicBlackness) * 0.09;
       if (Math.abs(musicBlackTarget - musicBlackness) < 0.001) musicBlackness = musicBlackTarget;
+      if (instantMusicBlack && isMusicMode && musicBlackTarget === 1) {
+        musicBlackness = 1;
+        instantMusicBlack = false;
+      }
       // Pinned header band (W logo / + / top 100px): feed cards, music tiles,
       // and the intro block all scroll UNDER this boundary, never over it.
       // On the generic feed the boundary extends to below the pinned
@@ -1569,6 +1582,7 @@ export function useTerrainAnimation(
       // scatter in, so the page hits zero exactly when the crossfade ends and
       // overlayVisual takes over the suppression.
       if (xfadeMenuOverContent && xfadeTo === 'menu') contentTitleFade *= 1 - menuReveal;
+      if (pageHiddenRef?.current) contentTitleFade = 0;
       // Feed cards + heading. Held cards stay whole until the melt dissolves
       // them; on the way back from a detail page the incoming cards wait for
       // the reforming terrain instead of landing on the detail page ahead of it.
@@ -2472,7 +2486,7 @@ export function useTerrainAnimation(
       // menu, back in under a closing one) instead of popping at the
       // contentProgress threshold.
       const musicChromeAlpha = Math.min(1, (contentProgress - 0.6) / 0.4) *
-        (menuOverContentLive ? 1 - menuReveal : 1);
+        (menuOverContentLive ? 1 - menuReveal : 1) * (pageHiddenRef?.current ? 0 : 1);
       if (!overlayVisual && musicUI && feedCards.length > 0 && musicChromeAlpha > 0) {
         musicUI.caretOn = ((ts / 500) | 0) % 2 === 0;
         ctx.save();

@@ -143,14 +143,19 @@ export default function Home() {
     // navigation; the close-to-home refs say one was covering the page.
     const covered = menuNavRef.current || menuOpen || contactOpen ||
       menuCloseToHomeRef.current || contactCloseToHomeRef.current;
-    exitingNow = leavingDetail && !covered ? prev : null;
+    // Music is drawn on the canvas, but leaves for the landing the same way:
+    // held under a black veil (below) until it is dark.
+    const leavingMusic = prev.page === 'music' && route.page === 'home';
+    exitingNow = (leavingDetail || leavingMusic) && !covered ? prev : null;
     setExitingFrom(exitingNow);
     // About gets the same fade from anywhere that isn't another detail page,
-    // and from the menu over any page: the menu stays up under the veil and
-    // closes once the screen is black (see handleMenuSelect).
+    // and About and music get it from the menu over any page: the menu stays
+    // up under the veil and closes once the screen is black (see
+    // handleMenuSelect).
     const enteringDetail = ((prev.page === 'feed' || prev.page === 'art') &&
       (route.page === 'work-detail' || route.page === 'art-detail') && !covered) ||
-      (route.page === 'about' && (!isDetailPage(prev.page) || menuCloseBehindVeilRef.current));
+      (route.page === 'about' && !isDetailPage(prev.page)) ||
+      ((route.page === 'about' || route.page === 'music') && menuCloseBehindVeilRef.current);
     enteringNow = enteringDetail ? prev : null;
     setEnteringFrom(enteringNow);
     setVeilDown(enteringDetail);
@@ -197,6 +202,12 @@ export default function Home() {
   liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
   const domPageRef = useRef(false);
   domPageRef.current = isDetailPage(page);
+  // Music is drawn on the canvas, so once its + fade has gone black under
+  // the veil it is hidden there as well: the menu then comes in over black
+  // rather than over the tiles.
+  const pageHiddenRef = useRef(false);
+  pageHiddenRef.current = menuPageFade && menuOpen && page === 'music';
+  const musicFade = page === 'music' && (exitingFrom?.page === 'music' || menuPageFade);
 
   // Delay contentOpen going false until feed content has faded out
   const contentOpenRef = useRef(isContent);
@@ -565,9 +576,9 @@ export default function Home() {
         setMenuOpen(false);
         if (isDetailPage(page)) setMenuVeil(true);
       }
-    } else if (isDetailPage(page) && !contactOpen) {
-      // A detail page fades to black first, like leaving it with W, then
-      // the menu comes in over the black.
+    } else if ((isDetailPage(page) || page === 'music') && !contactOpen) {
+      // A detail page (or music) fades to black first, like leaving it with
+      // W, then the menu comes in over the black.
       if (menuFadeTimerRef.current) return;
       setMenuPageFade(true);
       menuFadeTimerRef.current = setTimeout(() => {
@@ -590,18 +601,18 @@ export default function Home() {
     // the menu words scatter-dissolve over the incoming page instead of
     // vanishing instantly (consumed by the draw loop's close edge).
     const target: Page = entry === 'code' ? 'feed' : entry;
-    // About fades in through the black veil like an item opened from a
-    // list: leave the menu exactly as it is and let the veil darken it; it
+    // About and music fade in through the black veil like an item opened
+    // from a list: leave the menu exactly as it is and let the veil darken it; it
     // closes behind the veil when the route lands. Already on About there
     // is no route change, so hold the page under the veil directly.
-    if (target === 'about') {
-      menuNavRef.current = page !== 'about';
+    if (target === 'about' || target === 'music') {
+      menuNavRef.current = page !== target;
       menuCloseBehindVeilRef.current = true;
-      if (page === 'about') {
-        setEnteringFrom({ page: 'about' });
+      if (page === target) {
+        setEnteringFrom({ page: target });
         setVeilDown(true);
       } else {
-        navigate('/about');
+        navigate(`/${entry}`);
       }
       return;
     }
@@ -660,6 +671,7 @@ export default function Home() {
       detailToFeedRef,
       instantDetailRef,
       domPageRef,
+      pageHiddenRef,
       nowPlayingRef,
       coverCanvasRef,
       musicUIRef,
@@ -986,6 +998,14 @@ export default function Home() {
       )}
 
       <canvas ref={coverCanvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: 20, pointerEvents: 'none' }} />
+
+      {/* Music fading out (W or +): below the header band, like a detail
+          page's own fade, and gone at once when the canvas takes over. */}
+      <div
+        aria-hidden
+        className="fixed left-0 right-0 bottom-0"
+        style={{ top: 100, zIndex: 12, background: '#000', pointerEvents: 'none', opacity: musicFade ? 1 : 0, transition: `opacity ${musicFade ? EXIT_FADE_MS : 120}ms linear` }}
+      />
 
       {/* Veil for opening a detail page from a list or About from the menu:
           above the page and every canvas, the menu's included. */}
