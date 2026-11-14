@@ -4,15 +4,15 @@ import { getDuotoneColor, scurve } from '@/components/Dashboard/color';
 import { RAMP } from '@/components/Dashboard/ramp';
 
 // A round portrait drawn the way the site background is drawn: glyphs from
-// "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped
-// headshot: red holds brightness, green holds the person mask (from macOS
-// Vision), blue holds warmth (red minus blue in the photo, stretched).
+// "worthy rae", duotone colours, flowing terrain. The map is a pre-cropped,
+// soft-focus headshot: red holds brightness, green holds the person mask
+// (from macOS Vision), blue holds warmth (red minus blue, blurred to regions).
 //
-// Behind the person is the site's own terrain, dimmed. In the person,
-// brightness picks the glyph and how lit it is, and warmth picks where on the
-// palette's two colours it sits, so skin and hair land on the warm end and
-// the shirt on the cool end instead of everything following brightness. The
-// rim fades out, so the circle has no hard edge.
+// Behind the person is the site's own terrain, dimmed. The person is drawn
+// in a few flat brightness bands, like the terrain's contour lines, with the
+// terrain's waves shifting the bands, so it reads as a shape rather than a
+// detailed face. Warmth picks where on the palette each region sits (skin
+// and hair warm, shirt cool). The rim fades out, so the circle has no edge.
 
 const MAP_URL = '/media/about/portrait-map.png';
 const MAP_SIZE = 256;
@@ -29,7 +29,10 @@ const LEVELS = 32;
 // How lit the terrain behind the person is, so the face stays brightest.
 const BG_LEVEL = 0.42;
 // How much terrain moves through the person.
-const TERRAIN_IN_PERSON = 0.12;
+const TERRAIN_IN_PERSON = 0.4;
+// Quantises the person into this many brightness bands, like contour lines
+// on the terrain (0 = smooth).
+const BANDS = 5;
 // How much warmth, rather than brightness, sets the person's palette position.
 const WARMTH_WEIGHT = 0.7;
 // The glyphs fade out over this band at the rim.
@@ -86,7 +89,8 @@ export function AboutPortrait() {
     if (!canvas || !ctx) return;
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = Math.round(SIZE * dpr);
+    // Draw at the size it's shown (it shrinks on narrow screens).
+    const W = Math.round((canvas.clientWidth || SIZE) * dpr);
     canvas.width = W;
     canvas.height = W;
     const fontSize = FONT_PX * dpr;
@@ -95,6 +99,11 @@ export function AboutPortrait() {
     const cols = Math.ceil(W / charW);
     const rows = Math.ceil(W / charH);
     const lut: string[] = new Array(HUES * LEVELS);
+    // The terrain is smooth, so it's computed on a grid of every other cell
+    // and interpolated; this is most of the per-frame cost.
+    const gCols = Math.ceil(cols / 2) + 1;
+    const gRows = Math.ceil(rows / 2) + 1;
+    const grid = new Float32Array(gCols * gRows);
 
     let map: PortraitMap | null = null;
     let raf = 0;
@@ -126,8 +135,22 @@ export function AboutPortrait() {
       ctx.font = `${fontSize}px 'JetBrains Mono','Courier New',monospace`;
       ctx.textBaseline = 'top';
 
+      for (let gr = 0; gr < gRows; gr++) {
+        const v = (gr * 2 + 0.5) * charH / W;
+        for (let gc = 0; gc < gCols; gc++) {
+          const u = (gc * 2 + 0.5) * charW / W;
+          const du = u - 0.5;
+          const dv = v - 0.5;
+          if (du * du + dv * dv > 0.3) continue;
+          const e = (warpedTerrain(u * NOISE_SCALE, v * NOISE_SCALE, t) + 0.5) / 1.8;
+          grid[gr * gCols + gc] = scurve(Math.max(0, Math.min(1, e)), 8);
+        }
+      }
+
       for (let r = 0; r < rows; r++) {
         const v = (r + 0.5) * charH / W;
+        const gy = r >> 1;
+        const fy = (r & 1) * 0.5;
         for (let c = 0; c < cols; c++) {
           const u = (c + 0.5) * charW / W;
           const du = u - 0.5;
@@ -135,8 +158,11 @@ export function AboutPortrait() {
           const d = Math.sqrt(du * du + dv * dv);
           if (d > 0.5) continue;
 
-          let terrain = (warpedTerrain(u * NOISE_SCALE, v * NOISE_SCALE, t) + 0.5) / 1.8;
-          terrain = scurve(Math.max(0, Math.min(1, terrain)), 8);
+          const gi = gy * gCols + (c >> 1);
+          const fx = (c & 1) * 0.5;
+          const top = grid[gi] + (grid[gi + 1] - grid[gi]) * fx;
+          const bot = grid[gi + gCols] + (grid[gi + gCols + 1] - grid[gi + gCols]) * fx;
+          const terrain = top + (bot - top) * fy;
           // Background: the site's terrain, palette position as on the site,
           // brightness dimmed.
           let hue = terrain;
@@ -144,9 +170,10 @@ export function AboutPortrait() {
           if (map) {
             const m = sampleMap(map.mask, u, v);
             if (m > 0.01) {
-              // A gentler curve than the terrain's, pulled down a little, so the
-              // skin doesn't clip and the eyes and mouth keep their shape.
-              const lit = scurve(sampleMap(map.lum, u, v) - 0.06 + (terrain - 0.5) * TERRAIN_IN_PERSON, 4);
+              // The photo is pre-blurred, so the face is soft light and shade
+              // rather than features, and the terrain's waves run through it.
+              let lit = scurve(sampleMap(map.lum, u, v) - 0.04 + (terrain - 0.5) * TERRAIN_IN_PERSON, 4.5);
+              if (BANDS > 0) lit = Math.round(lit * BANDS) / BANDS;
               const warmHue = lit + (sampleMap(map.warm, u, v) - lit) * WARMTH_WEIGHT;
               val += (lit - val) * m;
               hue += (warmHue - hue) * m;
