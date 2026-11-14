@@ -1,9 +1,11 @@
 /* StreamClout's code page: a full-width still of the site, the catalog in
    four columns, then a night's operations with ASCII bars. Builds on
    art-article.css. */
-/* Full screen width out of the centred column, like the Livestream Art hero. */
-.sc-hero { position:relative;left:50%;width:100vw;transform:translateX(-50%);height:min(100dvh,62.5vw);overflow:hidden;background:#0a0a0a; }
-.sc-hero img { display:block;width:100%;height:100%;object-fit:cover;object-position:top center; }
+/* Full screen width out of the centred column, under the 100px header band
+   where W and + sit. */
+.sc-hero { position:relative;left:50%;width:100vw;transform:translateX(-50%);margin-top:100px;height:calc(100dvh - 100px);min-height:420px;overflow:hidden;background:#0a0a0a url(/media/code/streamclout-charts.jpg) top center / 100% auto no-repeat; }
+.sc-hero iframe { display:block;width:100%;height:100%;border:0;pointer-events:none; }
+.sc-hero a { position:absolute;inset:0; }
 
 /* dt follows dd visually: the number sits above its label. */
 .sc-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:28px 0 0; }

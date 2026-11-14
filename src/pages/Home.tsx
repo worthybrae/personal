@@ -200,7 +200,10 @@ export default function Home() {
 
   const isContent = page !== 'home';
   const liveArtRef = useRef(false);
-  liveArtRef.current = page === 'art-detail' && slug === 'livestream-art';
+  // A page with a full-screen hero under the header (Livestream Art,
+  // StreamClout): the header canvas stays drawn over it so W and + show.
+  liveArtRef.current = (page === 'art-detail' && slug === 'livestream-art')
+    || (page === 'work-detail' && slug === 'streamclout');
   const domPageRef = useRef(false);
   domPageRef.current = isDetailPage(page);
   // Music is drawn on the canvas, so once its + fade has gone black under

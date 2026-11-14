@@ -109,17 +109,20 @@ function NightsWork() {
   );
 }
 
-/** The still of the site across the whole screen, like Livestream Art's
- *  hero: as tall as the screen at most, never taller than the image. */
+/** streamclout.io's charts page, live, across the whole screen under the
+ *  header band, like Livestream Art's hero. It is a view, not a second
+ *  browser: a click opens the site, and scrolling stays with this page. The
+ *  still sits behind it in case the site can't be framed. */
 export function StreamCloutHero() {
   return (
     <section className="sc-hero" aria-label="StreamClout's charts page">
-      <img
-        src="/media/code/streamclout-charts.jpg"
-        width={800}
-        height={500}
-        alt="StreamClout's charts page: albums ranked by streams gained in the last seven days"
+      <iframe
+        src="https://streamclout.io/charts"
+        title="StreamClout's charts page, live"
+        tabIndex={-1}
+        referrerPolicy="no-referrer"
       />
+      <a href="https://streamclout.io/charts" target="_blank" rel="noopener noreferrer" aria-label="Open StreamClout's charts" />
     </section>
   );
 }
