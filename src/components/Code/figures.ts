@@ -31,7 +31,19 @@ export function linePath(values: number[], at: (i: number, v: number) => readonl
   return d;
 }
 
-/** Side of a square whose area is to `max`'s as `value` is, at `full` for `max`. */
-export function squareSide(value: number, max: number, full: number): number {
-  return full * Math.sqrt(value / max);
+/** Index of the series whose reading at `day` lies nearest `value`, or -1
+ *  when none has a reading that day. */
+export function nearestSeries(series: number[][], day: number, value: number): number {
+  let best = -1;
+  let gap = Infinity;
+  series.forEach((s, i) => {
+    const v = s[day];
+    if (v === undefined || v < 0) return;
+    const g = Math.abs(v - value);
+    if (g < gap) {
+      gap = g;
+      best = i;
+    }
+  });
+  return best;
 }

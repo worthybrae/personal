@@ -1,6 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
 import { ArtLabel, ArtTags } from '@/components/Art/ArtArticleParts';
 import { ALBUM_CURVES } from './albumCurves';
-import { linePath, medianByDay, squareSide } from './figures';
+import { linePath, medianByDay, nearestSeries } from './figures';
 import './streamclout-article.css';
 
 /** Daily play counts start here (streamclout-io/app,
@@ -23,71 +24,93 @@ function headline(): [string, string][] {
   ];
 }
 
-// streamclout.io's totals on 2026-11-13; playlists from the 2026-11-12
-// playlist build in streamclout-io/app. Largest first: each square sits
-// inside the one before it.
-const CATALOG: [number, string, string][] = [
-  [154, '154M', 'SONGS'],
-  [50.2, '50.2M', 'ALBUMS'],
-  [13.5, '13.5M', 'ARTISTS'],
-  [2.3, '2.3M', 'PLAYLISTS'],
-];
-
-/** The catalog as squares nested in one corner, each with the area of its
- *  count, so the sizes compare at a glance. */
-function CatalogSquares() {
-  const full = 210;
-  const base = 212;
-  const labelX = 236;
-  const max = CATALOG[0][0];
-  // Label lines sit level with each square's top, spread where the small
-  // squares crowd together.
-  const labelY = [14, 96, 168, 204];
-  return (
-    <svg className="sc-squares" viewBox="0 0 440 214" role="img" aria-label="StreamClout's catalog to scale: 154 million songs, 50.2 million albums, 13.5 million artists and 2.3 million playlists">
-      {CATALOG.map(([value, figure, label], i) => {
-        const side = squareSide(value, max, full);
-        const y = labelY[i];
-        return (
-          <g key={label}>
-            <rect
-              x={0.5}
-              y={base - side}
-              width={side}
-              height={side}
-              fill={i === 0 ? 'rgba(255,255,255,.04)' : 'none'}
-              stroke={`rgba(255,255,255,${0.25 + i * 0.17})`}
-            />
-            <line x1={side + 4} y1={base - side + 0.5} x2={labelX - 8} y2={y - 4} stroke="rgba(255,255,255,.15)" />
-            <text x={labelX} y={y} className="sc-fig-num">
-              {figure}
-              <tspan dx={10} className="sc-fig-label">{label}</tspan>
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
+const MEDIAN = medianByDay(ALBUM_CURVES);
+/** Readings are every second day from day 1. */
+const dayOf = (i: number) => i * 2 + 1;
+const TOP = 200; // index at the top edge; the few higher readings are clipped
+const PAD = { top: 12, right: 8, bottom: 26, left: 8 };
+const DAY_TICKS = [1, 30, 60, 90, 120, 150, 180];
+const NARROW_TICKS = [1, 60, 120, 180];
 
 /** Forty real album launches over their first 180 days, faint, with their
- *  median in white. */
+ *  median in white. Hovering (or touching) picks a day and the album line
+ *  nearest the pointer, and says where it and the median stand. */
 function AlbumLines() {
-  const width = 600;
-  const height = 240;
-  const top = 200; // index drawn at the top edge; higher readings are clipped
-  const days = ALBUM_CURVES[0].length;
-  const at = (i: number, v: number) => [
-    (i / (days - 1)) * width,
-    height - (Math.min(v, top) / top) * (height - 10),
-  ] as const;
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 640, h: 420 });
+  const [hover, setHover] = useState<{ i: number; album: number } | null>(null);
+
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const measure = () => setSize({ w: box.clientWidth, h: box.clientHeight });
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+
+  const n = MEDIAN.length;
+  const plotW = size.w - PAD.left - PAD.right;
+  const plotH = size.h - PAD.top - PAD.bottom;
+  const x = (i: number) => PAD.left + (i / (n - 1)) * plotW;
+  const y = (v: number) => PAD.top + plotH - (Math.min(v, TOP) / TOP) * plotH;
+  const at = (i: number, v: number) => [x(i), y(v)] as const;
+
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left - PAD.left) / plotW) * (n - 1))));
+    const value = ((PAD.top + plotH - (e.clientY - rect.top)) / plotH) * TOP;
+    setHover({ i, album: nearestSeries(ALBUM_CURVES, i, value) });
+  };
+
+  const hovered = hover && hover.album >= 0 ? ALBUM_CURVES[hover.album][hover.i] : null;
+  const median = hover ? MEDIAN[hover.i] : null;
+  const tipLeft = hover ? Math.min(Math.max(x(hover.i) + 12, 0), size.w - 190) : 0;
+  const flip = hover ? x(hover.i) + 12 + 190 > size.w : false;
+
   return (
-    <svg className="sc-lines" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label="Daily plays of 40 of 2026's biggest album launches over their first 180 days, each against its own first week. Almost every one starts high and falls the same way; the median is drawn in white.">
-      {ALBUM_CURVES.map((curve, i) => (
-        <path key={i} d={linePath(curve, at)} fill="none" stroke="rgba(255,255,255,.16)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-      ))}
-      <path d={linePath(medianByDay(ALBUM_CURVES), at)} fill="none" stroke="#fff" strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div
+      ref={boxRef}
+      className="sc-lines"
+      onPointerMove={onMove}
+      onPointerDown={onMove}
+      onPointerLeave={() => setHover(null)}
+    >
+      <svg width={size.w} height={size.h} role="img" aria-label="Daily plays of 40 of 2026's biggest album launches over their first 180 days, each against its own first week. Almost every one starts high and falls the same way; the median is drawn in white.">
+        <line x1={PAD.left} x2={size.w - PAD.right} y1={y(100)} y2={y(100)} className="sc-lines-ref" />
+        <text x={size.w - PAD.right} y={y(100) - 6} textAnchor="end" className="sc-lines-axis">100 = FIRST WEEK</text>
+        {(size.w < 500 ? NARROW_TICKS : DAY_TICKS).map((d) => (
+          <text key={d} x={x((d - 1) / 2)} y={size.h - 6} textAnchor={d === 1 ? 'start' : d === 180 ? 'end' : 'middle'} className="sc-lines-axis">
+            {d === 1 ? 'DAY 1' : d}
+          </text>
+        ))}
+        {ALBUM_CURVES.map((curve, i) => (
+          <path key={i} d={linePath(curve, at)} className={hover?.album === i ? 'sc-line sc-line-on' : 'sc-line'} />
+        ))}
+        <path d={linePath(MEDIAN, at)} className="sc-line-median" />
+        {hover && (
+          <g>
+            <line x1={x(hover.i)} x2={x(hover.i)} y1={PAD.top} y2={PAD.top + plotH} className="sc-lines-cross" />
+            {median !== null && median >= 0 && <circle cx={x(hover.i)} cy={y(median)} r={3.5} className="sc-dot-median" />}
+            {hovered !== null && hovered >= 0 && <circle cx={x(hover.i)} cy={y(hovered)} r={3.5} className="sc-dot-on" />}
+          </g>
+        )}
+      </svg>
+      {hover && (
+        <div className="sc-tip" style={{ left: flip ? x(hover.i) - 12 - 190 : tipLeft, top: PAD.top }}>
+          <div className="sc-tip-day">DAY {dayOf(hover.i)}</div>
+          {hovered !== null && hovered >= 0 && (
+            <div><span>{Math.round(hovered)}</span> THIS ALBUM</div>
+          )}
+          {median !== null && median >= 0 && (
+            <div><span>{Math.round(median)}</span> MEDIAN</div>
+          )}
+          <div className="sc-tip-note">100 = ITS FIRST WEEK</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -122,9 +145,6 @@ export function StreamCloutArticle({ summary, tech }: { summary: string; tech: s
       </dl>
 
       <p className="art-intro">{summary}</p>
-
-      <ArtLabel>THE CATALOG</ArtLabel>
-      <CatalogSquares />
 
       <ArtLabel>THE LIFE OF AN ALBUM</ArtLabel>
       <figure className="sc-figure">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { medianByDay, linePath, squareSide } from '../figures';
+import { medianByDay, linePath, nearestSeries } from '../figures';
 
 describe('medianByDay', () => {
   it('takes the middle reading of each day', () => {
@@ -22,12 +22,16 @@ describe('linePath', () => {
   });
 });
 
-describe('squareSide', () => {
-  it('gives the largest value the full side', () => {
-    expect(squareSide(154, 154, 200)).toBe(200);
+describe('nearestSeries', () => {
+  it('picks the series closest to the value on that day', () => {
+    expect(nearestSeries([[10, 50], [10, 20], [10, 90]], 1, 30)).toBe(1);
   });
 
-  it('scales the area, not the side', () => {
-    expect(squareSide(38.5, 154, 200)).toBeCloseTo(100);
+  it('ignores series without a reading that day', () => {
+    expect(nearestSeries([[10, -1], [10, 80]], 1, 5)).toBe(1);
+  });
+
+  it('is -1 when nobody has a reading', () => {
+    expect(nearestSeries([[10, -1]], 1, 5)).toBe(-1);
   });
 });
