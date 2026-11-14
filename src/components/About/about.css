@@ -8,13 +8,11 @@
 /* Cover art: glyphs by default, the real poster fades in on hover. */
 .about-posters { display:grid;gap:12px; }
 .about-poster { position:relative;display:block;aspect-ratio:2/3;overflow:hidden; }
+.about-posters-square .about-poster { aspect-ratio:1; }
 .about-poster canvas, .about-poster img { position:absolute;inset:0;width:100%;height:100%; }
 .about-poster img { object-fit:cover;opacity:0;transition:opacity .35s; }
 .about-poster:hover img, .about-poster:focus-visible img { opacity:1; }
 @media (max-width:560px) { .about-posters { gap:6px; } }
-
-.about-all { display:inline-block;margin-top:14px;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5);text-decoration:none; }
-.about-all:hover { color:#fff; }
 
 .about-links { display:flex;flex-wrap:wrap;gap:8px; }
 .about-links a { font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;text-decoration:none;transition:color .15s,border-color .15s; }

@@ -12,7 +12,7 @@ function hostLabel(url: string): string {
 }
 
 export function AboutArticle() {
-  const shelves = SHELVES.filter((s) => s.items.length > 0 || s.allUrl);
+  const shelves = SHELVES.filter((s) => s.items.length > 0);
 
   return (
     <article className="art-article" aria-label="About Worthy Rae">
@@ -25,12 +25,7 @@ export function AboutArticle() {
       {shelves.map((shelf) => (
         <section key={shelf.label}>
           <ArtLabel>{shelf.label}</ArtLabel>
-          <PosterStrip items={shelf.items.slice(0, 5)} />
-          {shelf.allUrl && (
-            <a className="about-all" href={shelf.allUrl} target="_blank" rel="noopener noreferrer">
-              {shelf.allLabel ?? 'SEE ALL'} →
-            </a>
-          )}
+          <PosterStrip items={shelf.items.slice(0, 5)} square={shelf.cover === 'square'} />
         </section>
       ))}
 

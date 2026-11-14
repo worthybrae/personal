@@ -1,9 +1,10 @@
-// Posters come from TMDB's image CDN, which allows embedding and canvas use.
+// Posters come from TMDB's image CDN and album covers from Apple's; both
+// allow embedding and canvas use.
 const tmdb = (path: string) => `https://image.tmdb.org/t/p/w185/${path}.jpg`;
+const apple = (path: string) => `https://is1-ssl.mzstatic.com/image/thumb/${path}/300x300bb.jpg`;
 
 // Favourites on the about page. Each shelf shows the cover art of up to five
-// items, each linking out, and, when allUrl is set, a link to the full list. A shelf with no
-// items and no link is left off the page.
+// items, each linking out. A shelf with no items is left off the page.
 
 export interface Favorite {
   title: string;
@@ -17,8 +18,8 @@ export interface Favorite {
 export interface Shelf {
   label: string;
   items: Favorite[];
-  allUrl?: string;
-  allLabel?: string;
+  /** Cover shape: film posters are 2:3, album covers square. */
+  cover?: 'poster' | 'square';
 }
 
 export const SHELVES: Shelf[] = [
@@ -31,8 +32,6 @@ export const SHELVES: Shelf[] = [
       { title: 'A Clockwork Orange', by: 'Stanley Kubrick', url: 'https://letterboxd.com/film/a-clockwork-orange/', image: tmdb('4sHeTAp65WrSSuc05nRBKddhBxO') },
       { title: 'Ice Merchants', by: 'João Gonzalez', url: 'https://letterboxd.com/film/ice-merchants/', image: tmdb('uDoiGF4KqyNglxaIJlRWdFQ4WJT') },
     ],
-    allUrl: 'https://letterboxd.com/stingray7/films/',
-    allLabel: 'EVERYTHING I’VE WATCHED',
   },
   {
     label: 'TV SHOWS',
@@ -45,6 +44,16 @@ export const SHELVES: Shelf[] = [
     ],
   },
   { label: 'BOOKS', items: [] },
-  { label: 'ALBUMS', items: [] },
+  {
+    label: 'ALBUMS',
+    cover: 'square',
+    items: [
+      { title: 'channel ORANGE', by: 'Frank Ocean', url: 'https://music.apple.com/us/album/channel-orange/1440765580', image: apple('Music125/v4/04/f8/63/04f863fc-2852-604f-c910-a97ac069506b/12UMGIM40339.rgb.jpg') },
+      { title: 'Faces', by: 'Mac Miller', url: 'https://music.apple.com/us/album/faces/1585686346', image: apple('Music115/v4/83/77/5b/83775bbf-8f36-f373-6af9-cb7c0bfa2d49/093624879787.jpg') },
+      { title: 'AT.LONG.LAST.A$AP', by: 'A$AP Rocky', url: 'https://music.apple.com/us/album/at-long-last-a%24ap/994721471', image: apple('Music221/v4/9f/9b/4c/9f9b4cbc-5910-51fb-8486-adf3b89bc973/886444594837.jpg') },
+      { title: 'Days Before Rodeo', by: 'Travis Scott', url: 'https://music.apple.com/us/album/days-before-rodeo/1764164178', image: apple('Music211/v4/7c/35/78/7c3578d6-be58-b198-73e4-01e8630e78bb/196871381437.jpg') },
+      { title: 'Sound & Color', by: 'Alabama Shakes', url: 'https://music.apple.com/us/album/sound-color/1053742064', image: apple('Music62/v4/6c/30/aa/6c30aa11-b842-105c-da48-d569c45604fc/mzm.rrxxfbbw.jpg') },
+    ],
+  },
   { label: 'RESTAURANTS', items: [] },
 ];

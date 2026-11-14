@@ -40,7 +40,7 @@ function loadLuminance(src: string, cols: number, rows: number): Promise<Float32
   });
 }
 
-export function PosterStrip({ items }: { items: Favorite[] }) {
+export function PosterStrip({ items, square = false }: { items: Favorite[]; square?: boolean }) {
   const refs = useRef<(HTMLCanvasElement | null)[]>([]);
   const withArt = items.filter((i) => i.image);
 
@@ -114,7 +114,7 @@ export function PosterStrip({ items }: { items: Favorite[] }) {
   if (withArt.length === 0) return null;
 
   return (
-    <div className="about-posters" style={{ gridTemplateColumns: `repeat(${withArt.length}, minmax(0, 1fr))` }}>
+    <div className={square ? 'about-posters about-posters-square' : 'about-posters'} style={{ gridTemplateColumns: `repeat(${withArt.length}, minmax(0, 1fr))` }}>
       {withArt.map((item, i) => {
         const inner = (
           <>
