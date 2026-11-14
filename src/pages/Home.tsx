@@ -71,6 +71,10 @@ export default function Home() {
   // crossfade (900ms in useTerrainAnimation), so the words and terrain veil
   // back off the page instead of dropping behind it in one frame.
   const [menuVeil, setMenuVeil] = useState(false);
+  // Set when a menu entry opens About from a non-detail page: the menu stays
+  // up, untouched, while the black veil comes down over it, then closes
+  // instantly behind the veil as the route lands (the entry-fade timer).
+  const menuCloseBehindVeilRef = useRef(false);
   useEffect(() => {
     if (!menuVeil) return;
     const id = setTimeout(() => setMenuVeil(false), 1000);
@@ -106,6 +110,14 @@ export default function Home() {
   const [enteringFrom, setEnteringFrom] = useState<{ page: Page; slug?: string } | null>(null);
   const [veilDown, setVeilDown] = useState(false);
   const instantDetailRef = useRef(false);
+  // This render must already use the held page: the state set below only
+  // lands on the re-render, and this pass still writes refs the canvas reads
+  // (contentOpenRef, scrollTargetRef). Coming from the landing, a pass that
+  // saw the new route would open the content and start the melt above the
+  // veil.
+  let exitingNow = exitingFrom;
+  let enteringNow = enteringFrom;
+  let veilNow = veilDown;
   if (location.pathname !== lastPath) {
     const prev = parseRoute(lastPath);
     setLastPath(location.pathname);
@@ -114,13 +126,17 @@ export default function Home() {
     // navigation; the close-to-home refs say one was covering the page.
     const covered = menuNavRef.current || menuOpen || contactOpen ||
       menuCloseToHomeRef.current || contactCloseToHomeRef.current;
-    setExitingFrom(leavingDetail && !covered ? prev : null);
+    exitingNow = leavingDetail && !covered ? prev : null;
+    setExitingFrom(exitingNow);
     // About gets the same fade from anywhere that isn't another detail page,
-    // the menu included: the menu's words dissolve under the veil.
+    // the menu included: the menu stays up under the veil and closes once
+    // the screen is black (see handleMenuSelect).
     const enteringDetail = ((prev.page === 'feed' || prev.page === 'art') &&
       (route.page === 'work-detail' || route.page === 'art-detail') && !covered) ||
       (route.page === 'about' && !isDetailPage(prev.page));
-    setEnteringFrom(enteringDetail ? prev : null);
+    enteringNow = enteringDetail ? prev : null;
+    veilNow = enteringDetail;
+    setEnteringFrom(enteringNow);
     setVeilDown(enteringDetail);
   }
   useEffect(() => {
@@ -139,12 +155,22 @@ export default function Home() {
       // draw loop would otherwise see a closed page for a frame and drop
       // instantDetailRef before the route lands.
       contentOpenRef.current = true;
+      // The page left kept its own header position under the veil; jump to
+      // the incoming page's now, while the screen is black.
+      scrollProgressRef.current = 1;
+      scrollTargetRef.current = 1;
+      if (menuCloseBehindVeilRef.current) {
+        menuCloseBehindVeilRef.current = false;
+        menuCloseToContentRef.current = false;
+        setMenuOpen(false);
+        setContactOpen(false);
+      }
       setEnteringFrom(null);
       setVeilDown(false);
     }, EXIT_FADE_MS);
     return () => clearTimeout(timer);
   }, [enteringFrom]);
-  const { page, slug } = exitingFrom ?? enteringFrom ?? route;
+  const { page, slug } = exitingNow ?? enteringNow ?? route;
 
   // Canvas draws everything a human sees; this keeps the document head in sync
   // for anything that reads the page instead of looking at it.
@@ -163,11 +189,8 @@ export default function Home() {
   const activeLabelRef = useRef<string | null>(isContent ? 'feed' : null);
   activeLabelRef.current = isContent ? 'feed' : null;
 
-  // While a page is held for the entry fade, the header already heads for
-  // where the incoming page wants it, so it doesn't move once the veil lifts.
-  const scrollPage = enteringFrom ? route.page : page;
-  const scrollTargetRef = useRef(scrollPage === 'home' ? 0 : 1);
-  scrollTargetRef.current = scrollPage === 'home' ? 0 : 1;
+  const scrollTargetRef = useRef(page === 'home' ? 0 : 1);
+  scrollTargetRef.current = page === 'home' ? 0 : 1;
 
   const scrollProgressRef = useRef(page === 'home' ? 0 : 1);
   const meltCompleteRef = useRef(page !== 'home');
@@ -541,6 +564,15 @@ export default function Home() {
     // the menu words scatter-dissolve over the incoming page instead of
     // vanishing instantly (consumed by the draw loop's close edge).
     const target: Page = entry === 'code' ? 'feed' : entry;
+    // About from a non-detail page fades in through the black veil like an
+    // item opened from a list: leave the menu exactly as it is and let the
+    // veil darken it; it closes behind the veil when the route lands.
+    if (target === 'about' && !isDetailPage(page)) {
+      menuNavRef.current = true;
+      menuCloseBehindVeilRef.current = true;
+      navigate('/about');
+      return;
+    }
     menuCloseToContentRef.current = true;
     // Only consumed by the layout effect when the page actually changes.
     menuNavRef.current = target !== page;
@@ -554,8 +586,7 @@ export default function Home() {
       setContactOpen(false);
       // About is a DOM page: keep the canvas above it while the menu
       // words dissolve off it, as when closing the menu over a detail page.
-      // About from a non-detail page fades in through the black veil instead.
-      if (isDetailPage(target) && !(target === 'about' && !isDetailPage(page))) setMenuVeil(true);
+      if (isDetailPage(target)) setMenuVeil(true);
     });
     navigate(`/${entry}`);
   }, [navigate, page]);
@@ -730,7 +761,9 @@ export default function Home() {
   const isFadingOut = !!fadingDetail && page !== fadingDetail.page;
   const showAbout = page === 'about' || fadingDetail?.page === 'about';
   const handleFadeComplete = useCallback(() => setFadingDetail(null), []);
-  const canvasOverPage = menuOpen || contactOpen || menuVeil;
+  // Under the entry veil the canvas drops below it, so a menu still open
+  // over the page being left darkens with it.
+  const canvasOverPage = (menuOpen || contactOpen || menuVeil) && !veilNow;
 
   return (
     <div>
