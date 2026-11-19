@@ -28,7 +28,7 @@ type Paint = (i: number, j: number, t: number, w: number, seed: number) => strin
 
 /** The glowing fish's lights: a class each, and its colour; a tight bright edge and a wider faint one round the fish's
  *  own outline, brighter at night. */
-const GLOWS: Record<string, readonly [string, string]> = {
+export const GLOWS: Record<string, readonly [string, string]> = {
   glowCyan: ['hc', '#4ff0e0'],
   glowViolet: ['hv', '#b07bff'],
   glowRuby: ['hr', '#ff5a5a'],
@@ -40,7 +40,7 @@ const GLOWS: Record<string, readonly [string, string]> = {
   glowRose: ['hn', '#ff7ad9'],
 }
 
-type Species = {
+export type Species = {
   /** Body length and widest half-width, in tiles; the tile size in px. */
   length: number
   width: number
@@ -134,7 +134,7 @@ const SHIMMER = ['#ff9ad5', '#9ad8ff', '#b6ffb0', '#ffe39a', '#c9a6ff']
 /** One fish pointing right, the head's back edge at x = 0. The body behind the head is cut into pieces, each nested in
  *  the one before and swinging from its own joint a little later than it, the tail last: the swings add up along the
  *  body into one travelling wave, which is what makes it swim rather than wag. */
-function fishSprite(sp: Species, silhouette: boolean, seed = 0): string {
+export function fishSprite(sp: Species, silhouette: boolean, seed = 0): string {
   const P = sp.tile
   const shape = sp.shape ?? 'fish'
   const head = Math.max(2, Math.round(sp.length * (shape === 'eel' ? 0.12 : 0.38)))
@@ -303,9 +303,9 @@ function blotch(i: number, j: number, seed: number): number {
 }
 
 /** A fancy koi's colours: its ground, its pattern, an accent, and the glow it gives off on the days it glows. */
-type Palette = readonly [string, string, string, keyof typeof GLOWS]
+export type Palette = readonly [string, string, string, keyof typeof GLOWS]
 
-const PALETTES: readonly Palette[] = [
+export const PALETTES: readonly Palette[] = [
   ['#f07c1c', '#faf7f0', '#17120e', 'glowEmber'],
   ['#f3efe8', '#d42a3c', '#16161a', 'glowRuby'],
   ['#16161a', '#f2f0ea', '#cc2a36', 'glowPearl'],
@@ -335,7 +335,7 @@ function mix(a: string, b: string): string {
 /** A fancy koi's design: its build, and which of its palette's roles each tile takes (0 the ground, 1 the pattern,
  *  2 the accent, 3 the pattern deepened, 4 between ground and pattern, 5 between pattern and accent), its fins' role,
  *  and the role of an outline round it, if it has one. */
-type Design = {
+export type Design = {
   build: Omit<Species, 'body' | 'fin' | 'outline'>
   role: (i: number, j: number, t: number, w: number) => number
   fin: number
@@ -344,7 +344,7 @@ type Design = {
 
 const KOI = { length: 28, width: 5, tile: 5, segments: 3, sway: 4, tailLength: 8, tailSpread: 0.6, finOpacity: 0.8, finLength: 4, beat: 2.0 }
 
-const DESIGNS: Record<string, Design> = {
+export const DESIGNS: Record<string, Design> = {
   // Clown: three bands edged in the accent, and an outline in it too.
   clown: {
     build: { ...KOI, length: 26, tailLength: 7, beat: 1.7, finOpacity: 0.9 },
@@ -424,7 +424,7 @@ const DESIGNS: Record<string, Design> = {
 }
 
 /** A fancy koi in a palette. */
-function fancySpecies(d: Design, p: Palette): Species {
+export function fancySpecies(d: Design, p: Palette): Species {
   const colours = [p[0], p[1], p[2], shade(p[1], 0.35), mix(p[0], p[1]), mix(p[1], p[2])]
   return {
     ...d.build,
@@ -434,7 +434,7 @@ function fancySpecies(d: Design, p: Palette): Species {
   }
 }
 
-const SPECIES: Record<string, Species> = {
+export const SPECIES: Record<string, Species> = {
   // Common: white with orange patches and a red cap.
   shiro: {
     length: 30, width: 5, tile: 5, segments: 3, sway: 4, tailLength: 8, tailSpread: 0.55, fin: '#d8d2c6', finOpacity: 0.7, finLength: 4, beat: 2.1,

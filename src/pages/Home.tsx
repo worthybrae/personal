@@ -17,6 +17,7 @@ import type { MenuEntryKey } from '@/components/Dashboard/useTerrainAnimation';
 import SeoContent from '@/components/SeoContent';
 import { useSeo } from '@/hooks/useSeo';
 import { ArtMedia } from '@/components/LiveStream/ArtMedia';
+import { KoiFishGallery, KoiInstall } from '@/components/KoiExtras';
 import { LivestreamArticle } from '@/components/Art/LivestreamArticle';
 import { LivestreamArtHero, LivestreamArtScrollRegion } from '@/components/LiveStream/LivestreamArtHero';
 import { AiArchitectureArticle, AiArchitectureHero } from '@/components/Art/AiArchitectureArticle';
@@ -1009,6 +1010,12 @@ export default function Home() {
               <>
                 <div className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left" style={{ fontFamily: monoFont }}>SUMMARY</div>
                 <PretextSummary text={displayArtPiece.summary} />
+                {displayArtPiece.slug === 'koi-pond' && (
+                  <>
+                    <KoiInstall />
+                    <KoiFishGallery />
+                  </>
+                )}
                 <div className="text-xs tracking-[0.3em] uppercase mt-10 mb-3 opacity-40 text-left" style={{ fontFamily: monoFont }}>TOOLS</div>
                 <TechTags tags={displayArtPiece.tech} />
               </>
