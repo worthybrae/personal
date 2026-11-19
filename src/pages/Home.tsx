@@ -526,10 +526,12 @@ export default function Home() {
     const artIcons: Record<string, string> = {
       'ai-architecture': '{*}',
       'livestream-art': '[o]',
+      'koi-pond': '><>',
     };
     const artDescs: Record<string, string> = {
       'ai-architecture': 'GENERATIVE AI VIDEOS',
       'livestream-art': 'COMPUTER VISION VIDEOS',
+      'koi-pond': 'LIVE PIXEL ART',
     };
     const artItems = ART_PIECES.map((a) => ({
       text: a.name, url: `/art/${a.slug}`,

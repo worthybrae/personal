@@ -1,6 +1,7 @@
 import type { ArtPiece } from '@/lib/art'
 import { LiveStreamPlayer } from './LiveStreamPlayer'
 import { markLoaded } from '@/lib/fadeIn';
+import { KoiPond } from '@/components/KoiPond'
 
 export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: boolean }): JSX.Element | null {
   if (piece.slug === 'livestream-art') {
@@ -12,6 +13,8 @@ export function ArtMedia({ piece, fill = false }: { piece: ArtPiece; fill?: bool
       />
     )
   }
+
+  if (piece.slug === 'koi-pond') return <KoiPond fill={fill} />
 
   if (piece.videoUrl) {
     return piece.videoUrl.includes('youtube.com') ? (
