@@ -29,6 +29,9 @@ import { markLoaded } from '@/lib/fadeIn';
 // 'feed' is the code list at /code and 'work-detail' a project under it; the
 // internal names predate the rename. Old /feed and /work/* links redirect
 // (see App.tsx and backend/main.py).
+// Art pieces shown full screen under the header, with their write-up below.
+const FULL_BLEED_ART = new Set(['livestream-art', 'koi-pond']);
+
 type Page = 'home' | 'feed' | 'art' | 'music' | 'about' | 'work-detail' | 'art-detail';
 
 function parseRoute(path: string): { page: Page; slug?: string } {
@@ -210,7 +213,7 @@ export default function Home() {
   const liveArtRef = useRef(false);
   // A page with a full-screen hero under the header (Livestream Art,
   // StreamClout): the header canvas stays drawn over it so W and + show.
-  liveArtRef.current = (page === 'art-detail' && slug === 'livestream-art')
+  liveArtRef.current = (page === 'art-detail' && FULL_BLEED_ART.has(slug ?? ''))
     || (page === 'work-detail' && slug === 'streamclout');
   const domPageRef = useRef(false);
   domPageRef.current = isDetailPage(page);
@@ -957,14 +960,14 @@ export default function Home() {
       )}
 
       {showArt && displayArtPiece && (
-        <DetailOverlay fullBleed={displayArtPiece.slug === 'livestream-art'} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
-          {displayArtPiece.slug === 'livestream-art' && (
+        <DetailOverlay fullBleed={FULL_BLEED_ART.has(displayArtPiece.slug)} meltProgressRef={meltProgressRef} fadeOut={isFadingOut} exitFade={!!exitingFrom || menuPageFade} onFadeComplete={handleFadeComplete}>
+          {FULL_BLEED_ART.has(displayArtPiece.slug) && (
             <LivestreamArtHero piece={displayArtPiece} />
           )}
-          <LivestreamArtScrollRegion active={displayArtPiece.slug === 'livestream-art'}>
+          <LivestreamArtScrollRegion active={FULL_BLEED_ART.has(displayArtPiece.slug)}>
             {displayArtPiece.slug === 'ai-architecture' && <AiArchitectureHero />}
             <div className={`flex items-start justify-between gap-4 ${
-              displayArtPiece.slug === 'livestream-art' ? 'mt-16' : ''
+              FULL_BLEED_ART.has(displayArtPiece.slug) ? 'mt-16' : ''
             }`}>
               <div className="text-left">
                 <h1
@@ -993,7 +996,7 @@ export default function Home() {
                 </a>
               )}
             </div>
-            {displayArtPiece.slug !== 'livestream-art' && displayArtPiece.slug !== 'ai-architecture' && (
+            {!FULL_BLEED_ART.has(displayArtPiece.slug) && displayArtPiece.slug !== 'ai-architecture' && (
               <div className="mt-8">
                 <ArtMedia piece={displayArtPiece} />
               </div>

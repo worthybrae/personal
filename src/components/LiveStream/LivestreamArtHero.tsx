@@ -6,7 +6,7 @@ export function LivestreamArtHero({ piece }: { piece: ArtPiece }) {
   return (
     <section
       data-testid="livestream-art-hero"
-      aria-label="Abbey Road live artwork"
+      aria-label={`${piece.name} live artwork`}
       className="relative left-1/2 h-[100dvh] w-screen -translate-x-1/2 overflow-hidden bg-black"
     >
       <ArtMedia piece={piece} fill />
