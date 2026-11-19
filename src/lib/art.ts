@@ -33,6 +33,7 @@ export const ART_PIECES: ArtPiece[] = [
     name: 'KOI POND',
     description: 'A LIVING POND BEHIND THE CHAT',
     summary: 'A pixel-art koi pond made as a backdrop for Claude Code, drawn live here. Fish swim slow loops through water where pools of light and shade sway, under lily pads that drift off one edge and back on at the other, bumping off each other as they go. The pond follows New York: it rains and snows when the city does, darkens at sunset, and glowing fish come out at night. Every motion runs on the clock, so the pond is the same wherever you look at it.',
+    githubUrl: 'https://github.com/worthybrae/koi-pond',
     tech: ['TypeScript', 'SVG', 'CSS Animation', 'Open-Meteo'],
   },
 ];
